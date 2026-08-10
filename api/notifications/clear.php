@@ -1,0 +1,6 @@
+<?php
+require_once __DIR__ . '/../config.php';
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') { respondError('POST required', 405); }
+$uid = requireSession();
+db()->prepare("DELETE FROM notifications WHERE user_id = ?")->execute([$uid]);
+respond(['ok' => true]);

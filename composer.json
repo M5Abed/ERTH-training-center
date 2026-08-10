@@ -1,0 +1,17 @@
+{
+    "name": "erth/matching-api",
+    "description": "ERTH Matching Platform API with email verification",
+    "require": {
+        "phpmailer/phpmailer": "^6.9",
+        "phpoffice/phpspreadsheet": "^2.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "api/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}

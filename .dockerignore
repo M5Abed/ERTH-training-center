@@ -1,0 +1,12 @@
+.git
+.gitignore
+node_modules
+frontend
+*.md
+*.log
+build_output.log
+.vscode
+.idea
+.env
+.env.*
+db_dump

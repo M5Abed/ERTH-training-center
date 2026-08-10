@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+vendor/
+
+# Environment & Secrets
+.env
+.env.docker
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# User Uploads
+uploads/
+
+# Build output
+dist/
+frontend/dist/
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*

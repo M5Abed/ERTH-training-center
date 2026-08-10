@@ -1,0 +1,213 @@
+/* ═══════════════════════════════════════════════════
+   ProjectChat — Team Discussion Styles
+   ═══════════════════════════════════════════════════ */
+
+.chat-page {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 4rem);
+    max-height: calc(100vh - 4rem);
+}
+
+/* Header */
+.chat-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.chat-title-area {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.chat-title-area h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.chat-project-name {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-left: 0.5rem;
+}
+
+/* Body */
+.chat-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Empty */
+.chat-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--muted);
+    gap: 0.75rem;
+}
+
+.chat-empty p {
+    font-size: 0.9rem;
+}
+
+/* Date Separator */
+.chat-date-sep {
+    text-align: center;
+    margin: 1rem 0 0.5rem;
+}
+
+.chat-date-sep span {
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.75rem;
+    padding: 0.25rem 1rem;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border);
+}
+
+/* Bubble Row */
+.chat-bubble-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    max-width: 80%;
+}
+
+.chat-bubble-row--me {
+    margin-left: auto;
+    flex-direction: row-reverse;
+}
+
+/* Avatar */
+.chat-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.chat-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Bubble */
+.chat-bubble {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    border-bottom-left-radius: 4px;
+    padding: 0.625rem 0.875rem;
+    max-width: 100%;
+}
+
+.chat-bubble--me {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    border-bottom-left-radius: var(--radius-md);
+    border-bottom-right-radius: 4px;
+}
+
+.chat-sender {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--primary-l);
+    display: block;
+    margin-bottom: 0.2rem;
+}
+
+.chat-bubble p {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    word-wrap: break-word;
+    margin: 0;
+}
+
+.chat-time {
+    font-size: 0.65rem;
+    color: var(--muted);
+    display: block;
+    text-align: right;
+    margin-top: 0.25rem;
+}
+
+.chat-bubble--me .chat-time {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Input Bar */
+.chat-input-bar {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 0 0;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.chat-input-bar input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    padding: 0.75rem 1.25rem;
+    color: var(--text);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.chat-input-bar input:focus {
+    border-color: var(--primary);
+}
+
+.chat-send-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.15s, opacity 0.15s;
+}
+
+.chat-send-btn:hover:not(:disabled) {
+    transform: scale(1.05);
+}
+
+.chat-send-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .chat-bubble-row {
+        max-width: 90%;
+    }
+}

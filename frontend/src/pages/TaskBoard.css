@@ -1,0 +1,428 @@
+/* ═══════════════════════════════════════════════════
+   TaskBoard — Kanban Board Styles
+   ═══════════════════════════════════════════════════ */
+
+.task-board-page {
+    padding: 0 0 4rem;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Header */
+.tb-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.tb-title-area {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+}
+
+.tb-title-area h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.tb-project-name {
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+/* Progress Bar */
+.tb-progress-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.tb-progress-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.tb-progress-pct {
+    color: var(--primary-l);
+}
+
+.tb-progress-bar {
+    height: 10px;
+    background: var(--card);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+
+.tb-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+    border-radius: var(--radius-full);
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tb-progress-fill--complete {
+    background: linear-gradient(90deg, var(--green), var(--teal-l));
+    animation: progressPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes progressPulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.75;
+    }
+}
+
+.tb-progress-detail {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+    display: inline-block;
+}
+
+/* Columns */
+.tb-columns {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    min-height: 400px;
+}
+
+.tb-column {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    min-height: 300px;
+    transition: border-color 0.2s;
+}
+
+.tb-column:hover,
+.tb-column.drag-over {
+    border-color: var(--border-hover);
+}
+
+.tb-col-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1rem;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid;
+    color: var(--text-2);
+}
+
+.tb-col-count {
+    margin-left: auto;
+    background: var(--card);
+    border-radius: var(--radius-full);
+    padding: 0.1rem 0.5rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+}
+
+.tb-col-body {
+    padding: 0.75rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Task Card */
+.tb-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    cursor: grab;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+    position: relative;
+}
+
+.tb-card:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--border-hover);
+}
+
+.tb-card:active {
+    cursor: grabbing;
+}
+
+.tb-dragging {
+    opacity: 0.4;
+    transform: rotate(2deg);
+}
+
+.tb-card-grip {
+    color: var(--muted);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.tb-card-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.tb-card-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: block;
+    word-break: break-word;
+}
+
+.tb-card-desc {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.3rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.tb-card-meta {
+    margin-top: 0.5rem;
+}
+
+.tb-card-assignee {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3;
+    font-size: 0.75rem;
+    color: var(--primary-l);
+    background: rgba(6, 182, 212, 0.08);
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-full);
+}
+
+.tb-card-assignee--none {
+    color: var(--muted);
+    background: transparent;
+}
+
+.tb-card-deadline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.72rem;
+    color: var(--muted);
+    background: rgba(107, 114, 128, 0.08);
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-full);
+    margin-left: 0.3rem;
+}
+
+.tb-card-deadline--overdue {
+    color: var(--rose);
+    background: rgba(251, 113, 133, 0.1);
+    font-weight: 600;
+}
+
+.tb-card-delete {
+    opacity: 0;
+    background: none;
+    border: none;
+    color: var(--rose);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: var(--radius-sm);
+    transition: opacity 0.15s, background 0.15s;
+    flex-shrink: 0;
+}
+
+.tb-card:hover .tb-card-delete {
+    opacity: 1;
+}
+
+.tb-card-delete:hover {
+    background: rgba(251, 113, 133, 0.1);
+}
+
+/* Empty State */
+.tb-empty {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-style: italic;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.tb-empty-hint {
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+/* Move Buttons on Task Cards */
+.tb-card-move-btns {
+    display: flex;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.tb-move-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.tb-move-btn--next {
+    background: rgba(6, 182, 212, 0.08) !important;
+    color: var(--primary-l) !important;
+    border-color: rgba(6, 182, 212, 0.2) !important;
+}
+
+.tb-move-btn--next:hover {
+    background: rgba(6, 182, 212, 0.18) !important;
+    border-color: var(--primary) !important;
+}
+
+.tb-move-btn--prev {
+    background: rgba(107, 114, 128, 0.08);
+    color: var(--muted);
+    border-color: var(--border);
+}
+
+.tb-move-btn--prev:hover {
+    background: rgba(107, 114, 128, 0.15);
+    color: var(--text-2);
+}
+
+
+/* Add Task Form */
+.tb-add-form {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.tb-add-form input,
+.tb-add-form textarea,
+.tb-add-form select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.75rem;
+    color: var(--text);
+    font-size: 0.85rem;
+    width: 100%;
+}
+
+.tb-add-form input:focus,
+.tb-add-form textarea:focus,
+.tb-add-form select:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.tb-add-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Add Button */
+.tb-add-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.5rem;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    width: 100%;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    margin-top: auto;
+}
+
+.tb-add-btn:hover {
+    color: var(--primary-l);
+    border-color: var(--primary);
+    background: rgba(121,31,32, 0.04) !important;
+}
+
+/* Confetti */
+.tb-confetti {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background-image:
+        radial-gradient(circle, var(--green) 2px, transparent 2px),
+        radial-gradient(circle, var(--primary) 2px, transparent 2px),
+        radial-gradient(circle, var(--amber) 2px, transparent 2px),
+        radial-gradient(circle, var(--rose) 2px, transparent 2px),
+        radial-gradient(circle, var(--accent) 2px, transparent 2px);
+    background-size: 10% 10%;
+    background-position:
+        10% 0%, 30% 0%, 50% 0%, 70% 0%, 90% 0%;
+    animation: confettiFall 4s ease-out forwards;
+}
+
+@keyframes confettiFall {
+    0% {
+        opacity: 1;
+        background-position:
+            10% -10%, 30% -20%, 50% -5%, 70% -15%, 90% -8%;
+    }
+
+    100% {
+        opacity: 0;
+        background-position:
+            10% 110%, 30% 120%, 50% 105%, 70% 115%, 90% 108%;
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .tb-columns {
+        grid-template-columns: 1fr;
+    }
+
+    .tb-column {
+        min-height: 200px;
+    }
+}

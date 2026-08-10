@@ -1,0 +1,353 @@
+.heatmap-page {
+    animation: fadeIn 0.3s ease;
+}
+
+/* ── Top Bar (filter + KPIs) ─────────────────────── */
+.heatmap-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.heatmap-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    color: var(--muted);
+}
+
+.heatmap-filter select {
+    padding: 0.5rem 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.875rem;
+    outline: none;
+    min-width: 220px;
+    cursor: pointer;
+    transition: border-color var(--transition-fast);
+}
+
+.heatmap-filter select:focus {
+    border-color: var(--primary);
+}
+
+.heatmap-kpi-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.heatmap-kpi {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.8125rem;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    padding: 0.25rem 0.75rem;
+}
+
+/* ── Charts Grid ─────────────────────────────────── */
+.heatmap-charts-grid {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.heatmap-chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+}
+
+.heatmap-chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.heatmap-chart-title {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+}
+
+/* Proficiency legend inside chart header */
+.heatmap-prof-legend {
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    opacity: 0.8;
+}
+
+.heatmap-chart-wrap {
+    position: relative;
+    height: 320px;
+}
+
+.heatmap-chart-wrap--doughnut {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ── Section cards ───────────────────────────────── */
+.heatmap-section-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+}
+
+/* ── Skill Gaps ──────────────────────────────────── */
+.heatmap-gap-threshold {
+    font-size: 0.75rem;
+    color: var(--muted);
+    background: rgba(6, 182, 212, 0.08) !important;
+    border: 1px solid rgba(6, 182, 212, 0.2) !important;
+    border-radius: var(--radius-full);
+    padding: 2px 10px;
+}
+
+.heatmap-gaps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 0.875rem;
+}
+
+.heatmap-gap-item {
+    background: var(--surface) !important;
+    border: 1px solid rgba(6, 182, 212, 0.2) !important;
+    border-radius: var(--radius-md);
+    padding: 0.875rem;
+    transition: border-color var(--transition-fast);
+}
+
+.heatmap-gap-item:hover {
+    border-color: rgba(6, 182, 212, 0.45) !important;
+}
+
+.heatmap-gap-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+}
+
+.heatmap-gap-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.heatmap-gap-count {
+    font-size: 0.75rem;
+    color: var(--muted);
+}
+
+.heatmap-gap-prof {
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.heatmap-gap-bar {
+    height: 5px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 0.4rem;
+}
+
+.heatmap-gap-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--indigo), var(--accent)) !important;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+}
+
+.heatmap-gap-cat {
+    font-size: 0.68rem;
+    color: var(--muted);
+    margin-top: 0.25rem;
+}
+
+/* ── Full Heatmap Grid ───────────────────────────── */
+.heatmap-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.heatmap-legend-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+}
+
+.heatmap-legend-scale {
+    display: flex;
+    gap: 3px;
+}
+
+.heatmap-legend-swatch {
+    width: 18px;
+    height: 10px;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+    border-radius: 2px;
+}
+
+.heatmap-full-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.heatmap-full-row {
+    display: grid;
+    grid-template-columns: 160px 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 3px 0;
+    border-radius: 4px;
+    transition: background var(--transition-fast);
+}
+
+.heatmap-full-row:hover {
+    background: var(--surface);
+}
+
+.heatmap-full-name {
+    font-size: 0.8125rem;
+    color: var(--text-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The stacked bar track */
+.heatmap-full-bar-track {
+    position: relative;
+    height: 20px;
+    background: var(--surface);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.heatmap-full-bar-fill {
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+    border-radius: 4px;
+    transition: width 0.55s ease;
+}
+
+/* Thin proficiency sub-bar at bottom of the bar */
+.heatmap-full-bar-prof {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.5);
+    width: 100%;
+    border-radius: 0 0 4px 4px;
+    overflow: hidden;
+}
+
+.heatmap-full-bar-prof::after {
+    content: '';
+    display: block;
+    height: 100%;
+    width: var(--prof-w, 0%);
+    background: rgba(255, 255, 255, 0.85);
+    transition: width 0.65s ease;
+}
+
+.heatmap-full-bar-count {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text);
+    mix-blend-mode: difference;
+    pointer-events: none;
+}
+
+[dir="rtl"] .heatmap-full-bar-count {
+    right: auto;
+    left: 8px;
+}
+
+/* Right column: avg proficiency + category */
+.heatmap-full-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+    min-width: 90px;
+}
+
+.heatmap-full-prof {
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.heatmap-full-cat {
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-align: end;
+    line-height: 1.3;
+}
+
+/* ── Responsive ──────────────────────────────────── */
+@media (max-width: 900px) {
+    .heatmap-charts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .heatmap-full-row {
+        grid-template-columns: 100px 1fr;
+    }
+
+    .heatmap-full-right {
+        display: none;
+    }
+
+    .heatmap-full-name {
+        font-size: 0.75rem;
+        min-width: 0;
+    }
+
+    .heatmap-gaps-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .heatmap-kpi-row {
+        display: none;
+    }
+}
+
+@media (max-width: 420px) {
+    .heatmap-gaps-grid {
+        grid-template-columns: 1fr;
+    }
+}

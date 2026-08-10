@@ -1,0 +1,130 @@
+Options -Indexes
+Options +FollowSymLinks
+
+RewriteEngine On
+RewriteBase /
+
+# ── API requests → pass through to PHP ─────────────────────
+RewriteRule ^api/ - [L]
+
+# ── Serve static assets from dist/ ─────────────────────────
+RewriteCond %{DOCUMENT_ROOT}/dist%{REQUEST_URI} -f
+RewriteRule ^(.+)$ /dist/$1 [L]
+
+# ── SPA fallback → serve dist/index.html ───────────────────
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/api/
+RewriteRule ^ /dist/index.html [L]
+
+# ── Root → serve dist/index.html ──────────────────────────
+RewriteRule ^$ /dist/index.html [L]
+
+# ── Block access to sensitive files ────────────────────────
+<Files ".env">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "config.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files ".gitignore">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files ".env.example">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "composer.json">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "composer.lock">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# ── Block access to dev files ──────────────────────────────
+RewriteRule ^frontend/ - [F,L]
+RewriteRule ^node_modules/ - [F,L]
+RewriteRule ^vendor/ - [F,L]
+
+# ── Security Headers ──────────────────────────────────────
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set X-XSS-Protection "1; mode=block"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+    Header set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Header set X-Permitted-Cross-Domain-Policies "none"
+    Header unset X-Powered-By
+    Header unset Server
+</IfModule>
+
+# ── PHP Hardening & Performance ───────────────────────────
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_flag expose_php Off
+    php_value session.cookie_httponly 1
+    php_value session.use_strict_mode 1
+    php_value session.use_only_cookies 1
+    
+    # OPcache for performance
+    php_value opcache.enable 1
+    php_value opcache.memory_consumption 64
+    php_value opcache.max_accelerated_files 2000
+    php_value opcache.validate_timestamps 1
+</IfModule>
+
+# ── Block access to SQL/migration files ───────────────────
+<FilesMatch "\.(sql|log|bak|old|tmp)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+RewriteRule ^api/migrations/ - [F,L]
+RewriteRule ^api/migrate\.php - [F,L]
+RewriteRule ^api/auth/otp_helpers\.php - [F,L]
+RewriteRule ^api/auth/mail_config\.php - [F,L]
+
+# ── Cache static assets ───────────────────────────────────
+<IfModule mod_expires.c>
+    ExpiresActive On
+    
+    # Do not cache HTML, XML, or JSON data (prevents caching of index.html and config/api)
+    ExpiresByType text/html "access plus 0 seconds"
+    ExpiresByType application/json "access plus 0 seconds"
+    ExpiresByType application/xml "access plus 0 seconds"
+    
+    # Cache hashed assets and media (Vite hashes JS/CSS filenames)
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/x-icon "access plus 1 month"
+</IfModule>
+
+# Force index.html to check for updates every time (revalidate)
+<filesMatch "\.(html|htm)$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "max-age=0, no-cache, no-store, must-revalidate"
+        Header set Expires "0"
+    </IfModule>
+</filesMatch>
+
+# ── Gzip Compression ──────────────────────────────────────
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain
+    AddOutputFilterByType DEFLATE application/javascript application/json
+    AddOutputFilterByType DEFLATE image/svg+xml application/xml
+</IfModule>

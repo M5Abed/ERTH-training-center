@@ -1,0 +1,529 @@
+.project-detail {
+    animation: fadeIn 0.3s ease;
+}
+
+.back-btn {
+    margin-bottom: 1rem;
+}
+
+[dir="rtl"] .back-btn svg {
+    transform: scaleX(-1);
+}
+
+.pd-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.pd-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.pd-header {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+}
+
+.pd-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.pd-title-row h1 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.pd-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+/* ── Project Timeline ───────────────────────────── */
+.pd-timeline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    position: relative;
+}
+
+.pd-timeline-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    position: relative;
+    z-index: 1;
+    flex: 1;
+}
+
+.pd-timeline-dot {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    color: var(--muted);
+    transition: all 0.3s ease;
+}
+
+.pd-timeline-label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-weight: 500;
+    text-align: center;
+}
+
+.pd-timeline-step--done .pd-timeline-dot {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+    box-shadow: 0 0 15px rgba(121,31,32, 0.3);
+}
+
+.pd-timeline-step--done .pd-timeline-label {
+    color: var(--text);
+}
+
+.pd-timeline-step--current .pd-timeline-dot {
+    background: var(--card);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(0, 61, 115, 0.1);
+}
+
+.pd-timeline-step--current .pd-timeline-label {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.pd-timeline-line {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    width: 100%;
+    height: 2px;
+    background: var(--border);
+    z-index: -1;
+}
+
+[dir="rtl"] .pd-timeline-line {
+    right: 50%;
+    left: auto;
+}
+
+.pd-timeline-line--done {
+    background: var(--primary);
+}
+
+@media (max-width: 600px) {
+    .pd-timeline {
+        padding-top: 1rem;
+    }
+
+    .pd-timeline-dot {
+        width: 28px;
+        height: 28px;
+        font-size: 0.8rem;
+    }
+
+    .pd-timeline-label {
+        font-size: 0.65rem;
+    }
+
+    .pd-timeline-line {
+        top: 14px;
+    }
+}
+
+.pd-owner-link {
+    color: var(--indigo-l);
+    font-weight: 600;
+}
+
+.pd-desc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+}
+
+.pd-desc p {
+    color: var(--text-2);
+    line-height: 1.7;
+    font-size: 0.9375rem;
+    white-space: pre-wrap;
+}
+
+.pd-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+}
+
+.pd-section h3 {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+}
+
+.pd-skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+}
+
+.pd-team {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.pd-member {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    background: var(--surface);
+    border-radius: var(--radius-full);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    transition: background var(--transition-fast);
+}
+
+.pd-member:hover {
+    background: var(--border);
+}
+
+.pd-member-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--indigo), var(--teal));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.pd-member-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.pd-apply-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.pd-apply-form textarea {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.875rem;
+    resize: vertical;
+    outline: none;
+}
+
+.pd-apply-form textarea:focus {
+    border-color: var(--indigo);
+}
+
+.pd-apply-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+
+.pd-notice {
+    padding: 0.75rem 1rem;
+    background: rgba(121,31,32, 0.06);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.8125rem;
+    color: var(--text-2);
+}
+
+.pd-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.pd-sidebar-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+}
+
+.pd-sidebar-card h3 {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+}
+
+.pd-match-btn {
+    width: 100%;
+    justify-content: center;
+}
+
+.pd-apps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.pd-app {
+    padding: 0.75rem;
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+}
+
+.pd-app-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+}
+
+.pd-app-name {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--indigo-l);
+}
+
+.pd-app-status {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.pd-app-status--pending {
+    color: var(--amber);
+}
+
+.pd-app-status--accepted {
+    color: var(--green);
+}
+
+.pd-app-status--rejected {
+    color: var(--rose);
+}
+
+.pd-app-msg {
+    font-size: 0.75rem;
+    color: var(--text-2);
+    margin-bottom: 0.5rem;
+}
+
+.pd-app-actions {
+    display: flex;
+    gap: 0.375rem;
+}
+
+/* Badges row (status + expired) */
+.pd-badges {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.pd-expired-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: rgba(232, 93, 111, 0.1);
+    color: var(--rose, var(--rose));
+}
+
+/* Owner action buttons */
+.pd-owner-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.btn-amber {
+    background: rgba(6, 182, 212, 0.15) !important;
+    color: var(--gold-l) !important;
+    border: 1px solid rgba(6, 182, 212, 0.35) !important;
+    
+}
+
+.btn-amber:hover {
+    background: rgba(6, 182, 212, 0.25) !important;
+    border-color: rgba(6, 182, 212, 0.6) !important;
+}
+
+/* Remove team member */
+.pd-member {
+    position: relative;
+}
+
+.pd-member-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+.pd-remove-member {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: all var(--transition-fast);
+    margin-inline-start: 0.25rem;
+}
+
+.pd-member:hover .pd-remove-member {
+    opacity: 1;
+}
+
+.pd-remove-member:hover {
+    color: var(--rose, var(--rose));
+    border-color: var(--rose, var(--rose));
+}
+
+.staff-results-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.staff-results-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.staff-results-list::-webkit-scrollbar-thumb {
+    background: var(--border-hover);
+    border-radius: 3px;
+}
+
+/* Application status badges for non-owners */
+.pd-app-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.25rem;
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.pd-app-badge--pending {
+    background: rgba(0, 61, 115, 0.08);
+    border: 1px solid rgba(0, 61, 115, 0.2);
+    color: var(--amber);
+}
+
+.pd-app-badge--accepted {
+    background: rgba(16, 185, 129, 0.08) !important;
+    border: 1px solid rgba(16, 185, 129, 0.2) !important;
+    color: #34d399 !important;
+}
+
+.pd-app-badge--rejected {
+    background: rgba(232, 93, 111, 0.08);
+    border: 1px solid rgba(232, 93, 111, 0.2);
+    color: var(--rose, var(--rose));
+}
+
+@media (max-width: 1024px) {
+    .pd-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Completion banner shown instead of View Matches when project is done */
+.pd-completed-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    border-radius: var(--radius-md);
+    color: var(--green, #22c55e);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+/* Modal Search Bar */
+.search-bar {
+    position: relative;
+}
+
+.search-bar input {
+    width: 100%;
+    padding: 0.625rem 0.875rem 0.625rem 2.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.875rem;
+    outline: none;
+}
+
+.search-bar input:focus {
+    border-color: var(--indigo);
+}
+
+.search-icon {
+    position: absolute;
+    left: 0.875rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+}
+
+[dir="rtl"] .search-icon {
+    left: auto;
+    right: 0.875rem;
+}
+
+[dir="rtl"] .search-bar input {
+    padding: 0.625rem 2.5rem 0.625rem 0.875rem;
+}
+
+/* No print styles — PDF Export feature has been completely removed per user request */

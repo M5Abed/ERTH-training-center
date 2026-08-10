@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>THINK TANK — Smart Team Formation</title>
+  <meta name="description" content="ThinkTank — Find your perfect team at New Mansoura University. Smart skill-based matching for projects, research papers, and graduation work." />
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    // Prevent flash of wrong theme
+    (function(){
+      var t = 'light';
+      document.documentElement.setAttribute('data-theme', t);
+      var l = localStorage.getItem('thinktank_lang') || 'en';
+      document.documentElement.setAttribute('dir', l === 'ar' ? 'rtl' : 'ltr');
+      document.documentElement.setAttribute('lang', l);
+    })();
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>

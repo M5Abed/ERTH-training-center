@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Error 401 - Authorization Required</title>
+    <!-- Use Google Fonts for futuristic typography -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #ff003c;
+            /* Cyberpunk Red */
+            --secondary-color: #ff4a00;
+            /* Neon Orange */
+            --bg-color: #100505;
+            /* Black with red tint */
+            --text-color: #ffffff;
+            --dim-text: #ffd0d0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Rajdhani', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 3D Grid Background Pattern - Tinted Red */
+        .background-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200vw;
+            height: 200vh;
+            background-image:
+                linear-gradient(rgba(255, 0, 60, 0.15) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 0, 60, 0.15) 1px, transparent 1px);
+            background-size: 60px 60px;
+            transform: perspective(600px) rotateX(60deg) translateY(-100px) translateZ(-200px);
+            animation: gridMove 10s linear infinite;
+            /* Faster grid for urgency */
+            z-index: 0;
+            opacity: 0.8;
+        }
+
+        @keyframes gridMove {
+            0% {
+                transform: perspective(600px) rotateX(60deg) translateY(0) translateZ(-200px);
+            }
+
+            100% {
+                transform: perspective(600px) rotateX(60deg) translateY(60px) translateZ(-200px);
+            }
+        }
+
+        /* Dark Gradient Overlay */
+        .vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, transparent 10%, var(--bg-color) 85%);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .content {
+            position: relative;
+            z-index: 5;
+            text-align: center;
+            padding: 3rem 2rem;
+            max-width: 800px;
+            width: 90%;
+            background: rgba(16, 5, 5, 0.6);
+            border: 1px solid rgba(255, 0, 60, 0.3);
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(255, 0, 60, 0.15), inset 0 0 20px rgba(255, 74, 0, 0.1);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 450px;
+        }
+
+        .system-warning {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            letter-spacing: 4px;
+            margin-bottom: 0.5rem;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            49% {
+                opacity: 1;
+            }
+
+            50%,
+            100% {
+                opacity: 0.3;
+            }
+        }
+
+        /* Glitch effect on massive error code */
+        .glitch-wrapper {
+            position: relative;
+            display: inline-block;
+            margin: 1rem 0;
+        }
+
+        .title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(6rem, 15vw, 10rem);
+            font-weight: 900;
+            line-height: 1;
+            text-transform: uppercase;
+            letter-spacing: 8px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color), var(--primary-color));
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            /* Compatible with modern browsers */
+            background-clip: text;
+            /* Standard property */
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 40px rgba(255, 0, 60, 0.4);
+            animation: pulse-gradient 3s linear infinite;
+        }
+
+        .glitch-wrapper::before,
+        .glitch-wrapper::after {
+            content: "401";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.8;
+            pointer-events: none;
+            font-size: clamp(6rem, 15vw, 10rem);
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: 8px;
+        }
+
+        .glitch-wrapper::before {
+            color: var(--primary-color);
+            z-index: -1;
+            left: 4px;
+            text-shadow: -2px 0 var(--primary-color);
+            animation: glitch-anim 2s infinite linear alternate-reverse;
+        }
+
+        .glitch-wrapper::after {
+            color: var(--secondary-color);
+            z-index: -2;
+            left: -4px;
+            text-shadow: 2px 0 var(--secondary-color);
+            animation: glitch-anim-2 3s infinite linear alternate-reverse;
+        }
+
+        @keyframes pulse-gradient {
+            0% {
+                background-position: 0% center;
+            }
+
+            100% {
+                background-position: 200% center;
+            }
+        }
+
+        @keyframes glitch-anim {
+            0% {
+                clip-path: inset(10% 0 80% 0);
+                transform: translate(-2px, 2px);
+            }
+
+            20% {
+                clip-path: inset(80% 0 10% 0);
+                transform: translate(2px, -2px);
+            }
+
+            40% {
+                clip-path: inset(40% 0 50% 0);
+                transform: translate(2px, 2px);
+            }
+
+            60% {
+                clip-path: inset(80% 0 5% 0);
+                transform: translate(-2px, -2px);
+            }
+
+            80% {
+                clip-path: inset(15% 0 70% 0);
+                transform: translate(2px, 2px);
+            }
+
+            100% {
+                clip-path: inset(30% 0 20% 0);
+                transform: translate(-2px, -2px);
+            }
+        }
+
+        @keyframes glitch-anim-2 {
+            0% {
+                clip-path: inset(20% 0 60% 0);
+                transform: translate(2px, -2px);
+            }
+
+            20% {
+                clip-path: inset(60% 0 20% 0);
+                transform: translate(-2px, 2px);
+            }
+
+            40% {
+                clip-path: inset(10% 0 80% 0);
+                transform: translate(-2px, -2px);
+            }
+
+            60% {
+                clip-path: inset(80% 0 10% 0);
+                transform: translate(2px, 2px);
+            }
+
+            80% {
+                clip-path: inset(30% 0 50% 0);
+                transform: translate(-2px, 2px);
+            }
+
+            100% {
+                clip-path: inset(50% 0 30% 0);
+                transform: translate(2px, -2px);
+            }
+        }
+
+        .subtitle {
+            font-size: 1.5rem;
+            letter-spacing: 3px;
+            color: var(--dim-text);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        .error-message {
+            font-family: monospace;
+            font-size: 1rem;
+            color: #ff6b6b;
+            background: rgba(255, 0, 60, 0.1);
+            padding: 10px 20px;
+            border-left: 3px solid var(--primary-color);
+            margin-bottom: 2rem;
+            letter-spacing: 1px;
+        }
+
+        /* Recovery Button */
+        .btn-recovery {
+            display: inline-block;
+            padding: 12px 30px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--bg-color);
+            background: var(--primary-color);
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border: 2px solid var(--primary-color);
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(255, 0, 60, 0.4);
+            position: relative;
+            overflow: hidden;
+            z-index: 10;
+        }
+
+        .btn-recovery::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: all 0.5s ease;
+            z-index: -1;
+        }
+
+        .btn-recovery:hover {
+            background: transparent;
+            color: var(--primary-color);
+            box-shadow: 0 0 25px rgba(255, 0, 60, 0.6), inset 0 0 10px rgba(255, 0, 60, 0.4);
+        }
+
+        .btn-recovery:hover::before {
+            left: 100%;
+        }
+
+        /* Scanline Overlay */
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.2) 50%, rgba(0, 0, 0, 0.2));
+            background-size: 100% 4px;
+            z-index: 10;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        /* Danger Orbs */
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            z-index: 2;
+            opacity: 0.5;
+            animation: float-orb 6s ease-in-out infinite alternate;
+        }
+
+        .orb-1 {
+            width: 300px;
+            height: 300px;
+            background: var(--primary-color);
+            top: -50px;
+            left: -50px;
+        }
+
+        .orb-2 {
+            width: 400px;
+            height: 400px;
+            background: var(--secondary-color);
+            bottom: -100px;
+            right: -50px;
+            animation-delay: -3s;
+        }
+
+        @keyframes float-orb {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            100% {
+                transform: translate(30px, 30px) scale(1.15);
+            }
+        }
+
+        /* Interactive Particles Canvas */
+        #particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        /* Footer Links */
+        .footer {
+            position: absolute;
+            bottom: 40px;
+            width: 100%;
+            text-align: center;
+            z-index: 20;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .footer a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1rem;
+            letter-spacing: 2px;
+            opacity: 0.6;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        .footer a:hover {
+            opacity: 1;
+            color: var(--secondary-color);
+            text-shadow: 0 0 10px var(--secondary-color);
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                padding: 2rem 1.5rem;
+                justify-content: center;
+                gap: 1.5rem;
+            }
+
+            .title {
+                font-size: clamp(4rem, 20vw, 6rem);
+            }
+
+            .glitch-wrapper,
+            .glitch-wrapper::before,
+            .glitch-wrapper::after {
+                font-size: clamp(4rem, 20vw, 6rem);
+            }
+
+            .subtitle {
+                font-size: 1.2rem;
+            }
+
+            .error-message {
+                font-size: 0.85rem;
+                padding: 8px 15px;
+            }
+
+            .footer {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 15px;
+                padding: 10px 15px;
+                bottom: 50px;
+                position: fixed;
+            }
+
+            .footer a {
+                font-size: 0.8rem;
+                letter-spacing: 1px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="background-grid"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="vignette"></div>
+    <div class="scanlines"></div>
+
+    <div class="content">
+        <div class="system-warning">SYSTEM ALERT</div>
+        <div class="glitch-wrapper">
+            <h1 class="title">401</h1>
+        </div>
+        <p class="subtitle">Authorization Required</p>
+        <div class="error-message">> ACCESS DENIED: UNAUTHORIZED PERSONNEL.</div>
+
+        <a href="/" class="btn-recovery">RETURN TO BASE</a>
+    </div>
+
+    <canvas id="particles"></canvas>
+
+    <div class="footer">
+        <a href="https://ERTH.dev" target="_blank" rel="noopener noreferrer">ERTH</a>
+        <a href="mailto:contact@ERTH.dev">Email</a>
+        <a href="https://www.tiktok.com/@ERTH.dev" target="_blank" rel="noopener noreferrer">TikTok</a>
+        <a href="https://www.instagram.com/ERTH.nmu/" target="_blank" rel="noopener noreferrer">Instagram</a>
+        <a href="http://linkedin.com/company/ERTH-%D8%A5%D8%B1%D8%AB/" target="_blank"
+            rel="noopener noreferrer">LinkedIn</a>
+    </div>
+
+    <script>
+        // Particle System - Error sparks variant
+        const canvas = document.getElementById('particles');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        const particlesArray = [];
+        const colors = ['#ff003c', '#ff4a00', '#ff6b6b']; // Danger colors
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.size = Math.random() * 3 + 1; // slightly larger
+                this.speedX = (Math.random() - 0.5) * 2.5; // faster, erratic
+                this.speedY = (Math.random() - 0.5) * 2.5;
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+                this.opacity = Math.random() * 0.8 + 0.2;
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+
+                // Random twitching for realistic sparks
+                if (Math.random() > 0.95) {
+                    this.speedX += (Math.random() - 0.5) * 1;
+                    this.speedY += (Math.random() - 0.5) * 1;
+                }
+
+                if (this.x > width) this.x = 0;
+                else if (this.x < 0) this.x = width;
+                if (this.y > height) this.y = 0;
+                else if (this.y < 0) this.y = height;
+            }
+            draw() {
+                ctx.globalAlpha = this.opacity;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = this.color;
+            }
+        }
+
+        function init() {
+            particlesArray.length = 0;
+            const particleCount = Math.floor((width * height) / 8000); // denser
+            const limit = Math.min(particleCount, 200);
+
+            for (let i = 0; i < limit; i++) {
+                particlesArray.push(new Particle());
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+
+            ctx.globalAlpha = 0.08;
+            ctx.strokeStyle = '#ff003c';
+            ctx.lineWidth = 0.5;
+
+            for (let i = 0; i < particlesArray.length; i++) {
+                particlesArray[i].update();
+                particlesArray[i].draw();
+            }
+            requestAnimationFrame(animate);
+        }
+
+        init();
+        animate();
+
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+                init();
+            }, 200);
+        });
+    </script>
+</body>
+
+</html>

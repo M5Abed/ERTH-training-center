@@ -1,0 +1,217 @@
+/* TraineesManagement.css */
+
+.trainees-mgmt-page {
+    padding: 2rem 1.5rem 4rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.tm-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.tm-header h1 {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.tm-header p {
+    color: var(--text-muted);
+    margin: 0.4rem 0 0;
+}
+
+.tm-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+/* Filter Card */
+.tm-filter-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.tm-search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 240px;
+    color: var(--text-muted);
+}
+
+.tm-search input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+.tm-select-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-left: 1px solid var(--border);
+    padding-left: 1rem;
+    color: var(--text-muted);
+}
+
+.tm-select-wrapper select {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+/* Table Wrap */
+.tm-meta-info {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
+}
+
+.tm-table-wrap {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow-x: auto;
+    padding: 1rem;
+}
+
+.tm-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.tm-table th {
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: 0.85rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.tm-table td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    color: var(--text-primary);
+}
+
+.tm-table tr:last-child td { border-bottom: none; }
+.tm-table tr:hover td { background: var(--surface-2); }
+
+.tm-num { color: var(--text-muted); font-size: 0.8rem; }
+
+.tm-trainee-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.tm-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    overflow: hidden;
+}
+
+.tm-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.tm-sid {
+    font-family: monospace;
+    font-size: 0.85rem;
+    background: var(--surface-2);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    color: var(--text-muted);
+}
+
+.tm-course-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(37, 99, 235, 0.1);
+    color: #2563eb;
+    padding: 0.25rem 0.65rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+.tm-stat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+}
+
+.tm-stat-badge.active {
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+}
+
+.tm-date {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.tm-loading, .tm-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 5rem 1rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+.tm-empty h3 { color: var(--text-primary); margin: 0; }
+.tm-empty p  { margin: 0; }
+
+@media (max-width: 768px) {
+    .tm-header { flex-direction: column; }
+    .tm-filter-card { flex-direction: column; align-items: stretch; }
+    .tm-select-wrapper { border-left: none; border-top: 1px solid var(--border); padding-left: 0; padding-top: 0.5rem; }
+}

@@ -1,0 +1,257 @@
+/* ═══════════════════════════════════════════════
+   Staff Register Modal
+   ═══════════════════════════════════════════════ */
+
+/* Overlay */
+.staff-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.55);
+    
+    animation: staffOverlayIn 0.25s ease;
+    padding: 1rem;
+}
+
+@keyframes staffOverlayIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* Modal card */
+.staff-modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg, 16px);
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    animation: staffModalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes staffModalIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Header */
+.staff-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 1.5rem 1.5rem 0;
+    gap: 1rem;
+}
+
+.staff-modal-header-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.staff-modal-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--primary), var(--sky, #38bdf8));
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.staff-modal-header h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text);
+    line-height: 1.3;
+}
+
+.staff-modal-header p {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 0.15rem 0 0;
+}
+
+.staff-modal-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.staff-modal-close:hover {
+    background: var(--border);
+    color: var(--text);
+}
+
+/* Form */
+.staff-modal-form {
+    padding: 1.25rem 1.5rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.staff-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.staff-form-group label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.staff-form-group label .req {
+    color: var(--rose, var(--rose));
+}
+
+.staff-form-group input,
+.staff-form-group select {
+    padding: 0.65rem 0.85rem;
+    border-radius: var(--radius, 8px);
+    border: 1.5px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.9rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: inherit;
+    width: 100%;
+}
+
+.staff-form-group input:focus,
+.staff-form-group select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.staff-form-group input::placeholder {
+    color: var(--muted);
+}
+
+/* Two-column row */
+.staff-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+@media (max-width: 480px) {
+    .staff-form-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Error */
+.staff-form-error {
+    padding: 0.6rem 0.85rem;
+    border-radius: var(--radius-sm, 6px);
+    background: rgba(232, 93, 111, 0.1);
+    color: var(--rose, var(--rose));
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* Submit button */
+.staff-submit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-weight: 600;
+}
+
+/* Success state */
+.staff-modal-success {
+    padding: 2.5rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.75rem;
+}
+
+.staff-success-icon {
+    color: var(--green, #22c55e);
+    animation: staffSuccessPop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes staffSuccessPop {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+
+    60% {
+        transform: scale(1.15);
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.staff-modal-success h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0;
+}
+
+.staff-modal-success p {
+    font-size: 0.9rem;
+    color: var(--muted);
+    max-width: 360px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.staff-modal-success .btn {
+    margin-top: 0.75rem;
+    min-width: 120px;
+}
+
+/* Spin animation */
+.staff-modal .spin {
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
