@@ -57,7 +57,7 @@ if (php_sapi_name() !== 'cli') {
     header_remove("X-Powered-By");  // Hide PHP version
 
     // CORS — whitelist allowed origins
-    $allowedOrigins = ['http://localhost:8000', 'http://localhost:8080', 'http://127.0.0.1:8000'];
+    $allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:8000', 'http://localhost:8080', 'http://127.0.0.1:8000', 'http://localhost'];
     if (defined('ALLOWED_ORIGINS') && ALLOWED_ORIGINS) {
         $allowedOrigins = array_merge($allowedOrigins, array_map('trim', explode(',', ALLOWED_ORIGINS)));
     }
@@ -136,8 +136,6 @@ function db(): PDO
 // Auto-migration: ensure all required tables exist
 function _autoMigrate(): void
 {
-    if (php_sapi_name() !== 'cli' && !empty($_SESSION['_migrated_v2']))
-        return;
     try {
         // 1. Add approval_status to users if missing
         $cols = db()->query("SHOW COLUMNS FROM users LIKE 'approval_status'")->fetchAll();
@@ -155,9 +153,39 @@ function _autoMigrate(): void
             }
         }
 
-        if (php_sapi_name() !== 'cli') {
-            $_SESSION['_migrated_v2'] = true;
-        }
+        // 3. Ensure training_evaluations table exists
+        db()->exec("
+            CREATE TABLE IF NOT EXISTS training_evaluations (
+              id            INT AUTO_INCREMENT PRIMARY KEY,
+              trainee_id    INT NOT NULL,
+              course_id     INT NOT NULL,
+              evaluator_id  INT NOT NULL,
+              status        ENUM('pass','fail','needs_revision') DEFAULT 'pass',
+              final_score   DECIMAL(5,2) NOT NULL DEFAULT 85.00,
+              feedback      TEXT DEFAULT NULL,
+              criteria_scores JSON DEFAULT NULL,
+              evaluated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+              UNIQUE INDEX idx_te_trainee_course (trainee_id, course_id),
+              INDEX idx_te_course (course_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
+
+        // 4. Ensure training_certificates table exists
+        db()->exec("
+            CREATE TABLE IF NOT EXISTS training_certificates (
+              id            INT AUTO_INCREMENT PRIMARY KEY,
+              cert_code     VARCHAR(64) UNIQUE NOT NULL,
+              course_id     INT NOT NULL,
+              trainee_id    INT NOT NULL,
+              issued_by     INT NOT NULL,
+              final_score   DECIMAL(5,2) DEFAULT NULL,
+              status        VARCHAR(32) DEFAULT 'issued',
+              pdf_path      VARCHAR(255) DEFAULT NULL,
+              issued_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE INDEX idx_tc_trainee_course (trainee_id, course_id),
+              INDEX idx_tc_code (cert_code)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
     }
     catch (\Exception $e) {
         // silently skip if user lacks CREATE privileges

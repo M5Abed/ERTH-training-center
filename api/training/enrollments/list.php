@@ -6,7 +6,7 @@
 
 require_once __DIR__ . '/../../config.php';
 
-requireTrainer();
+$user = requireRole(['trainee', 'trainer', 'admin']);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);

@@ -47,7 +47,8 @@ try {
         $whereClauses[] = "td.idea_id = ?";
         $params[] = $ideaId;
     } elseif ($courseId > 0) {
-        $whereClauses[] = "td.course_id = ?";
+        $whereClauses[] = "(td.course_id = ? OR td.idea_id IN (SELECT id FROM training_ideas WHERE course_id = ?))";
+        $params[] = $courseId;
         $params[] = $courseId;
     }
 
@@ -55,14 +56,36 @@ try {
         $whereClauses[] = "td.trainee_id = ?";
         $params[] = $targetTraineeId;
     } elseif ($role === 'trainee' && !$isAdmin && !$ideaId) {
-        $whereClauses[] = "td.trainee_id = ?";
-        $params[] = $uid;
+        if ($courseId > 0) {
+            $whereClauses[] = "(td.trainee_id = ? OR td.course_id = ? OR td.idea_id IN (SELECT id FROM training_ideas WHERE trainee_id = ? OR owner_id = ?))";
+            $params[] = $uid;
+            $params[] = $courseId;
+            $params[] = $uid;
+            $params[] = $uid;
+        } else {
+            $whereClauses[] = "(td.trainee_id = ? OR td.idea_id IN (SELECT id FROM training_ideas WHERE trainee_id = ? OR owner_id = ?))";
+            $params[] = $uid;
+            $params[] = $uid;
+            $params[] = $uid;
+        }
     }
 
     $whereSql = $whereClauses ? "WHERE " . implode(" AND ", $whereClauses) : "";
 
     $stmt = $db->prepare("
-        SELECT td.*, u.full_name_en AS trainee_name, u.email AS trainee_email
+        SELECT td.*, 
+               u.full_name_en AS trainee_name, 
+               u.email AS trainee_email, 
+               u.student_id,
+               COALESCE(
+                   (SELECT title_en FROM training_ideas WHERE id = td.idea_id LIMIT 1),
+                   (SELECT title_en FROM training_ideas WHERE course_id = td.course_id AND (trainee_id = td.trainee_id OR owner_id = td.trainee_id) ORDER BY id DESC LIMIT 1),
+                   'Summer Training Project'
+               ) AS project_title,
+               COALESCE(
+                   (SELECT title_ar FROM training_ideas WHERE id = td.idea_id LIMIT 1),
+                   (SELECT title_ar FROM training_ideas WHERE course_id = td.course_id AND (trainee_id = td.trainee_id OR owner_id = td.trainee_id) ORDER BY id DESC LIMIT 1)
+               ) AS project_title_ar
         FROM trainee_documentation td
         LEFT JOIN users u ON td.trainee_id = u.id
         $whereSql

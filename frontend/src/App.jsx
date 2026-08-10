@@ -31,6 +31,8 @@ const IdeaLeaderboard = lazy(() => import('./pages/IdeaLeaderboard'))
 const DocumentsArchive = lazy(() => import('./pages/DocumentsArchive'))
 const TraineesManagement = lazy(() => import('./pages/TraineesManagement'))
 
+const CertificateVerification = lazy(() => import('./pages/CertificateVerification'))
+
 function PageLoader() {
   return <div className="page-loader"><div className="spinner" /></div>;
 }
@@ -75,6 +77,8 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/auth" element={user ? <Navigate to="/courses" replace /> : <Auth />} />
         <Route path="/u/:id" element={<PublicProfile />} />
+        <Route path="/verify-certificate" element={<CertificateVerification />} />
+        <Route path="/verify" element={<CertificateVerification />} />
 
         {/* Protected — inside AppLayout (sidebar) */}
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>

@@ -35,8 +35,11 @@ try {
     ");
 
     try {
-        $db->exec("ALTER TABLE trainee_documentation ADD COLUMN idea_id INT DEFAULT NULL AFTER id");
-    } catch (Exception $e) {}
+        $cols = $db->query("SHOW COLUMNS FROM trainee_documentation LIKE 'idea_id'")->fetchAll();
+        if (empty($cols)) {
+            $db->exec("ALTER TABLE trainee_documentation ADD COLUMN idea_id INT DEFAULT NULL AFTER id");
+        }
+    } catch (Throwable $e) {}
 
     $ideaId   = (int)($_POST['idea_id'] ?? 0);
     $courseId = (int)($_POST['course_id'] ?? 0);
@@ -44,14 +47,32 @@ try {
     $linkUrl  = trim($_POST['url'] ?? $_POST['file_url'] ?? '');
     $linkTitle = trim($_POST['title'] ?? $_POST['file_name'] ?? '');
 
-    // If idea_id provided, fetch idea to auto-fill course_id
-    if ($ideaId) {
-        $iStmt = $db->prepare("SELECT course_id, trainee_id, owner_id FROM training_ideas WHERE id = ?");
-        $iStmt->execute([$ideaId]);
+    // Auto-resolve idea_id and course_id if either is missing
+    if (!$ideaId && $uid) {
+        $iStmt = $db->prepare("
+            SELECT id, course_id 
+            FROM training_ideas 
+            WHERE (trainee_id = ? OR owner_id = ?) 
+              AND (course_id = ? OR ? = 0) 
+            ORDER BY id DESC LIMIT 1
+        ");
+        $iStmt->execute([$uid, $uid, $courseId, $courseId]);
         $ideaRow = $iStmt->fetch();
         if ($ideaRow) {
+            $ideaId = (int)$ideaRow['id'];
             if (!$courseId) $courseId = (int)$ideaRow['course_id'];
         }
+    }
+
+    if (!$courseId && $uid) {
+        try {
+            $eStmt = $db->prepare("SELECT course_id FROM trainee_enrollments WHERE trainee_id = ? ORDER BY id DESC LIMIT 1");
+            $eStmt->execute([$uid]);
+            $eRow = $eStmt->fetch();
+            if ($eRow) {
+                $courseId = (int)$eRow['course_id'];
+            }
+        } catch (Throwable $ignored) {}
     }
 
     $fileName = '';
@@ -77,8 +98,26 @@ try {
         $fileSize = 0;
     } 
     // Option B: File Upload
-    else if (!empty($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
+    else if (!empty($_FILES['file'])) {
         $file = $_FILES['file'];
+
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            switch ($file['error']) {
+                case UPLOAD_ERR_INI_SIZE:
+                case UPLOAD_ERR_FORM_SIZE:
+                    respondError('Uploaded file size exceeds maximum server limit.');
+                case UPLOAD_ERR_PARTIAL:
+                    respondError('File was only partially uploaded. Please try again.');
+                case UPLOAD_ERR_NO_FILE:
+                    respondError('No file was selected for upload.');
+                case UPLOAD_ERR_NO_TMP_DIR:
+                    respondError('Server error: Temporary upload directory is missing.', 500);
+                case UPLOAD_ERR_CANT_WRITE:
+                    respondError('Server error: Failed to write file to disk.', 500);
+                default:
+                    respondError('File upload error code: ' . $file['error']);
+            }
+        }
 
         // Max 50MB limit
         if ($file['size'] > 50 * 1024 * 1024) {
@@ -88,19 +127,19 @@ try {
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         $validExts = ['pdf', 'doc', 'docx', 'zip', 'rar', '7z', 'pptx', 'ppt', 'txt', 'png', 'jpg', 'jpeg'];
         if (!in_array($ext, $validExts, true)) {
-            respondError('Invalid file type. Allowed: PDF, Word, ZIP, RAR, PowerPoint, Images.');
+            respondError('Invalid file type. Allowed: PDF, Word, ZIP, RAR, PowerPoint, Images, Text.');
         }
 
         $uploadDir = __DIR__ . '/../../../uploads/docs/' . $uid . '/';
         if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
+            @mkdir($uploadDir, 0777, true);
         }
 
         $uniqueName = uniqid('doc_' . $docType . '_', true) . '.' . $ext;
         $targetPath = $uploadDir . $uniqueName;
 
         if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
-            respondError('Failed to save document on server', 500);
+            respondError('Failed to save document on server. Please check folder permissions.', 500);
         }
 
         $fileUrl = '/uploads/docs/' . $uid . '/' . $uniqueName;

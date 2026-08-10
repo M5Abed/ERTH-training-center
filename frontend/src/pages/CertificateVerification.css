@@ -1,0 +1,507 @@
+/* =========================================================
+   NMU TRAINING — Certificate Verification Portal (Light Mode)
+   ========================================================= */
+
+.verify-page-container {
+  min-height: 100vh;
+  background: #F8FAFC !important;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(107, 21, 23, 0.05) 0%, rgba(248, 250, 252, 0) 70%),
+    radial-gradient(circle at 100% 50%, rgba(229, 184, 66, 0.08) 0%, rgba(248, 250, 252, 0) 50%) !important;
+  color: #1E293B !important;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  padding-bottom: 5rem;
+}
+
+/* Header */
+.verify-header {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 2px solid #E5B842 !important;
+  padding: 1.25rem 2rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.verify-header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.verify-brand-logos {
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+  text-align: center;
+}
+
+.verify-logo-img {
+  width: 62px;
+  height: 62px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.12));
+  transition: transform 0.3s ease;
+}
+
+.verify-logo-img:hover {
+  transform: scale(1.05);
+}
+
+.verify-univ-text h2 {
+  font-family: 'Georgia', serif;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #6B1517 !important;
+  margin: 0;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.verify-univ-text h3 {
+  font-size: 0.88rem;
+  color: #B8860B !important;
+  margin: 4px 0 0 0;
+  font-weight: 700;
+}
+
+/* Main Content */
+.verify-main {
+  max-width: 1100px;
+  margin: 2.5rem auto 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* Verified Badge Banner */
+.verified-badge-banner {
+  background: linear-gradient(135deg, #ECFDF5 0%, #F0FDF4 100%) !important;
+  border: 1px solid #A7F3D0 !important;
+  box-shadow: 0 10px 30px rgba(16, 185, 129, 0.12) !important;
+  border-radius: 18px;
+  padding: 2.2rem 2.5rem;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 2.25rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.verified-badge-banner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #10b981, #34d399, #10b981);
+}
+
+.badge-pulse-icon {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #059669, #10b981) !important;
+  color: #ffffff !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.35);
+  animation: pulse-ring 2.5s infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6); }
+  70% { transform: scale(1.04); box-shadow: 0 0 0 16px rgba(16, 185, 129, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.badge-text-content {
+  flex: 1;
+}
+
+.badge-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.official-pill {
+  background: #059669 !important;
+  color: #ffffff !important;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0.3rem 0.85rem;
+  border-radius: 20px;
+  letter-spacing: 1.2px;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);
+}
+
+.verify-date {
+  font-size: 0.88rem;
+  color: #047857 !important;
+  font-weight: 700;
+}
+
+.badge-text-content h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #0F172A !important;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.badge-text-content p {
+  margin: 0.4rem 0 0 0;
+  color: #475569 !important;
+  font-size: 0.98rem;
+}
+
+/* Grid Layout */
+.verify-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 1.75rem;
+  margin-bottom: 2.25rem;
+}
+
+/* Cards */
+.verify-card {
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05) !important;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  border-bottom: 1px solid #F1F5F9 !important;
+  padding-bottom: 1.1rem;
+  margin-bottom: 1.4rem;
+}
+
+.card-icon {
+  color: #6B1517 !important;
+  width: 24px;
+  height: 24px;
+}
+
+.card-header h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+  color: #0F172A !important;
+}
+
+/* Info List */
+.info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.95rem;
+}
+
+.info-item.full-width {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.info-label {
+  color: #64748B !important;
+  font-weight: 500;
+}
+
+.info-value {
+  color: #1E293B !important;
+  font-weight: 600;
+  text-align: right;
+}
+
+.info-value.highlight-name {
+  color: #6B1517 !important;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+
+.info-value.course-title-en {
+  color: #0F172A !important;
+  font-size: 1.2rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.info-value.course-title-ar {
+  color: #334155 !important;
+  font-size: 1.05rem;
+  text-align: left;
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+}
+
+.info-code {
+  background: #FEF3C7 !important;
+  color: #B45309 !important;
+  border: 1px solid #FCD34D !important;
+  padding: 0.35rem 0.85rem;
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 0.92rem;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(180, 83, 9, 0.08);
+}
+
+.badge-pill {
+  background: #FEE2E2 !important;
+  color: #991B1B !important;
+  border: 1px solid #FCA5A5 !important;
+  padding: 0.3rem 0.85rem;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.badge-pill.gold {
+  background: #FEF9C3 !important;
+  color: #854D0E !important;
+  border: 1px solid #FDE047 !important;
+}
+
+.icon-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #1E293B !important;
+}
+
+.icon-text svg {
+  color: #6B1517 !important;
+}
+
+/* Topics Card */
+.topics-card {
+  margin-bottom: 2.25rem;
+}
+
+.topics-intro {
+  color: #64748B !important;
+  margin-bottom: 1.4rem;
+  font-size: 0.95rem;
+}
+
+.topics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 1.25rem;
+}
+
+.topic-item-box {
+  background: #F8FAFC !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 12px;
+  padding: 1.15rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.topic-item-box:hover {
+  transform: translateY(-2px);
+  border-color: #CBD5E1 !important;
+}
+
+.topic-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6B1517, #912426) !important;
+  color: #ffffff !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  box-shadow: 0 3px 8px rgba(107, 21, 23, 0.25);
+}
+
+.topic-details h4 {
+  margin: 0;
+  font-size: 0.98rem;
+  color: #0F172A !important;
+  font-weight: 700;
+}
+
+.topic-details p {
+  margin: 0.4rem 0 0 0;
+  font-size: 0.85rem;
+  color: #64748B !important;
+  line-height: 1.5;
+}
+
+.topic-hours {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  font-size: 0.78rem;
+  color: #B8860B !important;
+  font-weight: 700;
+}
+
+/* Trainers Card */
+.trainers-card {
+  margin-bottom: 2.75rem;
+}
+
+.trainers-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+
+.trainer-chip {
+  background: #F8FAFC !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 12px;
+  padding: 0.85rem 1.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.trainer-chip strong {
+  display: block;
+  font-size: 0.98rem;
+  color: #0F172A !important;
+}
+
+.trainer-chip span {
+  display: block;
+  font-size: 0.82rem;
+  color: #64748B !important;
+}
+
+.text-gold {
+  color: #B8860B !important;
+}
+
+/* Footer Actions */
+.verify-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.verify-btn-primary {
+  background: linear-gradient(135deg, #6B1517 0%, #912426 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid #E5B842 !important;
+  box-shadow: 0 6px 20px rgba(107, 21, 23, 0.25) !important;
+  padding: 0.85rem 2rem;
+  font-size: 1rem;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 700;
+  transition: all 0.25s ease;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.verify-btn-primary:hover {
+  background: linear-gradient(135deg, #80191c 0%, #a8282a 100%) !important;
+  box-shadow: 0 8px 28px rgba(107, 21, 23, 0.35) !important;
+  transform: translateY(-2px);
+}
+
+.verify-btn-secondary {
+  background: #FFFFFF !important;
+  color: #334155 !important;
+  border: 1px solid #CBD5E1 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+  padding: 0.85rem 1.8rem;
+  font-size: 1rem;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 600;
+  transition: all 0.25s ease;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.verify-btn-secondary:hover {
+  background: #F1F5F9 !important;
+  color: #0F172A !important;
+  border-color: #94A3B8 !important;
+}
+
+/* Loading & Error */
+.loading-card, .error-card {
+  max-width: 520px;
+  margin: 6rem auto;
+  text-align: center;
+  padding: 3.2rem 2.2rem;
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05) !important;
+}
+
+.verify-spinner {
+  width: 52px;
+  height: 52px;
+  border: 4px solid rgba(107, 21, 23, 0.15);
+  border-top-color: #6B1517;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1.5rem auto;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-icon-box {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: #FEE2E2;
+  color: #DC2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem auto;
+}
+
+.error-desc {
+  color: #64748B !important;
+  margin-bottom: 2rem;
+  font-size: 1rem;
+}

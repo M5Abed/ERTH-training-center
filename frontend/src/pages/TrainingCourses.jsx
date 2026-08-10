@@ -2,24 +2,29 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, Plus, Calendar, Users, FileText, ChevronRight, Loader2, Search, X } from 'lucide-react';
+import { BookOpen, Plus, Calendar, Users, FileText, ChevronRight, Loader2, Search, X, UserPlus, Clock } from 'lucide-react';
+import AddStudentModal from '../components/AddStudentModal';
 import './TrainingCourses.css';
 
 export default function TrainingCourses() {
     const { lang } = useI18n();
     const { user } = useAuth();
-    const isAdmin = !!(user?.is_admin || user?.role === 'admin');
+    const role = (user?.role || '').toLowerCase();
+    const isAdmin = !!(user?.is_admin || role === 'admin');
+    const isTrainer = role === 'trainer' || isAdmin;
 
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [selectedCourseForAdd, setSelectedCourseForAdd] = useState(null);
 
     // Create Course form state
     const [name, setName] = useState('');
     const [desc, setDesc] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [durationHours, setDurationHours] = useState(40);
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState('');
 
@@ -56,7 +61,8 @@ export default function TrainingCourses() {
                     name: name,
                     description: desc,
                     start_date: startDate,
-                    end_date: endDate
+                    end_date: endDate,
+                    duration_hours: parseInt(durationHours) || 40
                 })
             });
             const data = await res.json();
@@ -64,6 +70,7 @@ export default function TrainingCourses() {
                 setShowCreateModal(false);
                 setName(''); setDesc('');
                 setStartDate(''); setEndDate('');
+                setDurationHours(40);
                 fetchCourses();
             } else {
                 setError(data.error || 'Failed to create course');
@@ -139,6 +146,10 @@ export default function TrainingCourses() {
 
                             <div className="course-meta">
                                 <div className="meta-item">
+                                    <Clock size={16} />
+                                    <span>{course.duration_hours || 40} {lang === 'ar' ? 'ساعة' : 'Hours'}</span>
+                                </div>
+                                <div className="meta-item">
                                     <FileText size={16} />
                                     <span>{course.total_topics || 0} {lang === 'ar' ? 'مواضيع' : 'Topics'}</span>
                                 </div>
@@ -154,16 +165,35 @@ export default function TrainingCourses() {
                                 )}
                             </div>
 
-                            <div className="course-card-footer">
-                                <Link to={`/courses/${course.id}`} className="btn btn-outline btn-block">
-                                    {lang === 'ar' ? 'عرض تفاصيل الدورة' : 'View Course'}
+                            <div className="course-card-footer" style={{ display: 'flex', gap: '0.5rem' }}>
+                                <Link to={`/courses/${course.id}`} className="btn btn-outline" style={{ flex: 1 }}>
+                                    {lang === 'ar' ? 'التفاصيل' : 'View Course'}
                                     <ChevronRight size={16} />
                                 </Link>
+                                {isTrainer && (
+                                    <button 
+                                        className="btn btn-primary"
+                                        style={{ padding: '0.6rem 0.85rem' }}
+                                        title={lang === 'ar' ? 'إضافة متدرب' : 'Add Student'}
+                                        onClick={() => setSelectedCourseForAdd(course)}
+                                    >
+                                        <UserPlus size={16} />
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))}
                 </div>
             )}
+
+            {/* Add Student Modal */}
+            <AddStudentModal 
+                isOpen={!!selectedCourseForAdd}
+                onClose={() => setSelectedCourseForAdd(null)}
+                courseId={selectedCourseForAdd?.id}
+                courseName={selectedCourseForAdd ? (lang === 'ar' && selectedCourseForAdd.name_ar ? selectedCourseForAdd.name_ar : selectedCourseForAdd.name_en) : ''}
+                onStudentAdded={() => fetchCourses()}
+            />
 
             {/* Create Course Modal */}
             {showCreateModal && (
@@ -194,6 +224,18 @@ export default function TrainingCourses() {
                                     value={desc} 
                                     onChange={e => setDesc(e.target.value)} 
                                     placeholder={lang === 'ar' ? 'أهداف ومواضيع التدريب...' : 'Course goals and topics...'} 
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label>{lang === 'ar' ? 'عدد الساعات التدريبية (Duration in Hours)' : 'Total Duration (Hours)'}</label>
+                                <input 
+                                    type="number" 
+                                    min="1" 
+                                    max="1000"
+                                    required
+                                    value={durationHours} 
+                                    onChange={e => setDurationHours(e.target.value)} 
+                                    placeholder="40" 
                                 />
                             </div>
                             <div className="form-row">

@@ -9,9 +9,10 @@ import {
     formatDate, formatMonthYear
 } from '../services/api';
 import { SKILLS_CATALOG, COLLEGES, MAJORS_BY_FACULTY } from '../data/constants';
-import { Edit3, Camera, Star, FolderKanban, MessageSquare, Save, X, Loader2, Mail, PenLine, Trash2, Check, RotateCcw, ClipboardCheck, Handshake, Clock, Share2 } from 'lucide-react';
+import { Edit3, Camera, Star, FolderKanban, MessageSquare, Save, X, Loader2, Mail, PenLine, Trash2, Check, RotateCcw, ClipboardCheck, Handshake, Clock, Share2, Award, Download } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../utils/cropImage';
+import CertificateModal from '../components/CertificateModal';
 import './Profile.css';
 
 export default function Profile() {
@@ -26,6 +27,9 @@ export default function Profile() {
     const profileIsStaff = (profile?.role === 'ta' || profile?.role === 'lecturer' || profile?.role === 'professor' || profile?.role === 'supervisor');
     const [reviews, setReviews] = useState([]);
     const [projects, setProjects] = useState([]);
+    const [userCerts, setUserCerts] = useState([]);
+    const [selectedCertData, setSelectedCertData] = useState(null);
+    const [showCertModal, setShowCertModal] = useState(false);
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState(location.state?.tab || 'overview');
     const [saving, setSaving] = useState(false);
@@ -90,6 +94,12 @@ export default function Profile() {
             ]);
             setReviews(revs || []);
             setProjects(projs || []);
+            // Fetch certificates
+            try {
+                const certRes = await fetch(`/api/training/certificates/list_user.php${targetId ? `?user_id=${targetId}` : ''}`);
+                const certData = await certRes.json();
+                if (certRes.ok) setUserCerts(certData.certificates || []);
+            } catch (e) { console.error(e); }
             // Load availability from profile
             try {
                 const avail = p.availability ? (typeof p.availability === 'string' ? JSON.parse(p.availability) : p.availability) : {};
@@ -449,6 +459,7 @@ export default function Profile() {
                 {[
                     ...(!profileIsStaff ? [{ key: 'overview', label: t('skills_section') }] : []),
                     { key: 'projects', label: t('projects_section') },
+                    { key: 'certificates', label: `${lang === 'ar' ? 'الشهادات' : 'Certificates'}${userCerts.length > 0 ? ` (${userCerts.length})` : ''}` },
                     { key: 'reviews', label: `${t('reviews_section')} (${reviews.length})` },
                     ...(isOwnProfile ? [
                         { key: 'invitations', label: `${lang === 'ar' ? 'الطلبات' : 'Applications'}${pendingInvCount > 0 ? ` (${pendingInvCount})` : ''}` },
@@ -762,6 +773,67 @@ export default function Profile() {
                 </div>
             )}
 
+            {/* Certificates Tab */}
+            {tab === 'certificates' && (
+                <div className="profile-section animate-fade-in">
+                    <h3 style={{ marginBottom: '1.25rem', fontSize: '1.1rem', color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Award size={20} style={{ color: 'var(--amber)' }} />
+                        {lang === 'ar' ? 'الشهادات المكتسبة' : 'Earned Completion Certificates'}
+                    </h3>
+                    {userCerts.length === 0 ? (
+                        <p className="muted">{lang === 'ar' ? 'لا توجد شهادات صيفية صادرة لك بعد.' : 'No summer training certificates issued to you yet.'}</p>
+                    ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                            {userCerts.map(cert => (
+                                <div key={cert.id} style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'linear-gradient(135deg, #791f20, #b8860b)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
+                                            <Award size={22} />
+                                        </div>
+                                        <div>
+                                            <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-1)' }}>{cert.course_title_en}</h4>
+                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Code: {cert.cert_code}</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                        Issued on {cert.issued_at ? new Date(cert.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '2026'}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                                        <button
+                                            className="btn btn-outline btn-sm"
+                                            style={{ flex: 1, gap: '0.35rem' }}
+                                            onClick={() => {
+                                                setSelectedCertData({
+                                                    studentName: profile?.full_name_en || profile?.full_name || 'Trainee',
+                                                    courseTitle: cert.course_title_en,
+                                                    issueDate: cert.issued_at ? new Date(cert.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '10 August 2026',
+                                                    certCode: cert.cert_code,
+                                                    downloadUrl: `/api/training/certificates/download.php?code=${cert.cert_code}`,
+                                                    courseId: cert.course_id,
+                                                    traineeId: cert.trainee_id
+                                                });
+                                                setShowCertModal(true);
+                                            }}
+                                        >
+                                            <Award size={14} /> Preview
+                                        </button>
+                                        <a
+                                            href={`/api/training/certificates/download.php?code=${cert.cert_code}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="btn btn-primary btn-sm"
+                                            style={{ gap: '0.35rem' }}
+                                        >
+                                            <Download size={14} /> Download
+                                        </a>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Edit Profile Modal (#9) */}
             {showEditModal && (
                 <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) setShowEditModal(false); }}>
@@ -927,6 +999,21 @@ export default function Profile() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Certificate Modal */}
+            {showCertModal && selectedCertData && (
+                <CertificateModal
+                    isOpen={showCertModal}
+                    onClose={() => setShowCertModal(false)}
+                    studentName={selectedCertData.studentName}
+                    courseTitle={selectedCertData.courseTitle}
+                    issueDate={selectedCertData.issueDate}
+                    certCode={selectedCertData.certCode}
+                    downloadUrl={selectedCertData.downloadUrl}
+                    courseId={selectedCertData.courseId}
+                    traineeId={selectedCertData.traineeId}
+                />
             )}
         </div>
     );

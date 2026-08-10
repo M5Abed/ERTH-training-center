@@ -13,22 +13,28 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = body();
-$courseId = (int)($data['course_id'] ?? 0);
-$email    = trim(strtolower($data['email'] ?? ''));
+$courseId  = (int)($data['course_id'] ?? 0);
+$email     = trim(strtolower($data['email'] ?? ''));
+$traineeId = (int)($data['trainee_id'] ?? 0);
 
-if (!$courseId || !$email) {
-    respondError('Course ID and Trainee Email are required');
+if (!$courseId || (!$email && !$traineeId)) {
+    respondError('Course ID and Trainee Email or ID are required');
 }
 
 $db = db();
 
-// Find user by email
-$stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
-$stmt->execute([$email]);
-$user = $stmt->fetch();
+if ($traineeId > 0) {
+    $stmt = $db->prepare("SELECT id FROM users WHERE id = ?");
+    $stmt->execute([$traineeId]);
+    $user = $stmt->fetch();
+} else {
+    $stmt = $db->prepare("SELECT id FROM users WHERE email = ?");
+    $stmt->execute([$email]);
+    $user = $stmt->fetch();
+}
 
 if (!$user) {
-    respondError("No user found with email '$email'. Please ensure they are registered.", 404);
+    respondError("No user found. Please ensure they are registered.", 404);
 }
 
 $traineeId = (int)$user['id'];

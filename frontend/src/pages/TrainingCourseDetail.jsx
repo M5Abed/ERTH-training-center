@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
 import { 
     BookOpen, Users, Lightbulb, FileText, Award, Plus, Upload, 
     CheckCircle, XCircle, FileSpreadsheet, Sparkles, Download, 
-    ExternalLink, Trash2, Edit3, Loader2, ArrowLeft, Video, Link as LinkIcon, X, FileCheck
+    ExternalLink, Trash2, Edit3, Loader2, ArrowLeft, Video, Link as LinkIcon, X, FileCheck, UserPlus
 } from 'lucide-react';
+import AddStudentModal from '../components/AddStudentModal';
+import CertificateModal from '../components/CertificateModal';
 import './TrainingCourseDetail.css';
 
 export default function TrainingCourseDetail() {
@@ -32,9 +34,14 @@ export default function TrainingCourseDetail() {
     const [loading, setLoading] = useState(true);
 
     // Modals state
+    const [showAddStudentModal, setShowAddStudentModal] = useState(false);
     const [showTopicModal, setShowTopicModal] = useState(false);
     const [showMaterialModal, setShowMaterialModal] = useState(false);
     const [showExcelModal, setShowExcelModal] = useState(false);
+    const [showCertModal, setShowCertModal] = useState(false);
+    const [certData, setCertData] = useState(null);
+    const [issuingCertId, setIssuingCertId] = useState(null);
+    const [confirmIssuing, setConfirmIssuing] = useState(false);
     const [selectedTopicId, setSelectedTopicId] = useState(null);
     const [selectedTraineeForEval, setSelectedTraineeForEval] = useState(null);
 
@@ -73,6 +80,9 @@ export default function TrainingCourseDetail() {
     // Doc upload
     const [docType, setDocType] = useState('srs');
     const [docFile, setDocFile] = useState(null);
+    const [docUrl, setDocUrl] = useState('');
+    const [docTitle, setDocTitle] = useState('');
+    const [uploadMode, setUploadMode] = useState('file'); // 'file' or 'link'
     const [uploadingDoc, setUploadingDoc] = useState(false);
 
     useEffect(() => {
@@ -88,6 +98,9 @@ export default function TrainingCourseDetail() {
                 setCourse(data.course);
                 setTopics(data.topics || []);
                 setTrainers(data.trainers || []);
+                fetchTrainees();
+                fetchIdeas();
+                fetchDocs();
             }
         } catch (e) {
             console.error(e);
@@ -97,7 +110,7 @@ export default function TrainingCourseDetail() {
     };
 
     useEffect(() => {
-        if (activeTab === 'trainees' && isTrainer) {
+        if (activeTab === 'trainees') {
             fetchTrainees();
         } else if (activeTab === 'idea') {
             fetchIdeas();
@@ -105,6 +118,7 @@ export default function TrainingCourseDetail() {
             fetchDocs();
         } else if (activeTab === 'evaluations') {
             fetchEvals();
+            fetchTrainees();
         }
     }, [activeTab]);
 
@@ -225,6 +239,54 @@ export default function TrainingCourseDetail() {
         }
     };
 
+    const handleDeleteTopic = async (topicId) => {
+        const confirmMsg = lang === 'ar' 
+            ? 'هل أنت متأكد من حذف هذا الموضوع التدريبي وجميع المواد التابعة له؟' 
+            : 'Are you sure you want to delete this topic and all its materials?';
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            const res = await fetch('/api/training/topics/delete.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: topicId })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                loadCourseDetail();
+            } else {
+                alert(data.error || 'Failed to delete topic');
+            }
+        } catch (err) {
+            console.error(err);
+            alert(lang === 'ar' ? 'حدث خطأ أثناء الحذف' : 'Error deleting topic');
+        }
+    };
+
+    const handleDeleteMaterial = async (materialId) => {
+        const confirmMsg = lang === 'ar' 
+            ? 'هل أنت متأكد من حذف هذه المادة التعليمية؟' 
+            : 'Are you sure you want to delete this material?';
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            const res = await fetch('/api/training/content/delete.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: materialId })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                loadCourseDetail();
+            } else {
+                alert(data.error || 'Failed to delete material');
+            }
+        } catch (err) {
+            console.error(err);
+            alert(lang === 'ar' ? 'حدث خطأ أثناء الحذف' : 'Error deleting material');
+        }
+    };
+
     const handleExcelImport = async (e) => {
         e.preventDefault();
         if (!excelFile) return;
@@ -307,27 +369,112 @@ export default function TrainingCourseDetail() {
         } catch (e) { console.error(e); }
     };
 
+    const fileInputRef = useRef(null);
+
     const handleUploadDoc = async (e) => {
         e.preventDefault();
-        if (!docFile) return;
         setUploadingDoc(true);
 
         const formData = new FormData();
         formData.append('course_id', courseId);
+        if (myIdea?.id) {
+            formData.append('idea_id', myIdea.id);
+        }
         formData.append('doc_type', docType);
-        formData.append('file', docFile);
+
+        if (uploadMode === 'link') {
+            if (!docUrl) {
+                alert(lang === 'ar' ? 'الرجاء إدخال رابط صحيح' : 'Please enter a valid link URL');
+                setUploadingDoc(false);
+                return;
+            }
+            formData.append('url', docUrl);
+            if (docTitle) formData.append('title', docTitle);
+        } else {
+            if (!docFile) {
+                alert(lang === 'ar' ? 'الرجاء اختيار ملف للرفع' : 'Please select a file to upload');
+                setUploadingDoc(false);
+                return;
+            }
+            formData.append('file', docFile);
+        }
 
         try {
             const res = await fetch('/api/training/docs/upload.php', {
                 method: 'POST',
                 body: formData
             });
-            if (res.ok) {
-                setDocFile(null);
-                fetchDocs();
+
+            let data;
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                data = await res.json();
+            } else {
+                const text = await res.text();
+                try {
+                    data = JSON.parse(text);
+                } catch (_) {
+                    console.error('Upload response was not JSON:', res.status, text.substring(0, 300));
+                    alert('Server Error (' + res.status + '): ' + (text.substring(0, 200) || 'Empty response'));
+                    setUploadingDoc(false);
+                    return;
+                }
             }
-        } catch (e) { console.error(e); }
-        finally { setUploadingDoc(false); }
+
+            if (res.ok && data.success) {
+                setDocFile(null);
+                setDocUrl('');
+                setDocTitle('');
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+                fetchDocs();
+                alert(lang === 'ar' ? 'تم الرفع بنجاح!' : 'Document uploaded successfully!');
+            } else {
+                alert(data.error || (lang === 'ar' ? 'فشل الرفع' : 'Upload failed. Please try again.'));
+            }
+        } catch (e) {
+            console.error('Upload network error:', e);
+            alert(lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم' : 'Network error: Could not reach the server.');
+        } finally { 
+            setUploadingDoc(false); 
+        }
+    };
+
+    const handleDeleteDoc = async (docId) => {
+        if (!window.confirm(lang === 'ar' ? 'هل أنت متأكد من حذف هذا التوثيق/الرابط؟' : 'Are you sure you want to delete this document/link?')) return;
+        try {
+            const res = await fetch('/api/training/docs/delete.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: docId })
+            });
+
+            let data;
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                data = await res.json();
+            } else {
+                const text = await res.text();
+                try {
+                    data = JSON.parse(text);
+                } catch (_) {
+                    console.error('Delete response was not JSON:', res.status, text.substring(0, 300));
+                    alert('Server Error (' + res.status + '): ' + (text.substring(0, 200) || 'Empty response'));
+                    return;
+                }
+            }
+
+            if (res.ok && data.success) {
+                alert(lang === 'ar' ? 'تم الحذف بنجاح' : 'Deleted successfully');
+                fetchDocs();
+            } else {
+                alert(data.error || (lang === 'ar' ? 'فشل الحذف' : 'Failed to delete'));
+            }
+        } catch (e) {
+            console.error(e);
+            alert(lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم' : 'Network error: Could not reach the server.');
+        }
     };
 
     const handleSubmitEvaluation = async (e) => {
@@ -353,6 +500,99 @@ export default function TrainingCourseDetail() {
             }
         } catch (e) { console.error(e); }
         finally { setSubmittingEval(false); }
+    };
+
+    const handleIssueCertificate = async (traineeId, traineeName) => {
+        setIssuingCertId(traineeId);
+        try {
+            // First check if certificate has already been issued
+            const res = await fetch(`/api/training/certificates/get.php?course_id=${courseId}&trainee_id=${traineeId}`);
+            const data = await res.json();
+            if (res.ok && data.certificate) {
+                setCertData({
+                    studentName: data.certificate.trainee_name_en || traineeName || 'Trainee',
+                    courseTitle: data.certificate.course_title_en || (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name_en),
+                    issueDate: data.certificate.issued_at ? new Date(data.certificate.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '10 August 2026',
+                    certCode: data.certificate.cert_code,
+                    downloadUrl: `/api/training/certificates/download.php?code=${data.certificate.cert_code}`,
+                    isPendingIssuance: false
+                });
+                setShowCertModal(true);
+            } else {
+                // Not issued yet -> Open Preview/Verification mode
+                setCertData({
+                    studentName: traineeName || 'Trainee',
+                    courseTitle: (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name_en) || 'Summer Training Program',
+                    issueDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
+                    certCode: 'VERIFY-BEFORE-ISSUE',
+                    downloadUrl: null,
+                    isPendingIssuance: true,
+                    traineeId: traineeId
+                });
+                setShowCertModal(true);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Error loading certificate data');
+        } finally {
+            setIssuingCertId(null);
+        }
+    };
+
+    const handleConfirmIssueCertificate = async () => {
+        if (!certData || !certData.traineeId) return;
+        setConfirmIssuing(true);
+        try {
+            const res = await fetch('/api/training/certificates/issue.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ course_id: courseId, trainee_id: certData.traineeId })
+            });
+            const data = await res.json();
+            if (res.ok && data.certificate) {
+                setCertData({
+                    studentName: data.trainee?.name || certData.studentName,
+                    courseTitle: data.course?.title || certData.courseTitle,
+                    issueDate: data.certificate.issued_at ? new Date(data.certificate.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : certData.issueDate,
+                    certCode: data.certificate.cert_code,
+                    downloadUrl: `/api/training/certificates/download.php?code=${data.certificate.cert_code}`,
+                    isPendingIssuance: false
+                });
+                fetchTrainees();
+            } else {
+                alert(data.error || 'Failed to issue certificate');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Network error while issuing certificate');
+        } finally {
+            setConfirmIssuing(false);
+        }
+    };
+
+    const handleViewCertificate = async (traineeId, traineeName) => {
+        setIssuingCertId(traineeId);
+        try {
+            const res = await fetch(`/api/training/certificates/get.php?course_id=${courseId}&trainee_id=${traineeId}`);
+            const data = await res.json();
+            if (res.ok && data.certificate) {
+                setCertData({
+                    studentName: data.certificate.trainee_name_en || traineeName || user?.full_name_en || 'Trainee',
+                    courseTitle: data.certificate.course_title_en || (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name_en),
+                    issueDate: data.certificate.issued_at ? new Date(data.certificate.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '10 August 2026',
+                    certCode: data.certificate.cert_code,
+                    downloadUrl: `/api/training/certificates/download.php?code=${data.certificate.cert_code}`,
+                    isPendingIssuance: false
+                });
+                setShowCertModal(true);
+            } else {
+                alert(lang === 'ar' ? 'لم يتم إصدار شهادة بعد' : 'No certificate generated yet');
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIssuingCertId(null);
+        }
     };
 
     function strtolowerRole(r) { return (r || '').toLowerCase(); }
@@ -388,10 +628,16 @@ export default function TrainingCourseDetail() {
                     <p>{lang === 'ar' && course.description_ar ? course.description_ar : course.description_en}</p>
                 </div>
                 {isTrainer && (
-                    <button className="btn btn-outline" onClick={() => setShowExcelModal(true)}>
-                        <FileSpreadsheet size={18} />
-                        {lang === 'ar' ? 'استيراد كشف المتدربين (Excel)' : 'Import Trainees (Excel)'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <button className="btn btn-primary" onClick={() => setShowAddStudentModal(true)}>
+                            <UserPlus size={18} />
+                            {lang === 'ar' ? 'إضافة متدرب' : 'Add Student'}
+                        </button>
+                        <button className="btn btn-outline" onClick={() => setShowExcelModal(true)}>
+                            <FileSpreadsheet size={18} />
+                            {lang === 'ar' ? 'استيراد كشف المتدربين (Excel)' : 'Import Trainees (Excel)'}
+                        </button>
+                    </div>
                 )}
             </div>
 
@@ -463,9 +709,19 @@ export default function TrainingCourseDetail() {
                                             )}
 
                                             {isTrainer && (
-                                                <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedTopicId(t.id); setShowMaterialModal(true); }}>
-                                                    <Upload size={14} /> {lang === 'ar' ? 'رفع مادة' : 'Upload Material'}
-                                                </button>
+                                                <>
+                                                    <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedTopicId(t.id); setShowMaterialModal(true); }}>
+                                                        <Upload size={14} /> {lang === 'ar' ? 'رفع مادة' : 'Upload Material'}
+                                                    </button>
+                                                    <button 
+                                                        className="btn btn-ghost btn-sm" 
+                                                        style={{ color: '#ef4444' }} 
+                                                        onClick={() => handleDeleteTopic(t.id)}
+                                                        title={lang === 'ar' ? 'حذف الموضوع' : 'Delete Topic'}
+                                                    >
+                                                        <Trash2 size={14} /> {lang === 'ar' ? 'حذف' : 'Delete'}
+                                                    </button>
+                                                </>
                                             )}
                                         </div>
                                     </div>
@@ -495,6 +751,16 @@ export default function TrainingCourseDetail() {
                                                         >
                                                             <ExternalLink size={14} /> {lang === 'ar' ? 'فتح' : 'View'}
                                                         </a>
+                                                        {isTrainer && (
+                                                            <button
+                                                                className="btn btn-ghost btn-sm"
+                                                                style={{ color: '#ef4444', padding: '0.25rem 0.5rem' }}
+                                                                onClick={() => handleDeleteMaterial(mat.id)}
+                                                                title={lang === 'ar' ? 'حذف المادة' : 'Delete Material'}
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 ))}
                                             </div>
@@ -513,9 +779,14 @@ export default function TrainingCourseDetail() {
                     <div className="tab-action-bar">
                         <h3>{lang === 'ar' ? 'كشف المتدربين المقيدين' : 'Enrolled Trainees'}</h3>
                         {isTrainer && (
-                            <button className="btn btn-primary btn-sm" onClick={() => setShowExcelModal(true)}>
-                                <FileSpreadsheet size={16} /> {lang === 'ar' ? 'استيراد ملف Excel' : 'Import Excel'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                <button className="btn btn-primary btn-sm" onClick={() => setShowAddStudentModal(true)}>
+                                    <UserPlus size={16} /> {lang === 'ar' ? 'إضافة متدرب' : 'Add Student'}
+                                </button>
+                                <button className="btn btn-outline btn-sm" onClick={() => setShowExcelModal(true)}>
+                                    <FileSpreadsheet size={16} /> {lang === 'ar' ? 'استيراد Excel' : 'Import Excel'}
+                                </button>
+                            </div>
                         )}
                     </div>
 
@@ -533,16 +804,30 @@ export default function TrainingCourseDetail() {
                                     <th>{lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}</th>
                                     <th>{lang === 'ar' ? 'الرقم الجامعي' : 'Student ID'}</th>
                                     <th>{lang === 'ar' ? 'المصدر' : 'Source'}</th>
+                                    {isTrainer && <th>{lang === 'ar' ? 'الشهادة' : 'Certificate'}</th>}
                                 </tr>
                             </thead>
                             <tbody>
                                 {trainees.map((tr, idx) => (
                                     <tr key={tr.trainee_id}>
                                         <td>{idx + 1}</td>
-                                        <td><strong>{tr.full_name_en}</strong></td>
+                                        <td><strong>{tr.full_name_en || tr.username || tr.email}</strong></td>
                                         <td>{tr.email}</td>
                                         <td>{tr.student_id || '-'}</td>
                                         <td><span className="source-tag">{tr.source}</span></td>
+                                        {isTrainer && (
+                                            <td>
+                                                <button 
+                                                    className="btn btn-outline btn-sm"
+                                                    style={{ gap: '0.35rem', borderColor: 'var(--amber)', color: 'var(--amber)' }}
+                                                    disabled={issuingCertId === tr.trainee_id}
+                                                    onClick={() => handleIssueCertificate(tr.trainee_id, tr.full_name_en)}
+                                                >
+                                                    <Award size={14} />
+                                                    {issuingCertId === tr.trainee_id ? '...' : (lang === 'ar' ? 'معاينة وإصدار الشهادة' : 'Preview & Issue Certificate')}
+                                                </button>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>
@@ -623,12 +908,26 @@ export default function TrainingCourseDetail() {
                                         <p className="idea-body">{idea.description_en}</p>
 
                                         <div className="idea-actions">
-                                            <button className="btn btn-success btn-sm" onClick={() => handleEvaluateIdea(idea.id, 'approved', 'Great proposal!')}>
-                                                <CheckCircle size={14} /> Approve
-                                            </button>
-                                            <button className="btn btn-danger btn-sm" onClick={() => handleEvaluateIdea(idea.id, 'rejected', 'Needs modification.')}>
-                                                <XCircle size={14} /> Reject
-                                            </button>
+                                            {(!idea.status || idea.status === 'pending') && (
+                                                <>
+                                                    <button className="btn btn-success btn-sm" onClick={() => handleEvaluateIdea(idea.id, 'approved', 'Great proposal!')}>
+                                                        <CheckCircle size={14} /> {lang === 'ar' ? 'قبول' : 'Approve'}
+                                                    </button>
+                                                    <button className="btn btn-danger btn-sm" onClick={() => handleEvaluateIdea(idea.id, 'rejected', 'Needs modification.')}>
+                                                        <XCircle size={14} /> {lang === 'ar' ? 'رفض' : 'Reject'}
+                                                    </button>
+                                                </>
+                                            )}
+                                            {idea.status === 'approved' && (
+                                                <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444' }} onClick={() => handleEvaluateIdea(idea.id, 'rejected', 'Needs modification.')}>
+                                                    <XCircle size={14} /> {lang === 'ar' ? 'تغيير إلى مرفوض' : 'Change to Rejected'}
+                                                </button>
+                                            )}
+                                            {idea.status === 'rejected' && (
+                                                <button className="btn btn-ghost btn-sm" style={{ color: '#10b981' }} onClick={() => handleEvaluateIdea(idea.id, 'approved', 'Great proposal!')}>
+                                                    <CheckCircle size={14} /> {lang === 'ar' ? 'إعادة القبول' : 'Re-Approve'}
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 ))
@@ -641,46 +940,109 @@ export default function TrainingCourseDetail() {
             {/* Tab 4: Documentation Upload */}
             {activeTab === 'docs' && (
                 <div className="tab-content">
-                    {isTrainee && (
-                        <div className="doc-upload-box">
-                            <h3>{lang === 'ar' ? 'رفع توثيق وتقارير المشروع' : 'Upload Project Documentation'}</h3>
-                            <form onSubmit={handleUploadDoc} className="doc-form">
-                                <div className="form-group">
-                                    <label>Document Type</label>
-                                    <select value={docType} onChange={e => setDocType(e.target.value)}>
-                                        <option value="srs">SRS / System Architecture</option>
-                                        <option value="report">Final Training Report</option>
-                                        <option value="presentation">Presentation Slides (PPTX)</option>
-                                        <option value="code_zip">Source Code Archive (ZIP)</option>
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label>Select File (PDF, DOCX, ZIP, PPTX)</label>
-                                    <input type="file" required onChange={e => setDocFile(e.target.files[0])} />
-                                </div>
-                                <button type="submit" className="btn btn-primary" disabled={uploadingDoc}>
-                                    {uploadingDoc ? <Loader2 className="spin" size={16} /> : 'Upload Document'}
-                                </button>
-                            </form>
+                    <div className="doc-upload-box">
+                        <h3>{lang === 'ar' ? 'رفع توثيق وتقارير أو روابط المشروع' : 'Upload Project Documentation & Links'}</h3>
+                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                            <button 
+                                type="button" 
+                                className={`btn btn-sm ${uploadMode === 'file' ? 'btn-primary' : 'btn-ghost'}`}
+                                onClick={() => setUploadMode('file')}
+                            >
+                                📁 {lang === 'ar' ? 'رفع ملف' : 'File Upload'}
+                            </button>
+                            <button 
+                                type="button" 
+                                className={`btn btn-sm ${uploadMode === 'link' ? 'btn-primary' : 'btn-ghost'}`}
+                                onClick={() => setUploadMode('link')}
+                            >
+                                🔗 {lang === 'ar' ? 'إضافة رابط (GitHub / Figma / Demo)' : 'Link Submission (GitHub, Figma, Demo)'}
+                            </button>
                         </div>
-                    )}
+
+                        <form onSubmit={handleUploadDoc} className="doc-form">
+                            <div className="form-group">
+                                <label>{lang === 'ar' ? 'نوع التوثيق' : 'Document Category'}</label>
+                                <select value={docType} onChange={e => setDocType(e.target.value)}>
+                                    <option value="srs">SRS / System Architecture</option>
+                                    <option value="report">Final Training Report</option>
+                                    <option value="presentation">Presentation Slides (PPTX)</option>
+                                    <option value="code_zip">Source Code Archive (ZIP)</option>
+                                    <option value="github">GitHub Repository</option>
+                                    <option value="figma">Figma UI/UX Design</option>
+                                    <option value="demo">Live Project Demo / Website</option>
+                                </select>
+                            </div>
+
+                            {uploadMode === 'file' ? (
+                                <div className="form-group">
+                                    <label>{lang === 'ar' ? 'اختر الملف (PDF, DOCX, ZIP, PPTX)' : 'Select File (PDF, DOCX, ZIP, PPTX)'}</label>
+                                    <input ref={fileInputRef} type="file" required onChange={e => setDocFile(e.target.files[0])} />
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="form-group">
+                                        <label>{lang === 'ar' ? 'عنوان الرابط / الوصف' : 'Link Title / Name'}</label>
+                                        <input 
+                                            type="text" 
+                                            placeholder={lang === 'ar' ? 'مثال: مستودع كود المشروع على GitHub' : 'e.g., GitHub Code Repository'} 
+                                            value={docTitle} 
+                                            onChange={e => setDocTitle(e.target.value)} 
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>{lang === 'ar' ? 'رابط URL' : 'URL Link'}</label>
+                                        <input 
+                                            type="url" 
+                                            required 
+                                            placeholder="https://github.com/..." 
+                                            value={docUrl} 
+                                            onChange={e => setDocUrl(e.target.value)} 
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            <button type="submit" className="btn btn-primary" disabled={uploadingDoc}>
+                                {uploadingDoc ? <Loader2 className="spin" size={16} /> : (uploadMode === 'file' ? (lang === 'ar' ? 'رفع المستند' : 'Upload Document') : (lang === 'ar' ? 'حفظ الرابط' : 'Add Link'))}
+                            </button>
+                        </form>
+                    </div>
 
                     <div className="docs-list">
-                        <h4>{lang === 'ar' ? 'الملفات المرفوعة' : 'Uploaded Files'}</h4>
+                        <h4>{lang === 'ar' ? 'الملفات والروابط المرفوعة' : 'Uploaded Files & Project Links'}</h4>
                         {docs.length === 0 ? (
-                            <p className="text-muted">No documents uploaded yet.</p>
+                            <p className="text-muted">No documents or project links uploaded yet.</p>
                         ) : (
                             <ul className="docs-ul">
                                 {docs.map(d => (
-                                    <li key={d.id} className="doc-li">
-                                        <FileText size={18} />
-                                        <div className="doc-info">
-                                            <strong>{d.file_name}</strong>
-                                            <span className="doc-meta">{d.doc_type} | {d.uploaded_at}</span>
+                                    <li key={d.id} className="doc-li" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '0.75rem' }}>
+                                        <FileText size={24} style={{ color: 'var(--amber)', flexShrink: 0 }} />
+                                        <div className="doc-info" style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                <strong style={{ fontSize: '0.95rem' }}>{d.file_name}</strong>
+                                                <span className="source-tag" style={{ textTransform: 'uppercase', fontSize: '0.75rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'var(--bg-subtle)' }}>{d.doc_type}</span>
+                                            </div>
+                                            <p style={{ margin: '0.25rem 0 0.15rem 0', fontSize: '0.85rem', color: '#b8860b', fontWeight: 600 }}>
+                                                📁 {lang === 'ar' ? 'اسم المشروع:' : 'Project:'} {d.project_title || (lang === 'ar' ? 'مشروع التدريب الصيفي' : 'Summer Training Project')}
+                                            </p>
+                                            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                                👤 {lang === 'ar' ? 'المعني/أعضاء الفريق:' : 'Submitted by:'} <strong>{d.trainee_name || 'Trainee'}</strong> {d.student_id ? `(${d.student_id})` : ''} — {d.trainee_email || ''}
+                                                <span style={{ marginLeft: '0.75rem', opacity: 0.7 }}>🕒 {d.uploaded_at}</span>
+                                            </p>
                                         </div>
-                                        <a href={d.file_url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">
-                                            <Download size={14} /> Download
-                                        </a>
+                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                            <a href={d.file_url} download target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" style={{ gap: '0.25rem' }}>
+                                                <Download size={14} /> {d.file_url.startsWith('http') && !d.file_url.includes('/uploads/') ? (lang === 'ar' ? 'فتح الرابط' : 'Open Link') : (lang === 'ar' ? 'تنزيل' : 'Download')}
+                                            </a>
+                                            <button 
+                                                onClick={() => handleDeleteDoc(d.id)} 
+                                                className="btn btn-ghost btn-sm" 
+                                                style={{ color: '#ef4444' }}
+                                                title={lang === 'ar' ? 'حذف' : 'Delete'}
+                                            >
+                                                <Trash2 size={14} /> {lang === 'ar' ? 'حذف' : 'Delete'}
+                                            </button>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
@@ -701,6 +1063,45 @@ export default function TrainingCourseDetail() {
                                     <p className={`status-text status-${myEval.status}`}>Status: <strong>{myEval.status.toUpperCase()}</strong></p>
                                     {myEval.feedback && <p className="eval-feedback">Feedback: "{myEval.feedback}"</p>}
                                     <p className="eval-meta">Evaluated by: {myEval.evaluator_name || 'Trainer'} on {myEval.evaluated_at}</p>
+
+                                    {myEval.status === 'pass' && (
+                                        <div className="cert-claim-card" style={{ marginTop: '1.5rem', padding: '1.25rem', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(121,31,32,0.12) 0%, rgba(212,175,55,0.15) 100%)', border: '1px solid rgba(212,175,55,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, #791f20, #b8860b)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
+                                                    <Award size={26} />
+                                                </div>
+                                                <div>
+                                                    <h4 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--text-1)' }}>
+                                                        {lang === 'ar' ? 'تهانينا! شهادة إتمام التدريب جاهزة' : 'Congratulations! Certificate of Completion Ready'}
+                                                    </h4>
+                                                    <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                                        {lang === 'ar' ? 'لقد اجتزت التقييم النهائي بنجاح، يمكنك الآن معاينة وتنزيل شهادتك الرسمية.' : 'You have successfully passed the final evaluation. Preview and download your official credential now.'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                                <button 
+                                                    className="btn btn-outline"
+                                                    style={{ gap: '0.5rem', cursor: 'pointer', borderColor: 'var(--amber)', color: 'var(--amber)' }}
+                                                    onClick={() => handleViewCertificate(user.id, user.full_name_en)}
+                                                >
+                                                    <Award size={18} />
+                                                    {lang === 'ar' ? 'معاينة الشهادة' : 'Preview Certificate'}
+                                                </button>
+                                                <a 
+                                                    href={`/api/training/certificates/download.php?course_id=${courseId}&trainee_id=${user.id}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="btn btn-primary"
+                                                    style={{ background: 'linear-gradient(135deg, #791f20, #b8860b)', border: 'none', gap: '0.5rem', cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                                                    download={`NMU_Certificate_${(user.full_name_en || 'Trainee').replace(/\s+/g, '_')}.pdf`}
+                                                >
+                                                    <Download size={18} />
+                                                    {lang === 'ar' ? 'تنزيل الشهادة (PDF)' : 'Download Certificate (PDF)'}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <p className="text-muted">Your training evaluation has not been entered yet.</p>
@@ -925,6 +1326,31 @@ export default function TrainingCourseDetail() {
                         </form>
                     </div>
                 </div>
+            )}
+            {/* Add Student Modal */}
+            <AddStudentModal 
+                isOpen={showAddStudentModal}
+                onClose={() => setShowAddStudentModal(false)}
+                courseId={courseId}
+                courseName={course ? (lang === 'ar' && course.name_ar ? course.name_ar : course.name_en) : ''}
+                onStudentAdded={() => fetchTrainees()}
+            />
+            {/* Certificate Preview Modal */}
+            {showCertModal && certData && (
+                <CertificateModal
+                    isOpen={showCertModal}
+                    onClose={() => setShowCertModal(false)}
+                    studentName={certData.studentName}
+                    courseTitle={certData.courseTitle}
+                    issueDate={certData.issueDate}
+                    certCode={certData.certCode}
+                    downloadUrl={certData.downloadUrl}
+                    isPendingIssuance={certData.isPendingIssuance}
+                    onConfirmIssuance={handleConfirmIssueCertificate}
+                    issuing={confirmIssuing}
+                    courseId={courseId}
+                    traineeId={certData.traineeId}
+                />
             )}
         </div>
     );

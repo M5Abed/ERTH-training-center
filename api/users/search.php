@@ -20,8 +20,8 @@ if (strlen($q) < 2) { respond([]); }
 $like = '%' . $q . '%';
 $start = $q . '%';
 
-$where  = "(username LIKE ? OR student_id LIKE ? OR full_name_en LIKE ? OR CAST(id AS CHAR) = ?)";
-$params = [$like, $like, $like, $q];
+$where  = "(username LIKE ? OR student_id LIKE ? OR full_name_en LIKE ? OR email LIKE ? OR CAST(id AS CHAR) = ?)";
+$params = [$like, $like, $like, $like, $q];
 
 if ($collegeKey !== '') {
     $where   .= " AND college_key = ?";

@@ -293,19 +293,38 @@ export default function TraineeProjects() {
     };
 
     const handleDeleteDoc = async (docId) => {
-        const confirmMsg = lang === 'ar' ? 'هل أنت تأكد من رغبتك في حذف هذا المستند/الرابط؟' : 'Are you sure you want to delete this item?';
-        if (!window.confirm(confirmMsg)) return;
+        if (!window.confirm(lang === 'ar' ? 'هل أنت متأكد من حذف هذا التوثيق/الرابط؟' : 'Are you sure you want to delete this document/link?')) return;
         try {
             const res = await fetch('/api/training/docs/delete.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ doc_id: docId })
+                body: JSON.stringify({ id: docId }) // FIXED: sending id instead of doc_id
             });
-            if (res.ok) {
+            
+            let data;
+            const contentType = res.headers.get('content-type') || '';
+            if (contentType.includes('application/json')) {
+                data = await res.json();
+            } else {
+                const text = await res.text();
+                try {
+                    data = JSON.parse(text);
+                } catch (_) {
+                    console.error('Delete response was not JSON:', res.status, text.substring(0, 300));
+                    alert('Server Error (' + res.status + '): ' + (text.substring(0, 200) || 'Empty response'));
+                    return;
+                }
+            }
+
+            if (res.ok && data.success) {
+                alert(lang === 'ar' ? 'تم الحذف بنجاح' : 'Deleted successfully');
                 fetchIdeaDocs(activeProject.id);
+            } else {
+                alert(data.error || (lang === 'ar' ? 'فشل الحذف' : 'Failed to delete'));
             }
         } catch (e) {
             console.error(e);
+            alert(lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم' : 'Network error: Could not reach the server.');
         }
     };
 

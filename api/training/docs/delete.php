@@ -1,7 +1,7 @@
 <?php
 // =========================================================
-// NMU TRAINING — Delete Project Documentation or Link
-// Access: Document Uploader, Trainer, or Admin
+// NMU TRAINING — Delete Trainee Document
+// Access: Document owner, Trainer, or Admin
 // =========================================================
 
 require_once __DIR__ . '/../../config.php';
@@ -10,22 +10,24 @@ try {
     $user = requireRole(['trainee', 'trainer', 'admin']);
     $uid = (int)$user['id'];
     $role = strtolower($user['role'] ?? '');
-    $isAdmin = (!empty($user['is_admin']) || $role === 'admin');
-    $isTrainer = ($role === 'trainer');
+    $isAdmin = (bool)($user['is_admin'] || $role === 'admin');
+    $isTrainer = $role === 'trainer' || $isAdmin;
 
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'DELETE') {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         respondError('Method not allowed', 405);
     }
 
     $data = body();
-    $docId = (int)($data['doc_id'] ?? $_POST['doc_id'] ?? $_GET['doc_id'] ?? 0);
+    $docId = (int)($data['id'] ?? 0);
 
     if (!$docId) {
-        respondError('Document ID is required', 400);
+        respondError('Document ID is required');
     }
 
     $db = db();
-    $stmt = $db->prepare("SELECT * FROM trainee_documentation WHERE id = ?");
+
+    // Verify ownership or trainer/admin role
+    $stmt = $db->prepare("SELECT id, trainee_id, file_url FROM trainee_documentation WHERE id = ?");
     $stmt->execute([$docId]);
     $doc = $stmt->fetch();
 
@@ -33,19 +35,8 @@ try {
         respondError('Document not found', 404);
     }
 
-    $docTraineeId = (int)($doc['trainee_id'] ?? 0);
-    $isOwner = ($uid > 0 && $uid === $docTraineeId);
-
-    if (!$isOwner && !$isAdmin && !$isTrainer) {
-        respondError('Unauthorized: You can only delete your own documents', 403);
-    }
-
-    // Remove local file if it exists
-    if (!empty($doc['file_url']) && strpos($doc['file_url'], '/uploads/') === 0) {
-        $filePath = __DIR__ . '/../../..' . $doc['file_url'];
-        if (file_exists($filePath)) {
-            @unlink($filePath);
-        }
+    if (!$isTrainer && (int)$doc['trainee_id'] !== $uid) {
+        respondError('Forbidden: You can only delete your own documents', 403);
     }
 
     $del = $db->prepare("DELETE FROM trainee_documentation WHERE id = ?");
