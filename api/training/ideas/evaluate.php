@@ -78,7 +78,7 @@ try {
     } catch (Exception $e) {}
 
     // Fetch idea to know trainee_id & title
-    $stmt = $db->prepare("SELECT COALESCE(trainee_id, owner_id) AS trainee_id, title_en FROM training_ideas WHERE id = ?");
+    $stmt = $db->prepare("SELECT owner_id AS trainee_id, title_en FROM training_ideas WHERE id = ?");
     $stmt->execute([$ideaId]);
     $idea = $stmt->fetch();
 

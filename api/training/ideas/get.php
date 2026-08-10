@@ -92,9 +92,9 @@ if ($role === 'trainee' && !$isAdmin) {
         SELECT ti.*, u.full_name_en AS reviewer_name
         FROM training_ideas ti
         LEFT JOIN users u ON ti.reviewed_by = u.id
-        WHERE (ti.trainee_id = ? OR ti.owner_id = ?) AND ti.course_id = ?
+        WHERE ti.owner_id = ? AND ti.course_id = ?
     ");
-    $stmt->execute([$uid, $uid, $courseId]);
+    $stmt->execute([$uid, $courseId]);
     $idea = $stmt->fetch();
     if ($idea) {
         $ideasArr = [$idea];
@@ -108,7 +108,7 @@ if ($role === 'trainee' && !$isAdmin) {
         SELECT ti.*, u.full_name_en AS trainee_name, u.email AS trainee_email, u.student_id,
                rev.full_name_en AS reviewer_name
         FROM training_ideas ti
-        JOIN users u ON COALESCE(ti.trainee_id, ti.owner_id) = u.id
+        JOIN users u ON ti.owner_id = u.id
         LEFT JOIN users rev ON ti.reviewed_by = rev.id
         WHERE ti.course_id = ?
         ORDER BY ti.updated_at DESC

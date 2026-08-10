@@ -154,32 +154,59 @@ export default function PostProject() {
 
     return (
         <div className="post-project-page">
-            <div className="page-header"><div><h1 className="page-title">{t('post_title')}</h1></div></div>
+            <div className="page-header">
+                <div>
+                    <h1 className="page-title">{t('post_title')}</h1>
+                    <p className="page-subtitle">
+                        {lang === 'ar' 
+                            ? 'أنشئ ورشة عمل أو مشروع تخرج أو فكرة بحثية جديدة وابحث عن أفضل المتدربين والشركاء' 
+                            : 'Create a new project proposal, research paper, or graduation project to recruit top trainees.'}
+                    </p>
+                </div>
+            </div>
+
             {error && <div className="auth-error">{error}</div>}
+
             <form className="pp-form" onSubmit={handleSubmit}>
-                <div className="form-group">
-                    <div className={`form-group ${fieldErrors.title ? 'has-error' : ''}`}><label>{t('project_title_en')}</label><input type="text" value={title} onChange={e => { setTitle(e.target.value); setFieldErrors(p => ({ ...p, title: false })); }} required /></div>
+                {/* Project Title */}
+                <div className={`form-group ${fieldErrors.title ? 'has-error' : ''}`}>
+                    <label>{t('project_title_en')} <span className="req">*</span></label>
+                    <div className="input-with-icon">
+                        <FileText size={18} className="field-icon" />
+                        <input 
+                            type="text" 
+                            value={title} 
+                            onChange={e => { setTitle(e.target.value); setFieldErrors(p => ({ ...p, title: false })); }} 
+                            placeholder={lang === 'ar' ? 'أدخل عنوان مشروعك الواضح والمعبر...' : 'Enter a clear, descriptive project title...'}
+                            required 
+                        />
+                    </div>
+                    {fieldErrors.title && <span className="field-error">{fieldErrors.title}</span>}
                 </div>
 
-                {/* Description with AI */}
-                <div className="form-group">
-                    <div className="form-group">
-                        <label>{t('project_desc_en')}</label>
-                        <textarea value={desc} onChange={e => { setDesc(e.target.value); setFieldErrors(p => ({ ...p, desc: false })); }} rows={4} placeholder="Describe your project idea..." className={fieldErrors.desc ? 'has-error-textarea' : ''} />
-                        {fieldErrors.desc && <span className="field-error">{fieldErrors.desc}</span>}
-                        <div className="ai-actions">
-                            <button type="button" className="ai-btn" onClick={handleAiExpand} disabled={aiLoading || !desc.trim()}>
-                                {aiLoading ? <Loader2 size={14} className="spin" /> : <Wand2 size={14} />}
-                                {t('ai_improve') || 'AI Improve'}
-                            </button>
-                        </div>
+                {/* Description with AI Expander */}
+                <div className={`form-group ${fieldErrors.desc ? 'has-error' : ''}`}>
+                    <div className="label-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                        <label>{t('project_desc_en')} <span className="req">*</span></label>
+                        <button type="button" className="ai-btn ai-btn--sm" onClick={handleAiExpand} disabled={aiLoading || !desc.trim()}>
+                            {aiLoading ? <Loader2 size={14} className="spin" /> : <Wand2 size={14} />}
+                            {t('ai_improve') || 'AI Expand Idea'}
+                        </button>
                     </div>
+                    <textarea 
+                        value={desc} 
+                        onChange={e => { setDesc(e.target.value); setFieldErrors(p => ({ ...p, desc: false })); }} 
+                        rows={4} 
+                        placeholder={lang === 'ar' ? 'اشرح رؤية المشروع والمخرجات المتوقعة بالتفصيل...' : 'Describe your project idea, objectives, and expected deliverables...'} 
+                        className={fieldErrors.desc ? 'has-error-textarea' : ''} 
+                    />
+                    {fieldErrors.desc && <span className="field-error">{fieldErrors.desc}</span>}
                 </div>
 
                 <div className="pp-grid pp-grid--3">
                     <div className={`form-group ${fieldErrors.type ? 'has-error' : ''}`}>
-                        <label>{t('project_type')}</label>
-                        <div className="type-buttons" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+                        <label>{t('project_type')} <span className="req">*</span></label>
+                        <div className="type-buttons" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '8px' }}>
                             {[
                                 { id: 'project', label: t('type_project'), icon: <BookOpen size={16} /> },
                                 { id: 'research', label: t('type_research'), icon: <FileText size={16} /> },
@@ -189,7 +216,7 @@ export default function PostProject() {
                                     key={tObj.id}
                                     type="button"
                                     className={`btn ${type === tObj.id ? 'btn-primary' : 'btn-secondary'}`}
-                                    style={{ padding: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                    style={{ padding: '0.75rem 0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '0.85rem' }}
                                     onClick={() => { setType(tObj.id); setFieldErrors(p => ({ ...p, type: undefined })); }}
                                 >
                                     {tObj.icon}

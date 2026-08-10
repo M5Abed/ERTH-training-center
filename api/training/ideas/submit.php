@@ -52,11 +52,10 @@ if (!$isAdmin) {
 // Upsert single idea per course for this trainee (setting both trainee_id and owner_id)
 $stmt = $db->prepare("
     INSERT INTO training_ideas 
-        (trainee_id, owner_id, course_id, title_en, title_ar, description_en, description_ar, tech_stack, problem_statement, expected_output, status)
+        (owner_id, course_id, title_en, title_ar, description_en, description_ar, tech_stack, problem_statement, expected_output, status)
     VALUES 
-        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
     ON DUPLICATE KEY UPDATE
-        trainee_id = VALUES(trainee_id),
         owner_id = VALUES(owner_id),
         title_en = VALUES(title_en),
         title_ar = VALUES(title_ar),
@@ -68,7 +67,6 @@ $stmt = $db->prepare("
         updated_at = NOW()
 ");
 $stmt->execute([
-    $uid,
     $uid,
     $courseId,
     $titleEn,
@@ -83,8 +81,8 @@ $stmt->execute([
 $ideaId = (int)($db->lastInsertId() ?: 0);
 if (!$ideaId) {
     // If updated existing row, fetch the idea id
-    $fStmt = $db->prepare("SELECT id FROM training_ideas WHERE (trainee_id = ? OR owner_id = ?) AND course_id = ?");
-    $fStmt->execute([$uid, $uid, $courseId]);
+    $fStmt = $db->prepare("SELECT id FROM training_ideas WHERE owner_id = ? AND course_id = ?");
+    $fStmt->execute([$uid, $courseId]);
     $ideaId = (int)$fStmt->fetchColumn();
 }
 

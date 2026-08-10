@@ -29,7 +29,7 @@ $stmt = $db->prepare("
         ti.course_id,
         tc.name_en AS course_name_en,
         tc.name_ar AS course_name_ar,
-        COALESCE(ti.trainee_id, ti.owner_id) AS trainee_id,
+        ti.owner_id AS trainee_id,
         u.full_name_en AS trainee_name,
         u.student_id,
         COALESCE(AVG(tv.rating), 0) AS avg_rating,
@@ -38,7 +38,7 @@ $stmt = $db->prepare("
     FROM training_ideas ti
     LEFT JOIN training_votes    tv ON tv.idea_id   = ti.id
     LEFT JOIN training_courses  tc ON tc.id        = ti.course_id
-    LEFT JOIN users             u  ON u.id         = COALESCE(ti.trainee_id, ti.owner_id)
+    LEFT JOIN users             u  ON u.id         = ti.owner_id
     $where
     GROUP BY ti.id
     ORDER BY avg_rating DESC, vote_count DESC, ti.created_at ASC

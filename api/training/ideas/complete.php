@@ -24,7 +24,7 @@ try {
     $db = db();
 
     // Fetch idea
-    $stmt = $db->prepare("SELECT id, trainee_id, owner_id, course_id, title_en, status, reviewed_by FROM training_ideas WHERE id = ?");
+    $stmt = $db->prepare("SELECT id, owner_id, course_id, title_en, status, reviewed_by FROM training_ideas WHERE id = ?");
     $stmt->execute([$ideaId]);
     $idea = $stmt->fetch();
 
@@ -32,7 +32,7 @@ try {
         respondError('Project idea not found', 404);
     }
 
-    $ownerId = (int)($idea['trainee_id'] ?: $idea['owner_id']);
+    $ownerId = (int)$idea['owner_id'];
     $isOwner = ($ownerId === $uid);
     $isAdminOrTrainer = in_array(strtolower($user['role']), ['trainer', 'admin'], true) || $user['is_admin'];
 

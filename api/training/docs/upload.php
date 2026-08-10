@@ -8,7 +8,7 @@ require_once __DIR__ . '/../../config.php';
 
 try {
     $user = requireRole(['trainee', 'trainer', 'admin']);
-    $uid = (int)$user['id'];
+    $uid = (int) $user['id'];
 
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         respondError('Method not allowed', 405);
@@ -39,28 +39,24 @@ try {
         if (empty($cols)) {
             $db->exec("ALTER TABLE trainee_documentation ADD COLUMN idea_id INT DEFAULT NULL AFTER id");
         }
-    } catch (Throwable $e) {}
+    } catch (Throwable $e) {
+    }
 
-    $ideaId   = (int)($_POST['idea_id'] ?? 0);
-    $courseId = (int)($_POST['course_id'] ?? 0);
-    $docType  = trim(strtolower($_POST['doc_type'] ?? 'report')); // report, code_zip, presentation, link, github, demo, figma
-    $linkUrl  = trim($_POST['url'] ?? $_POST['file_url'] ?? '');
+    $ideaId = (int) ($_POST['idea_id'] ?? 0);
+    $courseId = (int) ($_POST['course_id'] ?? 0);
+    $docType = trim(strtolower($_POST['doc_type'] ?? 'report')); // report, code_zip, presentation, link, github, demo, figma
+    $linkUrl = trim($_POST['url'] ?? $_POST['file_url'] ?? '');
     $linkTitle = trim($_POST['title'] ?? $_POST['file_name'] ?? '');
 
-    // Auto-resolve idea_id and course_id if either is missing
-    if (!$ideaId && $uid) {
-        $iStmt = $db->prepare("
-            SELECT id, course_id 
-            FROM training_ideas 
-            WHERE (trainee_id = ? OR owner_id = ?) 
-              AND (course_id = ? OR ? = 0) 
-            ORDER BY id DESC LIMIT 1
-        ");
-        $iStmt->execute([$uid, $uid, $courseId, $courseId]);
+    // If idea_id provided, fetch idea to auto-fill course_id
+    if ($ideaId) {
+        $iStmt = $db->prepare("SELECT course_id, trainee_id, owner_id FROM training_ideas WHERE id = ?");
+        $iStmt->execute([$ideaId]);
         $ideaRow = $iStmt->fetch();
         if ($ideaRow) {
-            $ideaId = (int)$ideaRow['id'];
-            if (!$courseId) $courseId = (int)$ideaRow['course_id'];
+            $ideaId = (int) $ideaRow['id'];
+            if (!$courseId)
+                $courseId = (int) $ideaRow['course_id'];
         }
     }
 
@@ -70,9 +66,10 @@ try {
             $eStmt->execute([$uid]);
             $eRow = $eStmt->fetch();
             if ($eRow) {
-                $courseId = (int)$eRow['course_id'];
+                $courseId = (int) $eRow['course_id'];
             }
-        } catch (Throwable $ignored) {}
+        } catch (Throwable $ignored) {
+        }
     }
 
     $fileName = '';
@@ -89,14 +86,22 @@ try {
             $fileName = $linkTitle;
         } else {
             switch ($docType) {
-                case 'github': $fileName = 'GitHub Repository'; break;
-                case 'figma': $fileName = 'Figma UI Design'; break;
-                case 'demo': $fileName = 'Live Demo'; break;
-                default: $fileName = parse_url($linkUrl, PHP_URL_HOST) ?: 'External Link'; break;
+                case 'github':
+                    $fileName = 'GitHub Repository';
+                    break;
+                case 'figma':
+                    $fileName = 'Figma UI Design';
+                    break;
+                case 'demo':
+                    $fileName = 'Live Demo';
+                    break;
+                default:
+                    $fileName = parse_url($linkUrl, PHP_URL_HOST) ?: 'External Link';
+                    break;
             }
         }
         $fileSize = 0;
-    } 
+    }
     // Option B: File Upload
     else if (!empty($_FILES['file'])) {
         $file = $_FILES['file'];
@@ -144,7 +149,7 @@ try {
 
         $fileUrl = '/uploads/docs/' . $uid . '/' . $uniqueName;
         $fileName = $file['name'];
-        $fileSize = (int)$file['size'];
+        $fileSize = (int) $file['size'];
     } else {
         respondError('Either a file upload or a valid URL link is required');
     }
@@ -163,7 +168,7 @@ try {
         $fileSize
     ]);
 
-    $docId = (int)$db->lastInsertId();
+    $docId = (int) $db->lastInsertId();
 
     respond([
         'success' => true,

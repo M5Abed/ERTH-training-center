@@ -683,6 +683,19 @@ export default function TraineeProjects() {
                                     >
                                         {isEvaluator ? (lang === 'ar' ? 'مراجعة وتقييم' : 'Review & Evaluate') : (lang === 'ar' ? 'عرض التفاصيل' : 'View Details')}
                                     </button>
+                                    
+                                    {(project.status === 'evaluated' || project.status === 'submitted' || project.status === 'draft') && (
+                                        <a 
+                                            href={`/api/training/reports/generate.php?idea_id=${project.id}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="btn btn-primary btn-sm"
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                        >
+                                            <FileText size={14} />
+                                            {lang === 'ar' ? 'توليد تقرير وورد' : 'Word Report'}
+                                        </a>
+                                    )}
                                 </div>
                             </div>
                         </div>

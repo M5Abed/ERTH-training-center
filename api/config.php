@@ -28,16 +28,27 @@ if (!defined('DB_CHARSET'))
     define('DB_CHARSET', getenv('DB_CHARSET') ?: 'utf8mb4');
 
 // Fallback for SMTP vars (injected by Docker env_file)
-if (!defined('SMTP_HOST')) define('SMTP_HOST', getenv('SMTP_HOST') ?: '');
-if (!defined('SMTP_PORT')) define('SMTP_PORT', getenv('SMTP_PORT') ?: '');
-if (!defined('SMTP_USER')) define('SMTP_USER', getenv('SMTP_USER') ?: '');
-if (!defined('SMTP_PASS')) define('SMTP_PASS', getenv('SMTP_PASS') ?: '');
-if (!defined('SMTP_FROM_EMAIL')) define('SMTP_FROM_EMAIL', getenv('SMTP_FROM_EMAIL') ?: '');
-if (!defined('SMTP_FROM_NAME')) define('SMTP_FROM_NAME', getenv('SMTP_FROM_NAME') ?: '');
+if (!defined('SMTP_HOST'))
+    define('SMTP_HOST', getenv('SMTP_HOST') ?: '');
+if (!defined('SMTP_PORT'))
+    define('SMTP_PORT', getenv('SMTP_PORT') ?: '');
+if (!defined('SMTP_USER'))
+    define('SMTP_USER', getenv('SMTP_USER') ?: '');
+if (!defined('SMTP_PASS'))
+    define('SMTP_PASS', getenv('SMTP_PASS') ?: '');
+if (!defined('SMTP_FROM_EMAIL'))
+    define('SMTP_FROM_EMAIL', getenv('SMTP_FROM_EMAIL') ?: '');
+if (!defined('SMTP_FROM_NAME'))
+    define('SMTP_FROM_NAME', getenv('SMTP_FROM_NAME') ?: '');
 
 // Fallback for GROQ
 if (!defined('GROQ_API_KEY') && getenv('GROQ_API_KEY')) {
     define('GROQ_API_KEY', getenv('GROQ_API_KEY'));
+}
+
+// Fallback for AI engine constants
+if (!defined('AI_DAILY_USER_TOKEN_LIMIT')) {
+    define('AI_DAILY_USER_TOKEN_LIMIT', (int) (getenv('AI_DAILY_USER_TOKEN_LIMIT') ?: 100000));
 }
 
 // =========================================================
@@ -86,7 +97,7 @@ if (php_sapi_name() !== 'cli') {
     // Session — must start before any output
     session_name('thinktank_session');
     $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+        || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
     session_set_cookie_params([
         'lifetime' => 60 * 60 * 24 * 30, // 30 days
         'path' => '/',
@@ -123,8 +134,7 @@ function db(): PDO
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);
         return $pdo;
-    }
-    catch (PDOException $e) {
+    } catch (PDOException $e) {
         http_response_code(500);
         // Do not expose PDOException message to the client for security
         error_log('Database connection failed: ' . $e->getMessage());
@@ -148,6 +158,15 @@ function _autoMigrate(): void
         $trainingSchemaFile = __DIR__ . '/../db_dump/002_training_schema.sql';
         if (file_exists($trainingSchemaFile)) {
             $sql = file_get_contents($trainingSchemaFile);
+            if ($sql) {
+                db()->exec($sql);
+            }
+        }
+
+        // 3. Execute 003_ai_engine.sql if AI tables do not exist
+        $aiEngineSchema = __DIR__ . '/../db_dump/003_ai_engine.sql';
+        if (file_exists($aiEngineSchema)) {
+            $sql = file_get_contents($aiEngineSchema);
             if ($sql) {
                 db()->exec($sql);
             }
@@ -186,8 +205,7 @@ function _autoMigrate(): void
               INDEX idx_tc_code (cert_code)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ");
-    }
-    catch (\Exception $e) {
+    } catch (\Exception $e) {
         // silently skip if user lacks CREATE privileges
         error_log("Auto-migration failed: " . $e->getMessage());
     }
@@ -212,7 +230,7 @@ function requireSession(): int
     if (empty($_SESSION['user_id'])) {
         respondError('Unauthorized', 401);
     }
-    return (int)$_SESSION['user_id'];
+    return (int) $_SESSION['user_id'];
 }
 
 function requireAdmin(): int
@@ -231,7 +249,7 @@ function requireRole(array|string $allowedRoles): array
 {
     $uid = requireSession();
     $roles = is_array($allowedRoles) ? $allowedRoles : [$allowedRoles];
-    
+
     $stmt = db()->prepare("SELECT id, email, full_name_en, role, is_admin, approval_status FROM users WHERE id = ?");
     $stmt->execute([$uid]);
     $user = $stmt->fetch();
@@ -249,7 +267,7 @@ function requireRole(array|string $allowedRoles): array
     }
 
     $userRole = strtolower($user['role'] ?? '');
-    $isAdmin = (bool)($user['is_admin'] || $userRole === 'admin');
+    $isAdmin = (bool) ($user['is_admin'] || $userRole === 'admin');
 
     if ($isAdmin) {
         return $user; // Admin satisfies all role checks
@@ -276,12 +294,18 @@ function body(): array
 {
     $raw = file_get_contents('php://input');
     $data = json_decode($raw, true);
-    if (!is_array($data)) return [];
+    if (!is_array($data))
+        return [];
     // Reject non-scalar values at top level to prevent NoSQL-style object injection
     // Only whitelisted fields may be arrays/objects
-    $allowedArrayFields = ['skills', 'enrolled_courses', 'availability',
-                           'required_skills', 'preferred_skills',
-                           'preferred_project_type'];
+    $allowedArrayFields = [
+        'skills',
+        'enrolled_courses',
+        'availability',
+        'required_skills',
+        'preferred_skills',
+        'preferred_project_type'
+    ];
     foreach ($data as $key => $value) {
         if (is_array($value) && !in_array($key, $allowedArrayFields, true)) {
             respondError("Invalid value for field '$key'", 400);
@@ -295,7 +319,8 @@ function body(): array
  */
 function sanitizeString($value): string
 {
-    if (!is_string($value)) return '';
+    if (!is_string($value))
+        return '';
     return trim($value);
 }
 
@@ -304,16 +329,39 @@ function sanitizeString($value): string
  */
 function validatePasswordStrength(string $password): ?string
 {
-    if (strlen($password) < 8) return 'Password must be at least 8 characters';
-    if (!preg_match('/[A-Z]/', $password)) return 'Must include an uppercase letter';
-    if (!preg_match('/[a-z]/', $password)) return 'Must include a lowercase letter';
-    if (!preg_match('/[0-9]/', $password)) return 'Must include a number';
-    if (!preg_match('/[^A-Za-z0-9]/', $password)) return 'Must include a special character';
+    if (strlen($password) < 8)
+        return 'Password must be at least 8 characters';
+    if (!preg_match('/[A-Z]/', $password))
+        return 'Must include an uppercase letter';
+    if (!preg_match('/[a-z]/', $password))
+        return 'Must include a lowercase letter';
+    if (!preg_match('/[0-9]/', $password))
+        return 'Must include a number';
+    if (!preg_match('/[^A-Za-z0-9]/', $password))
+        return 'Must include a special character';
 
-    $common = ['password','123456','password123','12345678','qwerty','abc123',
-               'admin','letmein','welcome','monkey','dragon','master','login',
-               'iloveyou','sunshine','princess','password1','1234567'];
-    if (in_array(strtolower($password), $common, true)) return 'This password is too common';
+    $common = [
+        'password',
+        '123456',
+        'password123',
+        '12345678',
+        'qwerty',
+        'abc123',
+        'admin',
+        'letmein',
+        'welcome',
+        'monkey',
+        'dragon',
+        'master',
+        'login',
+        'iloveyou',
+        'sunshine',
+        'princess',
+        'password1',
+        '1234567'
+    ];
+    if (in_array(strtolower($password), $common, true))
+        return 'This password is too common';
 
     return null;
 }
@@ -424,7 +472,7 @@ function validateInt($value, int $min = 0, int $max = PHP_INT_MAX, string $field
     if (!is_numeric($value)) {
         respondError("$fieldName must be a number");
     }
-    $v = (int)$value;
+    $v = (int) $value;
     if ($v < $min || $v > $max) {
         respondError("$fieldName must be between $min and $max");
     }

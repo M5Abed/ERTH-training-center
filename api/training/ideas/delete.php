@@ -27,7 +27,7 @@ try {
     $db = db();
 
     // Verify idea exists & check authorization
-    $stmt = $db->prepare("SELECT id, trainee_id, owner_id FROM training_ideas WHERE id = ?");
+    $stmt = $db->prepare("SELECT id, owner_id FROM training_ideas WHERE id = ?");
     $stmt->execute([$ideaId]);
     $idea = $stmt->fetch();
 
@@ -35,9 +35,8 @@ try {
         respondError('Idea not found or already deleted', 404);
     }
 
-    $ideaTraineeId = (int)($idea['trainee_id'] ?? 0);
     $ideaOwnerId = (int)($idea['owner_id'] ?? 0);
-    $isOwner = ($uid > 0 && ($uid === $ideaTraineeId || $uid === $ideaOwnerId));
+    $isOwner = ($uid > 0 && $uid === $ideaOwnerId);
 
     if (!$isOwner && !$isAdmin && !$isTrainer) {
         respondError('Unauthorized: You can only delete your own project ideas', 403);

@@ -25,8 +25,7 @@ $whereClauses = [];
 
 if ($role === 'trainee' && !$isAdmin) {
     // Trainee views their own submitted ideas
-    $whereClauses[] = "(ti.trainee_id = ? OR ti.owner_id = ?)";
-    $params[] = $uid;
+    $whereClauses[] = "ti.owner_id = ?";
     $params[] = $uid;
 }
 
@@ -52,7 +51,7 @@ $sql = "
            rev.full_name_en AS reviewer_name,
            rev.email AS reviewer_email
     FROM training_ideas ti
-    JOIN users u ON COALESCE(ti.trainee_id, ti.owner_id) = u.id
+    JOIN users u ON ti.owner_id = u.id
     JOIN training_courses tc ON ti.course_id = tc.id
     LEFT JOIN users rev ON ti.reviewed_by = rev.id
     $whereSql

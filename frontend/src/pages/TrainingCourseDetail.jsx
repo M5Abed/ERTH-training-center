@@ -841,51 +841,83 @@ export default function TrainingCourseDetail() {
                 <div className="tab-content">
                     {isTrainee ? (
                         <div className="idea-submission-box">
-                            <div className="box-header">
+                            <div className="tab-action-bar" style={{ marginBottom: '1.2rem' }}>
                                 <h3>{lang === 'ar' ? 'تقديم فكرة المشروع التدريبي' : 'Training Project Idea Submission'}</h3>
-                                <button className="btn btn-outline btn-sm" onClick={handleGenerateAiProposal} disabled={generatingAi}>
-                                    <Sparkles size={16} /> {generatingAi ? 'Generating...' : 'AI Proposal Generator'}
-                                </button>
                             </div>
 
-                            <div className="ai-box">
-                                <label>{lang === 'ar' ? 'مساعد الذكاء الاصطناعي (أدخل الكلمات المفتاحية):' : 'AI Assistant (Enter project topic / keywords):'}</label>
+                            <div className="ai-generator-card" style={{ marginBottom: '1.5rem' }}>
+                                <div className="ai-card-header">
+                                    <div className="ai-title-row">
+                                        <Sparkles size={18} className="ai-sparkle" />
+                                        <h4>{lang === 'ar' ? 'مساعد الذكاء الاصطناعي لتوليد الأفكار' : 'AI Idea Proposal Generator'}</h4>
+                                        <span className="ai-badge">{lang === 'ar' ? 'ذكي' : 'AI Powered'}</span>
+                                    </div>
+                                    <p className="ai-subtitle">
+                                        {lang === 'ar' ? 'أدخل عنوان الفكرة أو اختر موضوعاً سريعاً لتوليد المقترح بالكامل' : 'Enter keywords or pick a topic to generate a full project proposal.'}
+                                    </p>
+                                </div>
                                 <div className="ai-input-row">
                                     <input 
                                         type="text" 
-                                        placeholder="e.g. Smart E-Learning Platform for University"
+                                        placeholder={lang === 'ar' ? 'مثال: منصة تعليم ذكية لمنسوبي الجامعة' : 'e.g. Smart E-Learning Platform for University'}
                                         value={aiKeyword}
                                         onChange={e => setAiKeyword(e.target.value)}
                                     />
-                                    <button className="btn btn-primary btn-sm" onClick={handleGenerateAiProposal} disabled={generatingAi}>
-                                        <Sparkles size={16} /> Generate
+                                    <button className="btn-ai-generate" type="button" onClick={handleGenerateAiProposal} disabled={generatingAi || !aiKeyword.trim()}>
+                                        {generatingAi ? <Loader2 className="spin" size={16} /> : <Sparkles size={16} />}
+                                        <span>{lang === 'ar' ? 'توليد تلقائي' : 'Generate Proposal'}</span>
                                     </button>
+                                </div>
+                                <div className="ai-sample-pills">
+                                    <span className="pill-label">{lang === 'ar' ? 'مقترحات سريعة:' : 'Quick Topics:'}</span>
+                                    {[
+                                        { ar: '⚡ نظام حضور ذكي', en: 'Smart Attendance System' },
+                                        { ar: '🤖 شات بوت الدعم الأكاديمي', en: 'Academic Support AI Chatbot' },
+                                        { ar: '📊 لوحة تحليلات الطاقة', en: 'Energy Analytics Dashboard' }
+                                    ].map((pill, idx) => (
+                                        <button 
+                                            key={idx}
+                                            type="button" 
+                                            className="ai-pill-btn"
+                                            onClick={() => setAiKeyword(lang === 'ar' ? pill.ar : pill.en)}
+                                        >
+                                            {lang === 'ar' ? pill.ar : pill.en}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
 
-                            <form onSubmit={handleSubmitIdea}>
+                            <form onSubmit={handleSubmitIdea} className="form-section-card">
                                 <div className="form-group">
-                                    <label>Project Title (English) *</label>
-                                    <input type="text" required value={ideaTitleEn} onChange={e => setIdeaTitleEn(e.target.value)} />
+                                    <label>{lang === 'ar' ? 'عنوان المشروع (بالإنجليزي) *' : 'Project Title (English) *'}</label>
+                                    <div className="input-with-icon">
+                                        <FileText size={16} className="field-icon" />
+                                        <input type="text" required value={ideaTitleEn} onChange={e => setIdeaTitleEn(e.target.value)} placeholder={lang === 'ar' ? 'عنوان المشروع...' : 'e.g. Smart Attendance System'} />
+                                    </div>
                                 </div>
                                 <div className="form-group">
-                                    <label>Project Description *</label>
-                                    <textarea rows="4" required value={ideaDescEn} onChange={e => setIdeaDescEn(e.target.value)} />
+                                    <label>{lang === 'ar' ? 'وصف المشروع *' : 'Project Description *'}</label>
+                                    <textarea rows="4" required value={ideaDescEn} onChange={e => setIdeaDescEn(e.target.value)} placeholder={lang === 'ar' ? 'شرح فكرة المشروع وأهدافه...' : 'Describe the project idea and goals...'} />
                                 </div>
                                 <div className="form-group">
-                                    <label>Target Tech Stack</label>
-                                    <input type="text" value={techStack} onChange={e => setTechStack(e.target.value)} placeholder="React, PHP, MySQL, Docker..." />
+                                    <label>{lang === 'ar' ? 'التقنيات المستهدفة (Tech Stack)' : 'Target Tech Stack'}</label>
+                                    <div className="input-with-icon">
+                                        <Code size={16} className="field-icon" />
+                                        <input type="text" value={techStack} onChange={e => setTechStack(e.target.value)} placeholder="React, PHP, MySQL, Docker..." />
+                                    </div>
                                 </div>
-                                <div className="form-group">
-                                    <label>Problem Statement</label>
-                                    <textarea rows="3" value={problemStmt} onChange={e => setProblemStmt(e.target.value)} />
+                                <div className="form-grid-2">
+                                    <div className="form-group">
+                                        <label>{lang === 'ar' ? 'المشكلة المعالجة' : 'Problem Statement'}</label>
+                                        <textarea rows="3" value={problemStmt} onChange={e => setProblemStmt(e.target.value)} placeholder={lang === 'ar' ? 'ما هي المشكلة المعالجة؟' : 'What problem does this solve?'} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>{lang === 'ar' ? 'المخرجات المتوقعة' : 'Expected Deliverables'}</label>
+                                        <textarea rows="3" value={expectedOutput} onChange={e => setExpectedOutput(e.target.value)} placeholder={lang === 'ar' ? 'المخرجات النهائية للتسليم...' : 'Expected final outputs...'} />
+                                    </div>
                                 </div>
-                                <div className="form-group">
-                                    <label>Expected Output</label>
-                                    <textarea rows="3" value={expectedOutput} onChange={e => setExpectedOutput(e.target.value)} />
-                                </div>
-                                <button type="submit" className="btn btn-primary" disabled={submittingIdea}>
-                                    {submittingIdea ? <Loader2 className="spin" size={16} /> : (lang === 'ar' ? 'حفظ وإرسال الفكرة' : 'Save & Submit Idea')}
+                                <button type="submit" className="btn btn-primary btn-lg" style={{ marginTop: '0.5rem', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '8px' }} disabled={submittingIdea}>
+                                    {submittingIdea ? <Loader2 className="spin" size={18} /> : <><Send size={18} /> {lang === 'ar' ? 'حفظ وإرسال الفكرة' : 'Save & Submit Idea'}</>}
                                 </button>
                             </form>
                         </div>

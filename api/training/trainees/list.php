@@ -59,7 +59,7 @@ $stmt = $db->prepare("
         tc.name_ar       AS course_name_ar,
         (SELECT COUNT(*) FROM training_ideas ti
             WHERE ti.course_id = te.course_id
-              AND COALESCE(ti.trainee_id, ti.owner_id) = te.trainee_id
+              AND ti.owner_id = te.trainee_id
         ) AS idea_count,
         (SELECT COUNT(*) FROM trainee_topic_progress ttp
             JOIN training_topics tt ON tt.id = ttp.topic_id
