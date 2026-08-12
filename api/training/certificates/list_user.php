@@ -16,8 +16,8 @@ $targetUserId = (isset($_GET['user_id']) && $isAdmin) ? (int)$_GET['user_id'] : 
 $db = db();
 $stmt = $db->prepare("
     SELECT tc.*,
-           c.name_en AS course_title_en, c.name_ar AS course_title_ar,
-           issuer.full_name_en AS issuer_name
+           c.name AS course_title, c.name AS course_title,
+           issuer.full_name AS issuer_name
     FROM training_certificates tc
     JOIN training_courses c ON tc.course_id = c.id
     LEFT JOIN users issuer ON tc.issued_by = issuer.id

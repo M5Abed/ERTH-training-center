@@ -30,20 +30,20 @@ if ($type === 'trainees') {
     $heads = ['#', 'Student ID', 'Full Name', 'Email', 'Course', 'Source', 'Enrolled At'];
     $where = $courseId ? "WHERE te.course_id = $courseId" : "";
     $stmt  = $db->prepare("
-        SELECT te.id, u.student_id, u.full_name_en, u.email,
-               tc.name_en AS course_name,
+        SELECT te.id, u.student_id, u.full_name, u.email,
+               tc.name AS course_name,
                te.source, te.enrolled_at
         FROM trainee_enrollments te
         JOIN users u ON u.id = te.trainee_id
         JOIN training_courses tc ON tc.id = te.course_id
         $where
-        ORDER BY tc.name_en, u.full_name_en
+        ORDER BY tc.name, u.full_name
     ");
     $stmt->execute([]);
     $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $i = 1;
     foreach ($data as $r) {
-        $rows[] = [$i++, $r['student_id'] ?? '', $r['full_name_en'], $r['email'], $r['course_name'], $r['source'], $r['enrolled_at']];
+        $rows[] = [$i++, $r['student_id'] ?? '', $r['full_name'], $r['email'], $r['course_name'], $r['source'], $r['enrolled_at']];
     }
 }
 
@@ -52,8 +52,8 @@ if ($type === 'ideas') {
     $heads = ['#', 'Title', 'Trainee', 'Student ID', 'Course', 'Status', 'Avg Rating', 'Votes', 'Submitted At'];
     $where = $courseId ? "WHERE ti.course_id = $courseId" : "";
     $stmt  = $db->prepare("
-        SELECT ti.id, ti.title_en, u.full_name_en AS trainee_name, u.student_id,
-               tc.name_en AS course_name, ti.status,
+        SELECT ti.id, ti.title, u.full_name AS trainee_name, u.student_id,
+               tc.name AS course_name, ti.status,
                COALESCE(AVG(tv.rating), 0) AS avg_rating,
                COUNT(tv.id) AS vote_count,
                ti.created_at
@@ -69,7 +69,7 @@ if ($type === 'ideas') {
     $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $i = 1;
     foreach ($data as $r) {
-        $rows[] = [$i++, $r['title_en'], $r['trainee_name'], $r['student_id'] ?? '', $r['course_name'], $r['status'], round((float)$r['avg_rating'], 1), (int)$r['vote_count'], $r['created_at']];
+        $rows[] = [$i++, $r['title'], $r['trainee_name'], $r['student_id'] ?? '', $r['course_name'], $r['status'], round((float)$r['avg_rating'], 1), (int)$r['vote_count'], $r['created_at']];
     }
 }
 
@@ -78,22 +78,22 @@ if ($type === 'evaluations') {
     $heads = ['#', 'Trainee', 'Student ID', 'Email', 'Course', 'Score', 'Status', 'Feedback', 'Evaluated By', 'Evaluated At'];
     $where = $courseId ? "WHERE te_ev.course_id = $courseId" : "";
     $stmt  = $db->prepare("
-        SELECT te_ev.id, u.full_name_en, u.student_id, u.email,
-               tc.name_en AS course_name,
+        SELECT te_ev.id, u.full_name, u.student_id, u.email,
+               tc.name AS course_name,
                te_ev.final_score, te_ev.status, te_ev.feedback,
-               ev.full_name_en AS evaluator_name, te_ev.evaluated_at
+               ev.full_name AS evaluator_name, te_ev.evaluated_at
         FROM training_evaluations te_ev
         JOIN users u   ON u.id = te_ev.trainee_id
         JOIN training_courses tc ON tc.id = te_ev.course_id
         LEFT JOIN users ev ON ev.id = te_ev.evaluator_id
         $where
-        ORDER BY tc.name_en, u.full_name_en
+        ORDER BY tc.name, u.full_name
     ");
     $stmt->execute([]);
     $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $i = 1;
     foreach ($data as $r) {
-        $rows[] = [$i++, $r['full_name_en'], $r['student_id'] ?? '', $r['email'], $r['course_name'], $r['final_score'], $r['status'], $r['feedback'] ?? '', $r['evaluator_name'] ?? '', $r['evaluated_at']];
+        $rows[] = [$i++, $r['full_name'], $r['student_id'] ?? '', $r['email'], $r['course_name'], $r['final_score'], $r['status'], $r['feedback'] ?? '', $r['evaluator_name'] ?? '', $r['evaluated_at']];
     }
 }
 

@@ -151,7 +151,7 @@ export default function Profile() {
 
     // Edit profile modal handlers
     const openEditModal = () => {
-        setEditName(profile?.full_name || profile?.full_name_en || '');
+        setEditName(profile?.full_name || profile?.full_name || '');
         setEditBio(profile?.bio || '');
         setEditYear(profile?.academic_year || '');
         const colKey = profile?.college_key || '';
@@ -201,7 +201,7 @@ export default function Profile() {
 
         setSaving(true);
         const res = await upsertUserProfile({
-            full_name_en: editName,
+            full_name: editName,
             bio: editBio,
             academic_year: editYear || undefined,
             college_key: collegeKeyFinal || undefined,
@@ -304,7 +304,7 @@ export default function Profile() {
                 )}
                 <div className="profile-avatar-wrap">
                     <div className="profile-avatar">
-                        {profile.avatar_url ? <img src={profile.avatar_url} alt="" /> : <span>{(profile.full_name || profile.full_name_en || '?')[0].toUpperCase()}</span>}
+                        {profile.avatar_url ? <img src={profile.avatar_url} alt="" /> : <span>{(profile.full_name || profile.full_name || '?')[0].toUpperCase()}</span>}
                     </div>
                     {isOwnProfile && (
                         <div className="avatar-actions">
@@ -321,7 +321,7 @@ export default function Profile() {
                     )}
                 </div>
                 <div className="profile-info">
-                    <h1>{profile.full_name || profile.full_name_en || user?.email}</h1>
+                    <h1>{profile.full_name || profile.full_name || user?.email}</h1>
                     {profile.username && (
                         <span className="profile-username">@{profile.username}</span>
                     )}
@@ -656,7 +656,7 @@ export default function Profile() {
                                 <Link key={p.id} to={`/project/${p.id}`} className="profile-project-card">
                                     <FolderKanban size={16} />
                                     <div>
-                                        <span className="project-card-title">{lang === 'ar' && p.title_ar ? p.title_ar : (p.title || p.title_en)}</span>
+                                        <span className="project-card-title">{lang === 'ar' && p.title_ar ? p.title_ar : (p.title || p.title)}</span>
                                         <span className="project-card-status" style={{ color: p.status === 'open' ? 'var(--green)' : p.status === 'completed' ? 'var(--muted)' : 'var(--amber)' }}>
                                             {p.status}
                                         </span>
@@ -714,7 +714,7 @@ export default function Profile() {
                                         {sentApps.map(a => (
                                             <div key={a.id} className="inv-card">
                                                 <div className="inv-card-top">
-                                                    <span className="inv-project">{lang === 'ar' ? (a.projects?.title_ar || a.projects?.title_en) : (a.projects?.title_en || '—')}</span>
+                                                    <span className="inv-project">{lang === 'ar' ? (a.projects?.title_ar || a.projects?.title) : (a.projects?.title || '—')}</span>
                                                     <span className={`inv-badge inv-badge--${a.status}`}>
                                                         {a.status === 'accepted' ? '✓ Accepted' : a.status === 'rejected' ? '✗ Declined' : '⏳ Pending'}
                                                     </span>
@@ -744,9 +744,9 @@ export default function Profile() {
                                                 <div className="inv-card-top">
                                                     <div>
                                                         <Link to={`/profile/${a.applicant_id}`} className="inv-sender" style={{ fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>
-                                                            {a.applicant?.full_name_en || 'Unknown'}
+                                                            {a.applicant?.full_name || 'Unknown'}
                                                         </Link>
-                                                        <span className="inv-project-sm">{lang === 'ar' ? 'لمشروع: ' : 'For: '}{lang === 'ar' ? (a.projects?.title_ar || a.projects?.title_en) : (a.projects?.title_en || '—')}</span>
+                                                        <span className="inv-project-sm">{lang === 'ar' ? 'لمشروع: ' : 'For: '}{lang === 'ar' ? (a.projects?.title_ar || a.projects?.title) : (a.projects?.title || '—')}</span>
                                                     </div>
                                                     <span className={`inv-badge inv-badge--${a.status}`}>
                                                         {a.status === 'accepted' ? '✓ Accepted' : a.status === 'rejected' ? '✗ Declined' : '⏳ Pending'}
@@ -791,7 +791,7 @@ export default function Profile() {
                                             <Award size={22} />
                                         </div>
                                         <div>
-                                            <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-1)' }}>{cert.course_title_en}</h4>
+                                            <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-1)' }}>{cert.course_title}</h4>
                                             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Code: {cert.cert_code}</span>
                                         </div>
                                     </div>
@@ -804,8 +804,8 @@ export default function Profile() {
                                             style={{ flex: 1, gap: '0.35rem' }}
                                             onClick={() => {
                                                 setSelectedCertData({
-                                                    studentName: profile?.full_name_en || profile?.full_name || 'Trainee',
-                                                    courseTitle: cert.course_title_en,
+                                                    studentName: profile?.full_name || profile?.full_name || 'Trainee',
+                                                    courseTitle: cert.course_title,
                                                     issueDate: cert.issued_at ? new Date(cert.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '10 August 2026',
                                                     certCode: cert.cert_code,
                                                     downloadUrl: `/api/training/certificates/download.php?code=${cert.cert_code}`,

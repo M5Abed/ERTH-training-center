@@ -27,7 +27,7 @@ if ($courseId) {
     $params[] = $courseId;
 }
 if ($search) {
-    $where   .= " AND (u.full_name_en LIKE ? OR u.email LIKE ? OR u.student_id LIKE ?)";
+    $where   .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR u.student_id LIKE ?)";
     $like     = "%$search%";
     $params[] = $like;
     $params[] = $like;
@@ -51,12 +51,12 @@ $stmt = $db->prepare("
         te.course_id,
         te.source,
         te.enrolled_at,
-        u.full_name_en,
+        u.full_name,
         u.email,
         u.student_id,
         u.avatar_url,
-        tc.name_en       AS course_name_en,
-        tc.name_ar       AS course_name_ar,
+        tc.name       AS course_name,
+        tc.name       AS course_name,
         (SELECT COUNT(*) FROM training_ideas ti
             WHERE ti.course_id = te.course_id
               AND ti.owner_id = te.trainee_id
@@ -70,7 +70,7 @@ $stmt = $db->prepare("
     JOIN users u ON u.id = te.trainee_id
     JOIN training_courses tc ON tc.id = te.course_id
     $where
-    ORDER BY tc.name_en, u.full_name_en
+    ORDER BY tc.name, u.full_name
     LIMIT $perPage OFFSET $offset
 ");
 $stmt->execute($params);

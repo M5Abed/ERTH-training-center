@@ -186,8 +186,8 @@ export default function ProjectDetail() {
 
     // Open edit modal (#16)
     const openEditModal = () => {
-        setEditTitle(project.title_en || project.title || '');
-        setEditDesc(project.description_en || project.description || '');
+        setEditTitle(project.title || project.title || '');
+        setEditDesc(project.description || project.description || '');
         setEditType(project.type || '');
         setEditTeamSize(project.team_size_needed || project.team_size || '');
         setEditDeadline(project.deadline ? project.deadline.split('T')[0] : '');
@@ -214,8 +214,8 @@ export default function ProjectDetail() {
         const collegeKeyFinal = editCollege === 'other' ? editCustomCollege.trim() : editCollege;
         setEditSaving(true);
         await updateProject(id, {
-            title_en: editTitle,
-            description_en: editDesc,
+            title: editTitle,
+            description: editDesc,
             type: editType,
             team_size: parseInt(editTeamSize) || 4,
             deadline: editDeadline || null,
@@ -257,7 +257,7 @@ export default function ProjectDetail() {
                 <div className="pd-main">
                     <div className="pd-header">
                         <div className="pd-title-row">
-                            <h1>{lang === 'ar' && project.title_ar ? project.title_ar : (project.title_en || project.title)}</h1>
+                            <h1>{lang === 'ar' && project.title_ar ? project.title_ar : (project.title || project.title)}</h1>
                             <div className="pd-badges">
                                 <span className="project-status" style={{ color: getStatusColor(project.status) }}>
                                     <span className="status-dot" style={{ background: getStatusColor(project.status) }} />
@@ -269,7 +269,7 @@ export default function ProjectDetail() {
                         <div className="pd-meta">
                             <span className="meta-item"><Users size={14} /> {team.length}/{project.team_size_needed || project.team_size || '?'}</span>
                             {project.deadline && <span className="meta-item"><Calendar size={14} /> {new Date(project.deadline).toLocaleDateString()}</span>}
-                            <span className="meta-item">{t('posted_by')} <Link to={`/profile/${project.owner_id}`} className="pd-owner-link">{project.owner_name_en || project.owner_name || 'Unknown'}</Link></span>
+                            <span className="meta-item">{t('posted_by')} <Link to={`/profile/${project.owner_id}`} className="pd-owner-link">{project.owner_name || project.owner_name || 'Unknown'}</Link></span>
                             {project.course_name && <span className="meta-item"><BookOpen size={14} /> {project.course_name}</span>}
                         </div>
 
@@ -297,7 +297,7 @@ export default function ProjectDetail() {
                     </div>
 
                     <div className="pd-desc">
-                        <p>{lang === 'ar' && project.description_ar ? project.description_ar : (project.description_en || project.description)}</p>
+                        <p>{lang === 'ar' && project.description_ar ? project.description_ar : (project.description || project.description)}</p>
                         {project.project_skills?.length > 0 && (
                             <div className="pd-desc-skills" style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
                                 <h4 style={{ marginBottom: '0.75rem', fontSize: '0.9rem', color: 'var(--text-2)' }}>{t('required_skills')}</h4>
@@ -464,10 +464,10 @@ export default function ProjectDetail() {
                                                         <Link to={`/profile/${a.applicant_id}`} style={{ width: '24px', height: '24px', borderRadius: '50%', overflow: 'hidden', background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                             {a.avatar_url
                                                                 ? <img src={a.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                                : <span style={{ fontSize: '10px', color: 'var(--primary-l)', fontWeight: 'bold' }}>{(a.full_name_en || a.email || '?')[0].toUpperCase()}</span>
+                                                                : <span style={{ fontSize: '10px', color: 'var(--primary-l)', fontWeight: 'bold' }}>{(a.full_name || a.email || '?')[0].toUpperCase()}</span>
                                                             }
                                                         </Link>
-                                                        <Link to={`/profile/${a.applicant_id}`} className="pd-app-name" style={{ flex: 1, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{a.full_name_en || a.email}</Link>
+                                                        <Link to={`/profile/${a.applicant_id}`} className="pd-app-name" style={{ flex: 1, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{a.full_name || a.email}</Link>
                                                         <span className={`pd-app-status pd-app-status--${a.status}`}>{a.status}</span>
                                                     </div>
                                                     {a.message && <p className="pd-app-msg">{a.message}</p>}
@@ -658,12 +658,12 @@ export default function ProjectDetail() {
                                             <div className="pd-member-info">
                                                 <div className="pd-member-avatar">
                                                     {staff.avatar_url
-                                                        ? <img src={staff.avatar_url} alt={staff.full_name_en} />
-                                                        : (staff.full_name_en || '?')[0].toUpperCase()
+                                                        ? <img src={staff.avatar_url} alt={staff.full_name} />
+                                                        : (staff.full_name || '?')[0].toUpperCase()
                                                     }
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                    <span style={{ fontWeight: 600 }}>{staff.full_name_en}</span>
+                                                    <span style={{ fontWeight: 600 }}>{staff.full_name}</span>
                                                     <span style={{ fontSize: '0.7rem', color: 'var(--muted)', textTransform: 'capitalize' }}>
                                                         {staff.role}
                                                     </span>

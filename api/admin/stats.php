@@ -23,7 +23,7 @@ $docCompletionRate = $totalCourses > 0 ? round(($coursesWithDocs / $totalCourses
 // ── Per-course overview ───────────────────────────────────────────────────────
 $courseRows = $db->query("
     SELECT 
-        tc.id, tc.name_en, tc.name_ar, tc.status, tc.start_date, tc.end_date,
+        tc.id, tc.name, tc.name, tc.status, tc.start_date, tc.end_date,
         COUNT(DISTINCT te.trainee_id) AS trainee_count,
         COUNT(DISTINCT ti.id)         AS idea_count,
         COUNT(DISTINCT td.id)         AS doc_count
@@ -58,7 +58,7 @@ try { $totalProjects = (int)$db->query("SELECT COUNT(*) FROM projects")->fetchCo
 
 // ── Users list (admin panel users tab) ────────────────────────────────────────
 $users = $db->query("
-    SELECT u.id, u.full_name_en, u.email,
+    SELECT u.id, u.full_name, u.email,
            u.college_key, u.academic_year, u.avatar_url,
            u.avg_rating, u.created_at, u.student_id, u.role
     FROM users u

@@ -42,7 +42,7 @@ if (!$rateCheck['allowed']) {
 }
 
 // ── Look up user ──
-$stmt = db()->prepare("SELECT id, email, full_name_en, email_verified FROM users WHERE email = ?");
+$stmt = db()->prepare("SELECT id, email, full_name, email_verified FROM users WHERE email = ?");
 $stmt->execute([$email]);
 $user = $stmt->fetch();
 
@@ -51,7 +51,7 @@ $user = $stmt->fetch();
 if ($user && $user['email_verified']) {
     try {
         $otpCode = createOtp((int)$user['id'], $user['email'], 'password_reset');
-        sendOtpEmail($user['email'], $user['full_name_en'] ?: 'User', $otpCode);
+        sendOtpEmail($user['email'], $user['full_name'] ?: 'User', $otpCode);
 
         // Store in session for the next step
         $_SESSION['reset_user_id'] = $user['id'];

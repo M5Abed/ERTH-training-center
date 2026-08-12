@@ -64,7 +64,7 @@ if ($method === 'GET') {
         $data['username'] = $username;
     }
 
-    $allowed = ['full_name_en','username','college_key','academic_year','major',
+    $allowed = ['full_name','username','college_key','academic_year','major',
                 'semester','enrolled_courses','bio','avatar_url','availability'];
     $set  = [];
     $vals = [];

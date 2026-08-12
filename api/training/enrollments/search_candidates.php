@@ -24,12 +24,12 @@ $params = [];
 
 if ($q !== '') {
     $like = '%' . $q . '%';
-    $where .= " AND (u.full_name_en LIKE ? OR u.student_id LIKE ? OR u.email LIKE ? OR u.username LIKE ? OR CAST(u.id AS CHAR) = ?)";
+    $where .= " AND (u.full_name LIKE ? OR u.student_id LIKE ? OR u.email LIKE ? OR u.username LIKE ? OR CAST(u.id AS CHAR) = ?)";
     $params = [$like, $like, $like, $like, $q];
 }
 
 $query = "
-    SELECT u.id, u.username, u.full_name_en, u.email, u.student_id AS academic_id, 
+    SELECT u.id, u.username, u.full_name, u.email, u.student_id AS academic_id, 
            u.college_key, u.academic_year, u.major, u.avatar_url, u.role,
            CASE WHEN te.id IS NOT NULL THEN 1 ELSE 0 END AS is_enrolled
     FROM users u
@@ -37,7 +37,7 @@ $query = "
     WHERE $where
     ORDER BY 
         is_enrolled ASC,
-        u.full_name_en ASC
+        u.full_name ASC
     LIMIT $limit OFFSET $offset
 ";
 

@@ -9,7 +9,7 @@ $traineePass = password_hash('Trainee123!', PASSWORD_BCRYPT);
 
 // 1. Admin Accounts
 $stmt = $db->prepare("
-    INSERT INTO users (username, email, password_hash, role, is_admin, email_verified, approval_status, full_name_en, department) 
+    INSERT INTO users (username, email, password_hash, role, is_admin, email_verified, approval_status, full_name, department) 
     VALUES ('admin', 'admin@nmu.edu.eg', ?, 'admin', 1, 1, 'approved', 'System Administrator', 'Training Administration')
     ON DUPLICATE KEY UPDATE 
         password_hash = VALUES(password_hash), 
@@ -17,12 +17,12 @@ $stmt = $db->prepare("
         is_admin = 1, 
         email_verified = 1, 
         approval_status = 'approved',
-        full_name_en = 'System Administrator'
+        full_name = 'System Administrator'
 ");
 $stmt->execute([$adminPass]);
 
 $stmt = $db->prepare("
-    INSERT INTO users (username, email, password_hash, role, is_admin, email_verified, approval_status, full_name_en, department) 
+    INSERT INTO users (username, email, password_hash, role, is_admin, email_verified, approval_status, full_name, department) 
     VALUES ('mohamed', 'mohamed223101290@nmu.edu.eg', ?, 'admin', 1, 1, 'approved', 'Mohamed Admin', 'Training Administration')
     ON DUPLICATE KEY UPDATE 
         password_hash = VALUES(password_hash), 
@@ -30,13 +30,13 @@ $stmt = $db->prepare("
         is_admin = 1, 
         email_verified = 1, 
         approval_status = 'approved',
-        full_name_en = 'Mohamed Admin'
+        full_name = 'Mohamed Admin'
 ");
 $stmt->execute([$adminPass]);
 
 // 2. Trainer Account
 $stmt = $db->prepare("
-    INSERT INTO users (username, email, password_hash, role, is_admin, email_verified, approval_status, full_name_en, department) 
+    INSERT INTO users (username, email, password_hash, role, is_admin, email_verified, approval_status, full_name, department) 
     VALUES ('trainer', 'trainer@nmu.edu.eg', ?, 'trainer', 0, 1, 'approved', 'Dr. Ahmed Trainer', 'Computer Science')
     ON DUPLICATE KEY UPDATE 
         password_hash = VALUES(password_hash), 
@@ -44,13 +44,13 @@ $stmt = $db->prepare("
         is_admin = 0, 
         email_verified = 1, 
         approval_status = 'approved',
-        full_name_en = 'Dr. Ahmed Trainer'
+        full_name = 'Dr. Ahmed Trainer'
 ");
 $stmt->execute([$trainerPass]);
 
 // 3. Trainee Account
 $stmt = $db->prepare("
-    INSERT INTO users (username, email, password_hash, role, is_admin, email_verified, approval_status, full_name_en, student_id, academic_year, major) 
+    INSERT INTO users (username, email, password_hash, role, is_admin, email_verified, approval_status, full_name, student_id, academic_year, major) 
     VALUES ('trainee', 'trainee@nmu.edu.eg', ?, 'trainee', 0, 1, 'approved', 'Omar Student', '20230001', 3, 'Software Engineering')
     ON DUPLICATE KEY UPDATE 
         password_hash = VALUES(password_hash), 
@@ -58,7 +58,7 @@ $stmt = $db->prepare("
         is_admin = 0, 
         email_verified = 1, 
         approval_status = 'approved',
-        full_name_en = 'Omar Student'
+        full_name = 'Omar Student'
 ");
 $stmt->execute([$traineePass]);
 

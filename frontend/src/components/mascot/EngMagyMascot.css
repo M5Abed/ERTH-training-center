@@ -21,26 +21,32 @@
     align-items: flex-start;
 }
 
-/* Pure Floating Speech Pop-up (No Box, No Card Background) */
+/* Elegant Glassmorphic Speech Bubble */
 .magy-speech-bubble {
     pointer-events: auto;
     position: relative;
-    margin-bottom: 0.5rem;
-    max-width: 340px;
+    margin-bottom: 0.8rem;
+    max-width: 320px;
     width: max-content;
-    background: transparent !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0.25rem 0.5rem;
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    border-radius: 16px;
+    border-bottom-right-radius: 4px;
+    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08) !important;
+    padding: 0.85rem 1.15rem;
     transition: all 0.25s ease;
     transform-origin: bottom right;
 }
 
 [dir="rtl"] .magy-speech-bubble {
     transform-origin: bottom left;
+    border-bottom-right-radius: 16px;
+    border-bottom-left-radius: 4px;
 }
+
+
 
 .magy-bubble-pop {
     animation: magyPopIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -62,115 +68,31 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.35rem;
 }
 
 .magy-avatar-title {
-    font-size: 0.85rem;
-    font-weight: 800;
+    font-size: 0.82rem;
+    font-weight: 700;
     color: #dc2626;
-    text-shadow: 0 1px 3px rgba(255, 255, 255, 0.9), 0 2px 6px rgba(255, 255, 255, 0.8);
+    letter-spacing: 0.2px;
 }
 
-[data-theme="dark"] .magy-avatar-title {
-    color: #f87171;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9), 0 2px 8px rgba(0, 0, 0, 0.8);
-}
 
-.magy-close-bubble-btn {
-    background: rgba(15, 23, 42, 0.08);
-    border: none;
-    color: #475569;
-    cursor: pointer;
-    padding: 3px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-}
-
-.magy-close-bubble-btn:hover {
-    background: rgba(220, 38, 38, 0.15);
-    color: #dc2626;
-}
-
-[data-theme="dark"] .magy-close-bubble-btn {
-    background: rgba(255, 255, 255, 0.12);
-    color: #cbd5e1;
-}
 
 .magy-bubble-text {
     font-size: 0.92rem;
     line-height: 1.6;
-    color: #0f172a;
-    font-weight: 700;
-    margin: 0 0 0.4rem 0;
+    color: #1e293b;
+    font-weight: 500;
+    margin: 0;
     direction: rtl;
     text-align: right;
-    text-shadow: 0 1px 3px rgba(255, 255, 255, 0.95), 0 2px 8px rgba(255, 255, 255, 0.85);
 }
 
-[data-theme="dark"] .magy-bubble-text {
-    color: #f8fafc;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 2px 10px rgba(0, 0, 0, 0.9);
-}
 
-.magy-bubble-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    margin-top: 0.2rem;
-}
 
-.magy-sub-tag {
-    font-size: 0.7rem;
-    font-weight: 800;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
-}
 
-[data-theme="dark"] .magy-sub-tag {
-    color: #64748b;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-}
-
-.magy-next-tip-btn {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(226, 232, 240, 0.8);
-    color: #334155;
-    font-size: 0.72rem;
-    font-weight: 700;
-    padding: 0.2rem 0.55rem;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-}
-
-.magy-next-tip-btn:hover {
-    background: #ffffff;
-    color: #dc2626;
-    border-color: #dc2626;
-}
-
-[data-theme="dark"] .magy-next-tip-btn {
-    background: rgba(30, 41, 59, 0.8);
-    border-color: rgba(255, 255, 255, 0.15);
-    color: #cbd5e1;
-}
-
-[data-theme="dark"] .magy-next-tip-btn:hover {
-    background: #1e293b;
-    color: #f87171;
-    border-color: #f87171;
-}
 
 .magy-speech-tail {
     display: none;
@@ -186,47 +108,7 @@
     background: transparent !important;
 }
 
-.magy-controls-bar {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: rgba(15, 23, 42, 0.8);
-    backdrop-filter: blur(6px);
-    padding: 2px 5px;
-    border-radius: 50px;
-    margin-bottom: 2px;
-    opacity: 0;
-    transform: translateY(4px);
-    transition: all 0.2s ease;
-}
 
-.magy-mascot-container:hover .magy-controls-bar {
-    opacity: 1;
-    transform: translateY(0);
-}
-
-.magy-control-btn {
-    background: transparent;
-    border: none;
-    color: #cbd5e1;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.magy-control-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-    color: #ffffff;
-}
-
-.magy-control-btn.active {
-    color: #ef4444;
-}
 
 /* Floating Animated Mascot Character */
 .magy-figure-wrapper {
@@ -276,66 +158,4 @@
     60% { transform: translateY(0) scale(0.97) rotate(1deg); }
 }
 
-/* Minimized Floating Pill */
-.magy-mascot-minimized {
-    position: fixed;
-    bottom: 1.5rem;
-    right: 1.5rem;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(226, 232, 240, 0.9);
-    padding: 0.3rem 0.75rem 0.3rem 0.35rem;
-    border-radius: 50px;
-    box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.12);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
 
-[dir="rtl"] .magy-mascot-minimized {
-    right: auto;
-    left: 1.5rem;
-    padding: 0.3rem 0.35rem 0.3rem 0.75rem;
-}
-
-.magy-mascot-minimized:hover {
-    transform: translateY(-2px) scale(1.03);
-    border-color: rgba(220, 38, 38, 0.4);
-}
-
-.magy-mini-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    overflow: hidden;
-    background: transparent;
-    border: 1.5px solid #dc2626;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.magy-mini-avatar img {
-    height: 44px;
-    width: auto;
-    object-fit: cover;
-    margin-top: 4px;
-}
-
-.magy-mini-badge {
-    font-size: 0.82rem;
-    font-weight: 800;
-    color: #0f172a;
-}
-
-[data-theme="dark"] .magy-mascot-minimized {
-    background: rgba(15, 23, 42, 0.95);
-    border-color: rgba(255, 255, 255, 0.15);
-}
-
-[data-theme="dark"] .magy-mini-badge {
-    color: #f8fafc;
-}

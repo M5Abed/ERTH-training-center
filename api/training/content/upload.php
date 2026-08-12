@@ -13,8 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $topicId = (int)($_POST['topic_id'] ?? 0);
-$titleEn = sanitizeString($_POST['title_en'] ?? '');
-$titleAr = sanitizeString($_POST['title_ar'] ?? '');
+$titleEn = sanitizeString($_POST['title'] ?? '');
+$titleAr = sanitizeString($_POST['title'] ?? '');
 $type    = trim(strtolower($_POST['type'] ?? 'pdf')); // pdf, word, video
 
 if (!$topicId || empty($_FILES['file'])) {
@@ -63,7 +63,7 @@ $publicUrl = '/uploads/training/' . $topicId . '/' . $filename;
 
 $db = db();
 $stmt = $db->prepare("
-    INSERT INTO topic_content (topic_id, uploaded_by, type, title_en, title_ar, url, file_size)
+    INSERT INTO topic_content (topic_id, uploaded_by, type, title, title, url, file_size)
     VALUES (?, ?, ?, ?, ?, ?, ?)
 ");
 $stmt->execute([
@@ -78,7 +78,7 @@ $stmt->execute([
 $contentId = (int)$db->lastInsertId();
 
 // Notify enrolled trainees of new material
-$topicRow = $db->prepare("SELECT tt.course_id, tt.title_en FROM training_topics tt WHERE tt.id = ?");
+$topicRow = $db->prepare("SELECT tt.course_id, tt.title FROM training_topics tt WHERE tt.id = ?");
 $topicRow->execute([$topicId]);
 $topic = $topicRow->fetch();
 if ($topic) {
@@ -89,8 +89,8 @@ if ($topic) {
         $matTitle = $titleEn ?: $file['name'];
         $nStmt = $db->prepare("INSERT INTO notifications (user_id, type, message_en, message_ar) VALUES (?, 'new_content', ?, ?)");
         foreach ($enrolled as $tid) {
-            $msgEn = "New material added to topic \"{$topic['title_en']}\": $matTitle";
-            $msgAr = "تم إضافة مادة جديدة إلى الموضوع \"{$topic['title_en']}\": $matTitle";
+            $msgEn = "New material added to topic \"{$topic['title']}\": $matTitle";
+            $msgAr = "تم إضافة مادة جديدة إلى الموضوع \"{$topic['title']}\": $matTitle";
             $nStmt->execute([(int)$tid, $msgEn, $msgAr]);
         }
     }

@@ -10,7 +10,7 @@ $totalCourses    = (int)$db->query("SELECT COUNT(*) FROM training_courses WHERE 
 
 $courseRows = $db->query("
     SELECT 
-        tc.id, tc.name_en, tc.name_ar, tc.status, tc.start_date, tc.end_date,
+        tc.id, tc.name, tc.name, tc.status, tc.start_date, tc.end_date,
         COUNT(DISTINCT te.trainee_id) AS trainee_count,
         COUNT(DISTINCT ti.id)         AS idea_count,
         COUNT(DISTINCT td.id)         AS doc_count

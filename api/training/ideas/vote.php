@@ -70,7 +70,7 @@ try {
     } catch (Exception $e) {}
 
     // Verify idea exists
-    $stmt = $db->prepare("SELECT id, title_en, status FROM training_ideas WHERE id = ?");
+    $stmt = $db->prepare("SELECT id, title, status FROM training_ideas WHERE id = ?");
     $stmt->execute([$ideaId]);
     $idea = $stmt->fetch();
 
@@ -93,7 +93,7 @@ try {
 
     // Fetch updated vote summary for this idea
     $votesStmt = $db->prepare("
-        SELECT tv.*, COALESCE(u.full_name_en, u.username, u.email) AS evaluator_name, u.role AS evaluator_role
+        SELECT tv.*, COALESCE(u.full_name, u.username, u.email) AS evaluator_name, u.role AS evaluator_role
         FROM training_votes tv
         JOIN users u ON tv.evaluator_id = u.id
         WHERE tv.idea_id = ?

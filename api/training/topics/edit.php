@@ -14,10 +14,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data = body();
 $topicId       = (int)($data['id'] ?? 0);
-$titleEn       = sanitizeString($data['title_en'] ?? '');
-$titleAr       = sanitizeString($data['title_ar'] ?? '');
-$descriptionEn = sanitizeString($data['description_en'] ?? '');
-$descriptionAr = sanitizeString($data['description_ar'] ?? '');
+$titleEn       = sanitizeString($data['title'] ?? '');
+$titleAr       = sanitizeString($data['title'] ?? '');
+$descriptionEn = sanitizeString($data['description'] ?? '');
+$descriptionAr = sanitizeString($data['description'] ?? '');
 $dueDate       = trim($data['due_date'] ?? '');
 
 if (!$topicId || !$titleEn) {
@@ -27,7 +27,7 @@ if (!$topicId || !$titleEn) {
 $db = db();
 $stmt = $db->prepare("
     UPDATE training_topics 
-    SET title_en = ?, title_ar = ?, description_en = ?, description_ar = ?, due_date = ?
+    SET title = ?, title = ?, description = ?, description = ?, due_date = ?
     WHERE id = ?
 ");
 $stmt->execute([

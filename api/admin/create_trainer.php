@@ -15,7 +15,7 @@ $data = body();
 $email      = trim(strtolower($data['email'] ?? ''));
 $username   = trim($data['username'] ?? '');
 $password   = $data['password'] ?? '';
-$name       = trim($data['full_name_en'] ?? '');
+$name       = trim($data['full_name'] ?? '');
 $college    = trim($data['college_key'] ?? '');
 $department = trim($data['department'] ?? '');
 
@@ -47,7 +47,7 @@ if ($chk->fetch()) {
 // Create account with role='trainer', approval_status='approved', email_verified=1
 $hash = password_hash($password, PASSWORD_DEFAULT);
 $ins = db()->prepare("
-    INSERT INTO users (email, username, password_hash, full_name_en, role, college_key, department, approval_status, email_verified, created_at)
+    INSERT INTO users (email, username, password_hash, full_name, role, college_key, department, approval_status, email_verified, created_at)
     VALUES (?, ?, ?, ?, 'trainer', ?, ?, 'approved', 1, NOW())
 ");
 $ins->execute([$email, $username, $hash, $name, $college ?: null, $department ?: null]);

@@ -102,7 +102,7 @@ export default function IdeaLeaderboard() {
                         <option value="">{lang === 'ar' ? 'جميع الدورات' : 'All Courses'}</option>
                         {courses.map(c => (
                             <option key={c.id} value={c.id}>
-                                {lang === 'ar' && c.name_ar ? c.name_ar : c.name_en}
+                                {c.name}
                             </option>
                         ))}
                     </select>
@@ -129,7 +129,7 @@ export default function IdeaLeaderboard() {
                                         <div className="podium-medal" style={{ background: medalColors[rank - 1] }}>
                                             {rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉'}
                                         </div>
-                                        <h4>{idea.title_en || idea.title_ar}</h4>
+                                        <h4>{idea.title || idea.title_ar}</h4>
                                         <p className="podium-trainee"><User size={12} /> {idea.trainee_name || 'Unknown'}</p>
                                         <div className="podium-score">
                                             <Star size={14} fill="#F59E0B" stroke="#F59E0B" />
@@ -164,9 +164,9 @@ export default function IdeaLeaderboard() {
                                             </span>
                                         </td>
                                         <td>
-                                            <strong>{idea.title_en || idea.title_ar}</strong>
-                                            {idea.description_en && (
-                                                <p className="lb-desc">{idea.description_en.substring(0, 80)}…</p>
+                                            <strong>{idea.title || idea.title_ar}</strong>
+                                            {idea.description && (
+                                                <p className="lb-desc">{idea.description.substring(0, 80)}…</p>
                                             )}
                                         </td>
                                         <td>
@@ -179,7 +179,7 @@ export default function IdeaLeaderboard() {
                                         <td>
                                             <span className="course-tag-sm">
                                                 <BookOpen size={12} />
-                                                {lang === 'ar' && idea.course_name_ar ? idea.course_name_ar : idea.course_name_en}
+                                                {idea.course_name}
                                             </span>
                                         </td>
                                         <td>

@@ -162,7 +162,7 @@ export default function Topbar({ onMenuClick }) {
         });
     }
 
-    const displayName = profile?.full_name_en || profile?.full_name || user?.email?.split('@')[0] || '';
+    const displayName = profile?.full_name || profile?.full_name || user?.email?.split('@')[0] || '';
     const initials = displayName.charAt(0).toUpperCase();
 
     return (

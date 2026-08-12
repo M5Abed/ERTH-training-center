@@ -38,7 +38,7 @@ export default function Dashboard() {
         load();
     }, [user]);
 
-    const displayName = profile?.full_name_en || profile?.full_name || user?.email?.split('@')[0] || '';
+    const displayName = profile?.full_name || profile?.full_name || user?.email?.split('@')[0] || '';
 
     return (
         <div className="dashboard-page container">
@@ -128,7 +128,7 @@ export default function Dashboard() {
                                     </div>
                                     <div className="dash-feed-content">
                                         <p className="dash-feed-text" style={{ fontWeight: 600 }}>
-                                            {lang === 'ar' && c.name_ar ? c.name_ar : c.name_en}
+                                            {c.name}
                                         </p>
                                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                                             {c.trainee_count} {lang === 'ar' ? 'متدرب' : 'trainees'} • {c.idea_count} {lang === 'ar' ? 'فكرة' : 'ideas'} • {c.doc_count} {lang === 'ar' ? 'وثيقة' : 'docs'}

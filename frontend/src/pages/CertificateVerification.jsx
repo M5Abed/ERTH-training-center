@@ -136,7 +136,7 @@ export default function CertificateVerification() {
             <div className="info-list">
               <div className="info-item">
                 <span className="info-label">Trainee Full Name:</span>
-                <span className="info-value highlight-name">{trainee.full_name_en}</span>
+                <span className="info-value highlight-name">{trainee.full_name}</span>
               </div>
               <div className="info-item">
                 <span className="info-label">Student ID:</span>
@@ -169,15 +169,9 @@ export default function CertificateVerification() {
             </div>
             <div className="info-list">
               <div className="info-item full-width">
-                <span className="info-label">Course Title (English):</span>
-                <span className="info-value course-title-en">{course.name_en}</span>
+                <span className="info-label">Course Title:</span>
+                <span className="info-value course-title-en">{course.name}</span>
               </div>
-              {course.name_ar && (
-                <div className="info-item full-width">
-                  <span className="info-label">اسم البرنامج التدريبي:</span>
-                  <span className="info-value course-title-ar">{course.name_ar}</span>
-                </div>
-              )}
               <div className="info-item">
                 <span className="info-label">Track / Category:</span>
                 <span className="info-value badge-pill">{course.category || 'Computer Science'}</span>
@@ -218,8 +212,8 @@ export default function CertificateVerification() {
                 <div key={tp.id || idx} className="topic-item-box">
                   <div className="topic-badge">{idx + 1}</div>
                   <div className="topic-details">
-                    <h4>{tp.title_en} {tp.title_ar ? `(${tp.title_ar})` : ''}</h4>
-                    {tp.description_en && <p>{tp.description_en}</p>}
+                    <h4>{tp.title} {tp.title_ar ? `(${tp.title_ar})` : ''}</h4>
+                    {tp.description && <p>{tp.description}</p>}
                     {tp.duration_hours > 0 && (
                       <span className="topic-hours"><Clock size={12} /> {tp.duration_hours} Hours</span>
                     )}

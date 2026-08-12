@@ -30,8 +30,8 @@ if (!$user) {
 }
 
 // Ensure full_name is consistent
-if (empty($user['full_name']) && !empty($user['full_name_en'])) {
-    $user['full_name'] = $user['full_name_en'];
+if (empty($user['full_name']) && !empty($user['full_name'])) {
+    $user['full_name'] = $user['full_name'];
 }
 
 $user['user_skills'] = json_decode($user['user_skills'] ?? 'null', true) ?? [];

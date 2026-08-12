@@ -404,7 +404,7 @@ export default function Auth() {
         setLoading(true);
         const studentId = extractStudentId(regEmail);
         const result = await register(regEmail, regPw, {
-            full_name_en: regName,
+            full_name: regName,
             username: regUsername.trim(),
             student_id: studentId || null,
             college_key: 'cs',

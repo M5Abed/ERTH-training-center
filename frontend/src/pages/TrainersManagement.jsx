@@ -49,7 +49,7 @@ export default function TrainersManagement() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     email,
-                    full_name_en: fullName,
+                    full_name: fullName,
                     full_name_ar: fullName,
                     password,
                     department
@@ -109,7 +109,7 @@ export default function TrainersManagement() {
                         {trainers.map((t, idx) => (
                             <tr key={t.id}>
                                 <td>{idx + 1}</td>
-                                <td><strong>{t.full_name_en || t.full_name_ar || t.username}</strong></td>
+                                <td><strong>{t.full_name || t.full_name_ar || t.username}</strong></td>
                                 <td>{t.email}</td>
                                 <td>{t.department || 'Computer Science'}</td>
                                 <td><span className="source-tag">TRAINER</span></td>

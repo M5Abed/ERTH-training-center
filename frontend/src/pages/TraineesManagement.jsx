@@ -139,7 +139,7 @@ export default function TraineesManagement() {
                         <option value="">{lang === 'ar' ? 'جميع الدورات' : 'All Courses'}</option>
                         {courses.map(c => (
                             <option key={c.id} value={c.id}>
-                                {lang === 'ar' && c.name_ar ? c.name_ar : c.name_en}
+                                {c.name}
                             </option>
                         ))}
                     </select>
@@ -182,9 +182,9 @@ export default function TraineesManagement() {
                                     <td>
                                         <div className="tm-trainee-cell">
                                             <div className="tm-avatar">
-                                                {t.avatar_url ? <img src={t.avatar_url} alt="" /> : (t.full_name_en?.charAt(0) || 'U')}
+                                                {t.avatar_url ? <img src={t.avatar_url} alt="" /> : (t.full_name?.charAt(0) || 'U')}
                                             </div>
-                                            <strong>{t.full_name_en}</strong>
+                                            <strong>{t.full_name}</strong>
                                         </div>
                                     </td>
                                     <td><span className="tm-sid">{t.student_id || '-'}</span></td>
@@ -192,7 +192,7 @@ export default function TraineesManagement() {
                                     <td>
                                         <span className="tm-course-badge">
                                             <BookOpen size={12} />
-                                            {lang === 'ar' && t.course_name_ar ? t.course_name_ar : t.course_name_en}
+                                            {t.course_name}
                                         </span>
                                     </td>
                                     <td>
@@ -247,7 +247,7 @@ export default function TraineesManagement() {
                                     <option value="">-- {lang === 'ar' ? 'اختر الدورة' : 'Choose Course'} --</option>
                                     {courses.map(c => (
                                         <option key={c.id} value={c.id}>
-                                            {lang === 'ar' && c.name_ar ? c.name_ar : c.name_en}
+                                            {c.name}
                                         </option>
                                     ))}
                                 </select>

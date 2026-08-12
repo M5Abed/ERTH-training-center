@@ -211,14 +211,14 @@ export default function Reviews() {
                                     <label>{t('select_project')}</label>
                                     <select value={selectedProject} onChange={e => { setSelectedProject(e.target.value); setSelectedTeammate(''); }} required>
                                         <option value=""> </option>
-                                        {projects.map(p => <option key={p.id} value={p.id}>{lang === 'ar' ? (p.title_ar || p.title_en) : (p.title_en || p.title_ar)}</option>)}
+                                        {projects.map(p => <option key={p.id} value={p.id}>{lang === 'ar' ? (p.title_ar || p.title) : (p.title || p.title_ar)}</option>)}
                                     </select>
                                 </div>
                                 <div className="form-group">
                                     <label>{t('select_teammate')}</label>
                                     <select value={selectedTeammate} onChange={e => setSelectedTeammate(e.target.value)} required disabled={!selectedProject}>
                                         <option value=""> </option>
-                                        {teammates.map(m => <option key={m.user_id || m.id} value={m.user_id || m.id}>{m.full_name || m.full_name_en || m.email}</option>)}
+                                        {teammates.map(m => <option key={m.user_id || m.id} value={m.user_id || m.id}>{m.full_name || m.full_name || m.email}</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -249,11 +249,11 @@ export default function Reviews() {
                             <div className="received-list">
                                 {received.map((r, i) => {
                                     const reviewer = lang === 'ar'
-                                        ? (r.users?.full_name_en || r.reviewer_name || '')
-                                        : (r.users?.full_name_en || r.reviewer_name || '');
+                                        ? (r.users?.full_name || r.reviewer_name || '')
+                                        : (r.users?.full_name || r.reviewer_name || '');
                                     const projTitle = lang === 'ar'
-                                        ? (r.projects?.title_ar || r.projects?.title_en || r.project_title || '')
-                                        : (r.projects?.title_en || r.project_title || '');
+                                        ? (r.projects?.title_ar || r.projects?.title || r.project_title || '')
+                                        : (r.projects?.title || r.project_title || '');
                                     const avg = ((
                                         (r.commitment_rating || r.commitment || 0) +
                                         (r.quality_rating || r.quality || 0) +

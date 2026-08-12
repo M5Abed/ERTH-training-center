@@ -13,19 +13,23 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = body();
-$name          = sanitizeString($data['name'] ?? $data['name_en'] ?? '');
-$nameEn        = sanitizeString($data['name_en'] ?? $name);
-$nameAr        = sanitizeString($data['name_ar'] ?? $name);
-$description   = sanitizeString($data['description'] ?? $data['description_en'] ?? '');
-$descriptionEn = sanitizeString($data['description_en'] ?? $description);
-$descriptionAr = sanitizeString($data['description_ar'] ?? $description);
+$name          = sanitizeString($data['name'] ?? '');
+$description   = sanitizeString($data['description'] ?? '');
 $startDate     = trim($data['start_date'] ?? '');
 $endDate       = trim($data['end_date'] ?? '');
 $durationHours = (int)($data['duration_hours'] ?? $data['duration'] ?? 40);
 if ($durationHours <= 0) $durationHours = 40;
+$category      = sanitizeString($data['category'] ?? '');
+$level         = sanitizeString($data['level'] ?? '');
 
 if (!$name) {
     respondError('Course name is required');
+}
+if (!$category) {
+    respondError('Track / Category is required');
+}
+if (!$level) {
+    respondError('Skill Level is required');
 }
 
 $db = db();
@@ -35,17 +39,21 @@ try {
     if (empty($cols)) {
         $db->exec("ALTER TABLE training_courses ADD COLUMN duration_hours INT NOT NULL DEFAULT 40 AFTER end_date");
     }
+    $catCols = $db->query("SHOW COLUMNS FROM training_courses LIKE 'category'")->fetchAll();
+    if (empty($catCols)) {
+        $db->exec("ALTER TABLE training_courses ADD COLUMN category VARCHAR(150) NULL AFTER name, ADD COLUMN level VARCHAR(100) NULL AFTER category");
+    }
 } catch (Throwable $e) {}
 
 $stmt = $db->prepare("
-    INSERT INTO training_courses (name_en, name_ar, description_en, description_ar, start_date, end_date, duration_hours, status, created_by)
+    INSERT INTO training_courses (name, category, level, description, start_date, end_date, duration_hours, status, created_by)
     VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)
 ");
 $stmt->execute([
-    $nameEn,
-    $nameAr ?: null,
-    $descriptionEn ?: null,
-    $descriptionAr ?: null,
+    $name,
+    $category,
+    $level,
+    $description ?: null,
     $startDate ?: null,
     $endDate ?: null,
     $durationHours,

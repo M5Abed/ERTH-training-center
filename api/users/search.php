@@ -20,7 +20,7 @@ if (strlen($q) < 2) { respond([]); }
 $like = '%' . $q . '%';
 $start = $q . '%';
 
-$where  = "(username LIKE ? OR student_id LIKE ? OR full_name_en LIKE ? OR email LIKE ? OR CAST(id AS CHAR) = ?)";
+$where  = "(username LIKE ? OR student_id LIKE ? OR full_name LIKE ? OR email LIKE ? OR CAST(id AS CHAR) = ?)";
 $params = [$like, $like, $like, $like, $q];
 
 if ($collegeKey !== '') {
@@ -35,7 +35,7 @@ if ($yearFilter > 0) {
 $orderParams = [$q, $start, $q, $like];
 
 $stmt = db()->prepare("
-    SELECT id, username, full_name_en, student_id AS academic_id, college_key,
+    SELECT id, username, full_name, student_id AS academic_id, college_key,
            academic_year, major, avatar_url
     FROM users
     WHERE $where
@@ -44,11 +44,11 @@ $stmt = db()->prepare("
             WHEN username = ? THEN 1
             WHEN username LIKE ? THEN 2
             WHEN student_id = ? THEN 3
-            WHEN full_name_en LIKE ? THEN 4
+            WHEN full_name LIKE ? THEN 4
             ELSE 5
         END ASC,
         username ASC,
-        full_name_en ASC
+        full_name ASC
     LIMIT $limit OFFSET $offset
 ");
 $stmt->execute(array_merge($params, $orderParams));

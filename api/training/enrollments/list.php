@@ -20,7 +20,7 @@ if (!$courseId) {
 $db = db();
 $stmt = $db->prepare("
     SELECT te.id AS enrollment_id, te.enrolled_at, te.source,
-           u.id AS trainee_id, u.full_name_en, u.email, u.student_id, u.college_key, u.academic_year, u.major,
+           u.id AS trainee_id, u.full_name, u.email, u.student_id, u.college_key, u.academic_year, u.major,
            (SELECT COUNT(*) FROM trainee_topic_progress ttp 
             JOIN training_topics tt ON ttp.topic_id = tt.id 
             WHERE tt.course_id = ? AND ttp.trainee_id = u.id) AS completed_topics,
@@ -28,7 +28,7 @@ $stmt = $db->prepare("
     FROM trainee_enrollments te
     JOIN users u ON te.trainee_id = u.id
     WHERE te.course_id = ?
-    ORDER BY u.full_name_en ASC
+    ORDER BY u.full_name ASC
 ");
 $stmt->execute([$courseId, $courseId, $courseId]);
 $trainees = $stmt->fetchAll();

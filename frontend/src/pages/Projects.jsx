@@ -101,8 +101,8 @@ export default function Projects() {
                                     </span>
                                 </div>
                             </div>
-                            <h3 className="project-card-title">{lang === 'ar' && p.title_ar ? p.title_ar : (p.title_en || p.title)}</h3>
-                            <p className="project-card-desc">{lang === 'ar' && p.description_ar ? p.description_ar : (p.description_en || p.description)}</p>
+                            <h3 className="project-card-title">{lang === 'ar' && p.title_ar ? p.title_ar : (p.title || p.title)}</h3>
+                            <p className="project-card-desc">{lang === 'ar' && p.description_ar ? p.description_ar : (p.description || p.description)}</p>
                             <div className="project-card-skills">
                                 {(p.project_skills || []).slice(0, 4).map(s => (
                                     <span key={s.skill_id || s} className="skill-tag">{s.skill_name || s.skill_id || s}</span>
@@ -115,8 +115,8 @@ export default function Projects() {
                             </div>
                             <div className="project-card-footer">
                                 <div className="project-card-owner">
-                                    <span className="project-owner-avatar">{(p.owner_name_en || p.owner_name || '?')[0].toUpperCase()}</span>
-                                    <span className="meta-item">{t('posted_by')} {p.owner_name_en || p.owner_name || '—'}</span>
+                                    <span className="project-owner-avatar">{(p.owner_name || p.owner_name || '?')[0].toUpperCase()}</span>
+                                    <span className="meta-item">{t('posted_by')} {p.owner_name || p.owner_name || '—'}</span>
                                 </div>
                                 <div className="project-card-footer-right">
                                     {p.owner_id == user?.id && (

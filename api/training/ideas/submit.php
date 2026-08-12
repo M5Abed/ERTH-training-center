@@ -16,10 +16,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data = body();
 $courseId      = (int)($data['course_id'] ?? 0);
-$titleEn       = sanitizeString($data['title_en'] ?? '');
-$titleAr       = sanitizeString($data['title_ar'] ?? '');
-$descriptionEn = sanitizeString($data['description_en'] ?? '');
-$descriptionAr = sanitizeString($data['description_ar'] ?? '');
+$titleEn       = sanitizeString($data['title'] ?? '');
+$titleAr       = sanitizeString($data['title'] ?? '');
+$descriptionEn = sanitizeString($data['description'] ?? '');
+$descriptionAr = sanitizeString($data['description'] ?? '');
 $techStack     = sanitizeString($data['tech_stack'] ?? '');
 $problemStmt   = sanitizeString($data['problem_statement'] ?? '');
 $expectedOutput= sanitizeString($data['expected_output'] ?? '');
@@ -52,15 +52,15 @@ if (!$isAdmin) {
 // Upsert single idea per course for this trainee (setting both trainee_id and owner_id)
 $stmt = $db->prepare("
     INSERT INTO training_ideas 
-        (owner_id, course_id, title_en, title_ar, description_en, description_ar, tech_stack, problem_statement, expected_output, status)
+        (owner_id, course_id, title, title, description, description, tech_stack, problem_statement, expected_output, status)
     VALUES 
         (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
     ON DUPLICATE KEY UPDATE
         owner_id = VALUES(owner_id),
-        title_en = VALUES(title_en),
-        title_ar = VALUES(title_ar),
-        description_en = VALUES(description_en),
-        description_ar = VALUES(description_ar),
+        title = VALUES(title),
+        title = VALUES(title),
+        description = VALUES(description),
+        description = VALUES(description),
         tech_stack = VALUES(tech_stack),
         problem_statement = VALUES(problem_statement),
         expected_output = VALUES(expected_output),

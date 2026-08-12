@@ -19,7 +19,7 @@ $stmt = db()->prepare("
         rr.created_at AS requested_at,
         rr.course_id,
         u.id AS user_id,
-        u.full_name_en,
+        u.full_name,
         u.email,
         u.username,
         u.student_id,
@@ -27,8 +27,8 @@ $stmt = db()->prepare("
         u.academic_year,
         u.major,
         u.approval_status,
-        tc.name_en AS requested_course_name_en,
-        tc.name_ar AS requested_course_name_ar
+        tc.name AS requested_course_name,
+        tc.name AS requested_course_name
     FROM registration_requests rr
     JOIN users u ON rr.user_id = u.id
     LEFT JOIN training_courses tc ON rr.course_id = tc.id

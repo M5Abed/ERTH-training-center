@@ -31,7 +31,7 @@ function attachVotesToIdeas($db, array &$ideas, int $currentUserId) {
 
     try {
         $votesSql = "
-            SELECT tv.*, u.full_name_en AS evaluator_name, u.role AS evaluator_role
+            SELECT tv.*, u.full_name AS evaluator_name, u.role AS evaluator_role
             FROM training_votes tv
             JOIN users u ON tv.evaluator_id = u.id
             WHERE tv.idea_id IN ($inClause)
@@ -89,7 +89,7 @@ function attachVotesToIdeas($db, array &$ideas, int $currentUserId) {
 if ($role === 'trainee' && !$isAdmin) {
     // Trainee gets their single idea for this course
     $stmt = $db->prepare("
-        SELECT ti.*, u.full_name_en AS reviewer_name
+        SELECT ti.*, u.full_name AS reviewer_name
         FROM training_ideas ti
         LEFT JOIN users u ON ti.reviewed_by = u.id
         WHERE ti.owner_id = ? AND ti.course_id = ?
@@ -105,8 +105,8 @@ if ($role === 'trainee' && !$isAdmin) {
 } else {
     // Trainer/Admin gets list of all trainee ideas for this course
     $stmt = $db->prepare("
-        SELECT ti.*, u.full_name_en AS trainee_name, u.email AS trainee_email, u.student_id,
-               rev.full_name_en AS reviewer_name
+        SELECT ti.*, u.full_name AS trainee_name, u.email AS trainee_email, u.student_id,
+               rev.full_name AS reviewer_name
         FROM training_ideas ti
         JOIN users u ON ti.owner_id = u.id
         LEFT JOIN users rev ON ti.reviewed_by = rev.id

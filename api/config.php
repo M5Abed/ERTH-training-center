@@ -258,7 +258,7 @@ function requireRole(array|string $allowedRoles): array
     $uid = requireSession();
     $roles = is_array($allowedRoles) ? $allowedRoles : [$allowedRoles];
 
-    $stmt = db()->prepare("SELECT id, email, full_name_en, role, is_admin, approval_status FROM users WHERE id = ?");
+    $stmt = db()->prepare("SELECT id, email, full_name, role, is_admin, approval_status FROM users WHERE id = ?");
     $stmt->execute([$uid]);
     $user = $stmt->fetch();
 

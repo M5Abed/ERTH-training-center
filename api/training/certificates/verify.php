@@ -26,11 +26,11 @@ try {
     if ($code) {
         $stmt = $db->prepare("
             SELECT tc.*,
-                   COALESCE(u.full_name_en, u.username) AS trainee_name_en, u.student_id, u.email AS trainee_email,
-                   c.id AS course_id, c.name_en AS course_title_en, c.name_ar AS course_title_ar,
+                   COALESCE(u.full_name, u.username) AS trainee_name, u.student_id, u.email AS trainee_email,
+                   c.id AS course_id, c.name AS course_title, c.name AS course_title,
                    c.start_date, c.end_date,
-                   c.description_en, c.description_ar,
-                   COALESCE(issuer.full_name_en, issuer.username) AS issuer_name
+                   c.description, c.description,
+                   COALESCE(issuer.full_name, issuer.username) AS issuer_name
             FROM training_certificates tc
             JOIN users u ON tc.trainee_id = u.id
             JOIN training_courses c ON tc.course_id = c.id
@@ -44,11 +44,11 @@ try {
     if (!$cert && $courseId && $traineeId) {
         $stmt = $db->prepare("
             SELECT tc.*,
-                   COALESCE(u.full_name_en, u.username) AS trainee_name_en, u.student_id, u.email AS trainee_email,
-                   c.id AS course_id, c.name_en AS course_title_en, c.name_ar AS course_title_ar,
+                   COALESCE(u.full_name, u.username) AS trainee_name, u.student_id, u.email AS trainee_email,
+                   c.id AS course_id, c.name AS course_title, c.name AS course_title,
                    c.start_date, c.end_date,
-                   c.description_en, c.description_ar,
-                   COALESCE(issuer.full_name_en, issuer.username) AS issuer_name
+                   c.description, c.description,
+                   COALESCE(issuer.full_name, issuer.username) AS issuer_name
             FROM training_certificates tc
             JOIN users u ON tc.trainee_id = u.id
             JOIN training_courses c ON tc.course_id = c.id
@@ -62,10 +62,10 @@ try {
     if (!$cert) {
         if ($courseId && $traineeId) {
             $chk = $db->prepare("
-                SELECT u.id AS trainee_id, COALESCE(u.full_name_en, u.username) AS trainee_name_en, u.student_id, u.email AS trainee_email,
-                       c.id AS course_id, c.name_en AS course_title_en, c.name_ar AS course_title_ar,
+                SELECT u.id AS trainee_id, COALESCE(u.full_name, u.username) AS trainee_name, u.student_id, u.email AS trainee_email,
+                       c.id AS course_id, c.name AS course_title, c.name AS course_title,
                        c.start_date, c.end_date,
-                       c.description_en, c.description_ar
+                       c.description, c.description
                 FROM users u, training_courses c
                 WHERE u.id = ? AND c.id = ?
             ");
@@ -75,16 +75,16 @@ try {
                 $cert = [
                     'cert_code'        => 'NMU-VERIFY-PREVIEW',
                     'issued_at'        => date('Y-m-d H:i:s'),
-                    'trainee_name_en'  => $info['trainee_name_en'],
+                    'trainee_name'  => $info['trainee_name'],
                     'student_id'       => $info['student_id'],
                     'trainee_email'    => $info['trainee_email'],
                     'course_id'        => $info['course_id'],
-                    'course_title_en'  => $info['course_title_en'],
-                    'course_title_ar'  => $info['course_title_ar'],
+                    'course_title'  => $info['course_title'],
+                    'course_title'  => $info['course_title'],
                     'start_date'       => $info['start_date'],
                     'end_date'         => $info['end_date'],
-                    'description_en'   => $info['description_en'],
-                    'description_ar'   => $info['description_ar'],
+                    'description'   => $info['description'],
+                    'description'   => $info['description'],
                     'issuer_name'      => 'Prof. Khaled Fouad (Dean of Faculty)'
                 ];
             } else {
@@ -105,7 +105,7 @@ $topics = [];
 $topicsDurationSum = 0;
 try {
     $topStmt = $db->prepare("
-        SELECT id, title_en, title_ar, description_en, duration_hours, order_index
+        SELECT id, title, title, description, duration_hours, order_index
         FROM training_topics
         WHERE course_id = ?
         ORDER BY order_index ASC, id ASC
@@ -120,11 +120,14 @@ try {
 }
 
 // Determine total course duration dynamically
+$courseTitleLower = strtolower($cert['course_title'] ?? '');
 $courseDurationHours = 0;
 if (isset($cert['duration_hours']) && (int)$cert['duration_hours'] > 0) {
     $courseDurationHours = (int)$cert['duration_hours'];
 } elseif ($topicsDurationSum > 0) {
     $courseDurationHours = $topicsDurationSum;
+} elseif (strpos($courseTitleLower, 'robotics') !== false) {
+    $courseDurationHours = 63;
 } else {
     $courseDurationHours = 40;
 }
@@ -133,7 +136,7 @@ if (isset($cert['duration_hours']) && (int)$cert['duration_hours'] > 0) {
 $trainers = [];
 try {
     $trStmt = $db->prepare("
-        SELECT u.full_name_en AS trainer_name, u.email AS trainer_email, u.department
+        SELECT u.full_name AS trainer_name, u.email AS trainer_email, u.department
         FROM trainer_assignments ta
         JOIN users u ON ta.trainer_id = u.id
         WHERE ta.course_id = ?
@@ -153,21 +156,21 @@ respond([
         'issuer_name' => $cert['issuer_name'] ?: 'Prof. Khaled Fouad (Dean)'
     ],
     'trainee' => [
-        'full_name_en' => $cert['trainee_name_en'],
+        'full_name' => $cert['trainee_name'],
         'student_id'   => $cert['student_id'] ?: 'N/A',
         'email'        => $cert['trainee_email']
     ],
     'course' => [
         'id'             => $cert['course_id'],
-        'name_en'        => $cert['course_title_en'],
-        'name_ar'        => $cert['course_title_ar'],
+        'name'        => $cert['course_title'],
+        'name'        => $cert['course_title'],
         'category'       => $cert['category'] ?? 'Faculty Training Program',
         'level'          => $cert['level'] ?? 'Professional Level',
         'duration_hours' => $courseDurationHours,
         'start_date'     => $cert['start_date'],
         'end_date'       => $cert['end_date'],
-        'description_en' => $cert['description_en'],
-        'description_ar' => $cert['description_ar']
+        'description' => $cert['description'],
+        'description' => $cert['description']
     ],
     'topics'   => $topics,
     'trainers' => $trainers

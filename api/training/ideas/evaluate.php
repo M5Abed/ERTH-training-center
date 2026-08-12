@@ -78,7 +78,7 @@ try {
     } catch (Exception $e) {}
 
     // Fetch idea to know trainee_id & title
-    $stmt = $db->prepare("SELECT owner_id AS trainee_id, title_en FROM training_ideas WHERE id = ?");
+    $stmt = $db->prepare("SELECT owner_id AS trainee_id, title FROM training_ideas WHERE id = ?");
     $stmt->execute([$ideaId]);
     $idea = $stmt->fetch();
 
@@ -102,8 +102,8 @@ try {
             INSERT INTO notifications (user_id, type, message_en, message_ar)
             VALUES (?, 'idea_voting', ?, ?)
         ");
-        $msgEn = "Project Idea '{$idea['title_en']}' is now open for Trainer & Admin voting!";
-        $msgAr = "فكرة المشروع '{$idea['title_en']}' متاحة الآن للتصويت بين المدربين والمسؤولين!";
+        $msgEn = "Project Idea '{$idea['title']}' is now open for Trainer & Admin voting!";
+        $msgAr = "فكرة المشروع '{$idea['title']}' متاحة الآن للتصويت بين المدربين والمسؤولين!";
         foreach ($evaluators as $eId) {
             $nStmt->execute([(int)$eId, $msgEn, $msgAr]);
         }
@@ -115,7 +115,7 @@ try {
                 VALUES (?, 'idea_evaluated', ?, ?)
             ");
             $statusDisplay = str_replace('_', ' ', $status);
-            $msgEn = "Your training idea '{$idea['title_en']}' status has been updated to: " . strtoupper($statusDisplay) . ".";
+            $msgEn = "Your training idea '{$idea['title']}' status has been updated to: " . strtoupper($statusDisplay) . ".";
             $msgAr = "تم تحديث حالة فكرة التدريب الخاص بك إلى: $statusDisplay.";
             $nStmt->execute([(int)$idea['trainee_id'], $msgEn, $msgAr]);
         }
@@ -123,7 +123,7 @@ try {
 
     // Fetch vote summary for this idea
     $votesStmt = $db->prepare("
-        SELECT tv.*, COALESCE(u.full_name_en, u.username, u.email) AS evaluator_name, u.role AS evaluator_role
+        SELECT tv.*, COALESCE(u.full_name, u.username, u.email) AS evaluator_name, u.role AS evaluator_role
         FROM training_votes tv
         JOIN users u ON tv.evaluator_id = u.id
         WHERE tv.idea_id = ?

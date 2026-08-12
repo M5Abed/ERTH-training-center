@@ -92,17 +92,19 @@ export default function Landing() {
             title: isAr ? 'مسار الروبوتيكس والأتمتة' : 'Robotics & Automation Track',
             badge: isAr ? 'مُوصى به' : 'FLAGSHIP',
             level: 'TIER 01 // HARDWARE & ROS2',
-            duration: isAr ? '٦ أسابيع · ٤٨ ساعة' : '6 Weeks · 48 Hours',
-            tech: ['ROS2', 'STM32', 'C++', 'Kinematics', 'Gazebo', 'LIDAR'],
+            duration: isAr ? '٨ أسابيع · ٦٣ ساعة' : '8 Weeks · 63 Hours',
+            tech: ['AI', 'Computer Vision', 'Mobile Dev', 'Web Tech', 'Robotics'],
             codeSnippet: `// ERTH Autonomous Rover Kinematics Engine\n#include <micro_ros/ros.h>\n\nvoid computeVelocity(float rx, float ry) {\n    motor_fl.setSpeed(rx + ry);\n    motor_fr.setSpeed(rx - ry);\n    telemetry.publish("SYSTEM_OK");\n}`,
             modules: isAr ? [
-                'أساسيات متحكمات Microcontrollers & RTOS',
-                'أنظمة ROS2 والتحكم الإشارات الذكية',
-                'المشروع النهائي: روبوت الملاحة الذكي'
+                'الذكاء الاصطناعي وتعلم الآلة',
+                'التعلم العميق والرؤية الحاسوبية',
+                'تطوير تطبيقات الموبايل وتقنيات الويب',
+                'الابتكار والروبوتات I & II'
             ] : [
-                'Microcontrollers & RTOS Fundamentals',
-                'ROS2 & Sensor Fusion Pipelines',
-                'Capstone: Autonomous Rover Control'
+                'Artificial Intelligence & Machine Learning',
+                'Deep Learning & Computer Vision',
+                'Mobile Development & Web Technologies',
+                'Innovation, Robotics I & II'
             ]
         },
         {
@@ -390,14 +392,30 @@ export default function Landing() {
                                         </span>
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <form 
+                                    onSubmit={(e) => {
+                                        e.preventDefault();
+                                        const code = e.target.elements.certCode.value.trim();
+                                        if(code) window.location.href = `/verify?code=${code}`;
+                                    }} 
+                                    style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}
+                                >
                                     <span style={{ fontSize: '0.75rem', color: 'var(--text-mid)', fontWeight: 600 }}>
                                         {isAr ? 'التحقق السريع من الشهادة' : 'Instant Credential Verification'}
                                     </span>
-                                    <Link to="/verify" className="lp-nl" style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
-                                        {isAr ? 'الانتقال إلى بوابة التحقق' : 'Verify Certificate Portal'} <ArrowRight size={13} />
-                                    </Link>
-                                </div>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <input 
+                                            type="text" 
+                                            name="certCode"
+                                            placeholder={isAr ? 'أدخل كود الشهادة (مثال: NMU-CERT-...)' : 'Enter Certificate Code...'}
+                                            style={{ flex: 1, padding: '0.6rem', borderRadius: '6px', border: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)', color: 'var(--text-hi)', fontSize: '0.8rem', outline: 'none' }}
+                                            required
+                                        />
+                                        <button type="submit" className="lp-cta-btn" style={{ padding: '0.6rem 1rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                                            {isAr ? 'تحقق' : 'Verify'}
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
 

@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $data = body();
 $email    = trim($data['email'] ?? '');
 $password = trim($data['password'] ?? '');
-$name     = trim($data['full_name_en'] ?? '');
+$name     = trim($data['full_name'] ?? '');
 $role     = trim($data['role'] ?? 'ta');
 $college  = trim($data['college_key'] ?? '');
 
@@ -52,7 +52,7 @@ if ($chk->fetch()) {
 // Create the account
 $hash = password_hash($password, PASSWORD_DEFAULT);
 $ins = db()->prepare("
-    INSERT INTO users (email, password_hash, full_name_en, role, college_key, email_verified, created_at)
+    INSERT INTO users (email, password_hash, full_name, role, college_key, email_verified, created_at)
     VALUES (?, ?, ?, ?, ?, 1, NOW())
 ");
 $ins->execute([$email, $hash, $name, $role, $college ?: null]);

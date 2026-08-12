@@ -122,7 +122,7 @@ export default function TaskBoard() {
                 </Link>
                 <div className="tb-title-area">
                     <h1>{L.board}</h1>
-                    {project && <span className="tb-project-name">{lang === 'ar' && project.title_ar ? project.title_ar : (project.title_en || project.title)}</span>}
+                    {project && <span className="tb-project-name">{lang === 'ar' && project.title_ar ? project.title_ar : (project.title || project.title)}</span>}
                 </div>
             </div>
 
@@ -241,7 +241,7 @@ export default function TaskBoard() {
                                                 <option value="">{L.assign}</option>
                                                 {team.map(m => (
                                                     <option key={m.user_id || m.id} value={m.user_id || m.id}>
-                                                        {m.full_name || m.full_name_en || m.email}
+                                                        {m.full_name || m.full_name || m.email}
                                                     </option>
                                                 ))}
                                             </select>

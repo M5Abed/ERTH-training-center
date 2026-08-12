@@ -24,7 +24,7 @@ try {
     $db = db();
 
     // Fetch idea
-    $stmt = $db->prepare("SELECT id, owner_id, course_id, title_en, status, reviewed_by FROM training_ideas WHERE id = ?");
+    $stmt = $db->prepare("SELECT id, owner_id, course_id, title, status, reviewed_by FROM training_ideas WHERE id = ?");
     $stmt->execute([$ideaId]);
     $idea = $stmt->fetch();
 
@@ -50,11 +50,11 @@ try {
         if ($reviewerId) {
             try {
                 $nStmt = $db->prepare("
-                    INSERT INTO notifications (user_id, type, title_en, title_ar, message_en, message_ar)
+                    INSERT INTO notifications (user_id, type, title, title, message_en, message_ar)
                     VALUES (?, 'project_completed', 'Project Completed', 'تم إكمال المشروع', ?, ?)
                 ");
-                $msgEn = "Trainee has marked project '{$idea['title_en']}' as completed.";
-                $msgAr = "قام المتدرب بتحديد المشروع '{$idea['title_en']}' كـ مكتمل.";
+                $msgEn = "Trainee has marked project '{$idea['title']}' as completed.";
+                $msgAr = "قام المتدرب بتحديد المشروع '{$idea['title']}' كـ مكتمل.";
                 $nStmt->execute([$reviewerId, $msgEn, $msgAr]);
             } catch (Exception $e) {
                 // Ignore if notifications table doesn't support

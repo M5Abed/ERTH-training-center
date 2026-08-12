@@ -29,6 +29,12 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
     const [topics, setTopics] = useState([]);
     const [trainers, setTrainers] = useState([]);
     const [trainees, setTrainees] = useState([]);
+    
+    // Trainers Management state
+    const [availableTrainers, setAvailableTrainers] = useState([]);
+    const [searchingTrainers, setSearchingTrainers] = useState(false);
+    const [searchTrainerQuery, setSearchTrainerQuery] = useState('');
+    const [assigningTrainer, setAssigningTrainer] = useState(false);
     const [myIdea, setMyIdea] = useState(null);
     const [allIdeas, setAllIdeas] = useState([]);
     const [docs, setDocs] = useState([]);
@@ -36,13 +42,54 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
     const [allEvals, setAllEvals] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const isRoboticsCourse = Boolean(
-        (courseId && courseId.toString().toLowerCase().includes('robotics')) ||
-        (course?.track && course.track.toLowerCase().includes('robotics')) ||
-        (course?.name_en && course.name_en.toLowerCase().includes('robotics')) ||
-        (course?.name_ar && course.name_ar.includes('روبوت')) ||
-        window.location.pathname.toLowerCase().includes('robotics')
-    );
+    // Edit Course state
+    const [showEditCourseModal, setShowEditCourseModal] = useState(false);
+    const [isUpdatingCourse, setIsUpdatingCourse] = useState(false);
+    const [editCourseForm, setEditCourseForm] = useState({
+        name: '', description: '', start_date: '', end_date: '', duration_hours: 40, category: '', level: ''
+    });
+
+    const openEditCourseModal = () => {
+        setEditCourseForm({
+            name: course?.name || '',
+            description: course?.description || '',
+            start_date: course?.start_date || '',
+            end_date: course?.end_date || '',
+            duration_hours: course?.duration_hours || 40,
+            category: course?.category || '',
+            level: course?.level || ''
+        });
+        setShowEditCourseModal(true);
+    };
+
+    const handleUpdateCourse = async (e) => {
+        e.preventDefault();
+        setIsUpdatingCourse(true);
+        try {
+            const res = await fetch('/api/training/courses/update.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    course_id: courseId,
+                    ...editCourseForm
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setShowEditCourseModal(false);
+                loadCourseDetail();
+            } else {
+                alert(data.error || 'Failed to update course');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Connection error');
+        } finally {
+            setIsUpdatingCourse(false);
+        }
+    };
+
+    const isRoboticsCourse = false; // Disabled as per user request to hide hardware and sensor section
 
     // Robotics Simulator state
     const [simCode, setSimCode] = useState(`// Eng. Magy Robotics PWM Control Node
@@ -175,9 +222,9 @@ void loop() {
                     loadedTopics = [
                         {
                             id: 101,
-                            title_en: 'Module 1: Microcontroller GPIOs, PWM & Sensor Fusion',
-                            title_ar: 'المودول 1: إشارات المتحكمات المدمجة ودمج الحساسات',
-                            description_en: 'Hands-on interfacing with Arduino/ESP32, PWM motor signal modulation, MPU6050 IMU accelerometer/gyroscope, and ultrasonic distance sensors.',
+                            title: 'Module 1: Microcontroller GPIOs, PWM & Sensor Fusion',
+                            
+                            description: 'Hands-on interfacing with Arduino/ESP32, PWM motor signal modulation, MPU6050 IMU accelerometer/gyroscope, and ultrasonic distance sensors.',
                             viewed: true,
                             materials: [
                                 { id: 201, title: 'Lecture 1: GPIO & PWM Motor Control (PDF)', type: 'pdf', file_url: '#' },
@@ -187,9 +234,9 @@ void loop() {
                         },
                         {
                             id: 102,
-                            title_en: 'Module 2: Forward & Inverse Kinematics for Robotic Arms',
-                            title_ar: 'المودول 2: كينماتيكا الأذرع الروبوتية وحسابات الحركة',
-                            description_en: 'Mathematical modeling using Denavit-Hartenberg (DH) parameters, transformation matrices, joint space vs Cartesian task space trajectory planning.',
+                            title: 'Module 2: Forward & Inverse Kinematics for Robotic Arms',
+                            
+                            description: 'Mathematical modeling using Denavit-Hartenberg (DH) parameters, transformation matrices, joint space vs Cartesian task space trajectory planning.',
                             viewed: false,
                             materials: [
                                 { id: 204, title: 'DH Parameters Reference Sheet & Equations', type: 'pdf', file_url: '#' }
@@ -197,9 +244,9 @@ void loop() {
                         },
                         {
                             id: 103,
-                            title_en: 'Module 3: ROS2 (Robot Operating System) Nodes & Topics',
-                            title_ar: 'المودول 3: عقد ومواضيع نظام تشغيل الروبوتات ROS2',
-                            description_en: 'Publisher/Subscriber architecture in ROS2 Humble, URDF robot description files, Gazebo 3D simulation physics, RViz visualization.',
+                            title: 'Module 3: ROS2 (Robot Operating System) Nodes & Topics',
+                            
+                            description: 'Publisher/Subscriber architecture in ROS2 Humble, URDF robot description files, Gazebo 3D simulation physics, RViz visualization.',
                             viewed: false,
                             materials: [
                                 { id: 205, title: 'ROS2 Nodes Setup & Gazebo Simulation Guide', type: 'pdf', file_url: '#' }
@@ -207,9 +254,9 @@ void loop() {
                         },
                         {
                             id: 104,
-                            title_en: 'Module 4: Autonomous SLAM Navigation & Path Planning',
-                            title_ar: 'المودول 4: رسم الخرائط الذاتي SLAM والتخطي الذكي',
-                            description_en: 'LiDAR point cloud processing, Occupancy Grid Mapping, A* & Dijkstra path planning algorithms, real-time obstacle avoidance.',
+                            title: 'Module 4: Autonomous SLAM Navigation & Path Planning',
+                            
+                            description: 'LiDAR point cloud processing, Occupancy Grid Mapping, A* & Dijkstra path planning algorithms, real-time obstacle avoidance.',
                             viewed: false,
                             materials: [
                                 { id: 206, title: 'LiDAR SLAM Algorithm & Navigation Package', type: 'code', file_url: '#' }
@@ -260,8 +307,8 @@ void loop() {
                 if (isTrainee) {
                     setMyIdea(data.idea || null);
                     if (data.idea) {
-                        setIdeaTitleEn(data.idea.title_en || '');
-                        setIdeaDescEn(data.idea.description_en || '');
+                        setIdeaTitleEn(data.idea.title || '');
+                        setIdeaDescEn(data.idea.description || '');
                         setTechStack(data.idea.tech_stack || '');
                         setProblemStmt(data.idea.problem_statement || '');
                         setExpectedOutput(data.idea.expected_output || '');
@@ -304,9 +351,9 @@ void loop() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     course_id: courseId,
-                    title_en: topicTitleEn,
+                    title: topicTitleEn,
                     title_ar: topicTitleEn,
-                    description_en: topicDescEn
+                    description: topicDescEn
                 })
             });
             if (res.ok) {
@@ -328,7 +375,7 @@ void loop() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         topic_id: selectedTopicId,
-                        title_en: matTitleEn,
+                        title: matTitleEn,
                         url: matUrl,
                         type: matType
                     })
@@ -358,6 +405,62 @@ void loop() {
                     loadCourseDetail();
                 }
             } catch (e) { console.error(e); }
+        }
+    };
+
+    const handleSearchTrainers = async () => {
+        if (!searchTrainerQuery) return;
+        setSearchingTrainers(true);
+        try {
+            const res = await fetch(`/api/users/search-trainers.php?q=${encodeURIComponent(searchTrainerQuery)}`);
+            const data = await res.json();
+            setAvailableTrainers(data || []);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setSearchingTrainers(false);
+        }
+    };
+
+    const handleAssignTrainer = async (trainerId) => {
+        setAssigningTrainer(true);
+        try {
+            const res = await fetch('/api/training/courses/assign_trainer.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ course_id: courseId, trainer_id: trainerId })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                loadCourseDetail();
+            } else {
+                alert(data.error || 'Failed to assign trainer');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Connection error');
+        } finally {
+            setAssigningTrainer(false);
+        }
+    };
+
+    const handleRemoveTrainer = async (assignmentId) => {
+        if (!window.confirm(lang === 'ar' ? 'هل أنت متأكد من إزالة هذا المدرب؟' : 'Are you sure you want to remove this trainer?')) return;
+        try {
+            const res = await fetch('/api/training/courses/remove_trainer.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assignment_id: assignmentId })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                loadCourseDetail();
+            } else {
+                alert(data.error || 'Failed to remove trainer');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Connection error');
         }
     };
 
@@ -449,8 +552,8 @@ void loop() {
             });
             const data = await res.json();
             if (res.ok && data.proposal) {
-                setIdeaTitleEn(data.proposal.title_en);
-                setIdeaDescEn(data.proposal.description_en);
+                setIdeaTitleEn(data.proposal.title);
+                setIdeaDescEn(data.proposal.description);
                 setProblemStmt(data.proposal.problem_statement);
                 setTechStack(data.proposal.tech_stack);
                 setExpectedOutput(data.proposal.expected_output);
@@ -468,8 +571,8 @@ void loop() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     course_id: courseId,
-                    title_en: ideaTitleEn,
-                    description_en: ideaDescEn,
+                    title: ideaTitleEn,
+                    description: ideaDescEn,
                     tech_stack: techStack,
                     problem_statement: problemStmt,
                     expected_output: expectedOutput
@@ -632,8 +735,8 @@ void loop() {
             const data = await res.json();
             if (res.ok && data.certificate) {
                 setCertData({
-                    studentName: data.certificate.trainee_name_en || traineeName || 'Trainee',
-                    courseTitle: data.certificate.course_title_en || (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name_en),
+                    studentName: data.certificate.trainee_name || traineeName || 'Trainee',
+                    courseTitle: data.certificate.course_title || (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name),
                     issueDate: data.certificate.issued_at ? new Date(data.certificate.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '10 August 2026',
                     certCode: data.certificate.cert_code,
                     downloadUrl: `/api/training/certificates/download.php?code=${data.certificate.cert_code}`,
@@ -644,7 +747,7 @@ void loop() {
                 // Not issued yet -> Open Preview/Verification mode
                 setCertData({
                     studentName: traineeName || 'Trainee',
-                    courseTitle: (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name_en) || 'Summer Training Program',
+                    courseTitle: (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name) || 'Summer Training Program',
                     issueDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
                     certCode: 'VERIFY-BEFORE-ISSUE',
                     downloadUrl: null,
@@ -699,8 +802,8 @@ void loop() {
             const data = await res.json();
             if (res.ok && data.certificate) {
                 setCertData({
-                    studentName: data.certificate.trainee_name_en || traineeName || user?.full_name_en || 'Trainee',
-                    courseTitle: data.certificate.course_title_en || (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name_en),
+                    studentName: data.certificate.trainee_name || traineeName || user?.full_name || 'Trainee',
+                    courseTitle: data.certificate.course_title || (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name),
                     issueDate: data.certificate.issued_at ? new Date(data.certificate.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '10 August 2026',
                     certCode: data.certificate.cert_code,
                     downloadUrl: `/api/training/certificates/download.php?code=${data.certificate.cert_code}`,
@@ -709,8 +812,8 @@ void loop() {
                 setShowCertModal(true);
             } else {
                 setCertData({
-                    studentName: traineeName || user?.full_name_en || 'Trainee',
-                    courseTitle: (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name_en) || 'Summer Training Program',
+                    studentName: traineeName || user?.full_name || 'Trainee',
+                    courseTitle: (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name) || 'Summer Training Program',
                     issueDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
                     certCode: 'NMU-VERIFY-PREVIEW',
                     downloadUrl: null,
@@ -755,11 +858,14 @@ void loop() {
 
             <div className="course-header-card">
                 <div>
-                    <h1>{lang === 'ar' && course.name_ar ? course.name_ar : course.name_en}</h1>
-                    <p>{lang === 'ar' && course.description_ar ? course.description_ar : course.description_en}</p>
+                    <h1>{course.name}</h1>
+                    <p>{course.description}</p>
                 </div>
                 {isTrainer && (
                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <button className="btn btn-secondary" onClick={openEditCourseModal}>
+                            <Edit3 size={18} /> {lang === 'ar' ? 'تعديل بيانات الدورة' : 'Edit Course'}
+                        </button>
                         <button className="btn btn-primary" onClick={() => setShowAddStudentModal(true)}>
                             <UserPlus size={18} />
                             {lang === 'ar' ? 'إضافة متدرب' : 'Add Student'}
@@ -799,6 +905,11 @@ void loop() {
                 <button className={`tab-btn ${activeTab === 'evaluations' ? 'active' : ''}`} onClick={() => setActiveTab('evaluations')} data-magy-key="evaluations">
                     <Award size={16} /> {lang === 'ar' ? 'التقييم والدرجات' : 'Evaluations'}
                 </button>
+                {isAdmin && (
+                    <button className={`tab-btn ${activeTab === 'trainers' ? 'active' : ''}`} onClick={() => setActiveTab('trainers')} data-magy-key="trainers">
+                        <Users size={16} /> {lang === 'ar' ? 'المدربين' : 'Manage Trainers'}
+                    </button>
+                )}
             </div>
 
             {/* Tab 1: Topics & Materials */}
@@ -825,8 +936,8 @@ void loop() {
                                     <div className="topic-header">
                                         <div className="topic-num">{idx + 1}</div>
                                         <div style={{ flex: 1 }}>
-                                            <h4>{t.title_en} {t.title_ar ? `( ${t.title_ar} )` : ''}</h4>
-                                            {t.description_en && <p className="topic-desc">{t.description_en}</p>}
+                                            <h4>{t.title} {t.title_ar ? `( ${t.title_ar} )` : ''}</h4>
+                                            {t.description && <p className="topic-desc">{t.description}</p>}
                                         </div>
 
                                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -880,7 +991,7 @@ void loop() {
                                                          mat.type === 'url' ? <LinkIcon size={16} style={{ color: '#2563eb' }} /> :
                                                          <FileText size={16} style={{ color: '#f59e0b' }} />}
 
-                                                        <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 500 }}>{mat.title_en}</span>
+                                                        <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 500 }}>{mat.title}</span>
                                                         <span className="source-tag" style={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>{mat.type}</span>
 
                                                         <a
@@ -1058,7 +1169,7 @@ void loop() {
                                 {trainees.map((tr, idx) => (
                                     <tr key={tr.trainee_id}>
                                         <td>{idx + 1}</td>
-                                        <td><strong>{tr.full_name_en || tr.username || tr.email}</strong></td>
+                                        <td><strong>{tr.full_name || tr.username || tr.email}</strong></td>
                                         <td>{tr.email}</td>
                                         <td>{tr.student_id || '-'}</td>
                                         <td><span className="source-tag">{tr.source}</span></td>
@@ -1068,7 +1179,7 @@ void loop() {
                                                     className="btn btn-outline btn-sm"
                                                     style={{ gap: '0.35rem', borderColor: 'var(--amber)', color: 'var(--amber)' }}
                                                     disabled={issuingCertId === tr.trainee_id}
-                                                    onClick={() => handleIssueCertificate(tr.trainee_id, tr.full_name_en)}
+                                                    onClick={() => handleIssueCertificate(tr.trainee_id, tr.full_name)}
                                                 >
                                                     <Award size={14} />
                                                     {issuingCertId === tr.trainee_id ? '...' : (lang === 'ar' ? 'معاينة وإصدار الشهادة' : 'Preview & Issue Certificate')}
@@ -1136,7 +1247,7 @@ void loop() {
 
                             <form onSubmit={handleSubmitIdea} className="form-section-card">
                                 <div className="form-group">
-                                    <label>{lang === 'ar' ? 'عنوان المشروع (بالإنجليزي) *' : 'Project Title (English) *'}</label>
+                                    <label>{lang === 'ar' ? 'عنوان المشروع (بالإنجليزي) *' : 'Project Title  *'}</label>
                                     <div className="input-with-icon">
                                         <FileText size={16} className="field-icon" />
                                         <input type="text" required value={ideaTitleEn} onChange={e => setIdeaTitleEn(e.target.value)} placeholder={lang === 'ar' ? 'عنوان المشروع...' : 'e.g. Smart Attendance System'} />
@@ -1180,11 +1291,11 @@ void loop() {
                                 allIdeas.map(idea => (
                                     <div key={idea.id} className="idea-card">
                                         <div className="idea-card-header">
-                                            <h4>{idea.title_en}</h4>
+                                            <h4>{idea.title}</h4>
                                             <span className={`status-badge status-${idea.status}`}>{idea.status}</span>
                                         </div>
                                         <p className="idea-author">Submitted by: <strong>{idea.trainee_name}</strong> ({idea.trainee_email})</p>
-                                        <p className="idea-body">{idea.description_en}</p>
+                                        <p className="idea-body">{idea.description}</p>
 
                                         <div className="idea-actions">
                                             {(!idea.status || idea.status === 'pending') && (
@@ -1364,7 +1475,7 @@ void loop() {
                                                 <button 
                                                     className="btn btn-outline"
                                                     style={{ gap: '0.5rem', cursor: 'pointer', borderColor: 'var(--amber)', color: 'var(--amber)' }}
-                                                    onClick={() => handleViewCertificate(user.id, user.full_name_en)}
+                                                    onClick={() => handleViewCertificate(user.id, user.full_name)}
                                                 >
                                                     <Award size={18} />
                                                     {lang === 'ar' ? 'معاينة الشهادة' : 'Preview Certificate'}
@@ -1375,7 +1486,7 @@ void loop() {
                                                     rel="noopener noreferrer"
                                                     className="btn btn-primary"
                                                     style={{ background: 'linear-gradient(135deg, var(--primary), #b8860b)', border: 'none', gap: '0.5rem', cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
-                                                    download={`NMU_Certificate_${(user.full_name_en || 'Trainee').replace(/\s+/g, '_')}.pdf`}
+                                                    download={`NMU_Certificate_${(user.full_name || 'Trainee').replace(/\s+/g, '_')}.pdf`}
                                                 >
                                                     <Download size={18} />
                                                     {lang === 'ar' ? 'تنزيل الشهادة (PDF)' : 'Download Certificate (PDF)'}
@@ -1400,7 +1511,7 @@ void loop() {
                                             <option value="">-- Choose Trainee --</option>
                                             {trainees.map(tr => (
                                                 <option key={tr.trainee_id} value={tr.trainee_id}>
-                                                    {tr.full_name_en} ({tr.email})
+                                                    {tr.full_name} ({tr.email})
                                                 </option>
                                             ))}
                                         </select>
@@ -1430,6 +1541,92 @@ void loop() {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Tab: Trainers (Admin Only) */}
+            {activeTab === 'trainers' && isAdmin && (
+                <div className="tab-content">
+                    <div className="tab-action-bar">
+                        <h3>{lang === 'ar' ? 'إدارة مدربي الدورة' : 'Manage Course Trainers'}</h3>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
+                        {/* Current Trainers */}
+                        <div className="card p-4" style={{ background: 'var(--bg-0)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem' }}>
+                            <h4 style={{ marginBottom: '1rem', color: 'var(--text-1)' }}>{lang === 'ar' ? 'المدربون الحاليون' : 'Assigned Trainers'}</h4>
+                            <div className="members-list">
+                                {trainers.length === 0 ? (
+                                    <p className="text-muted">{lang === 'ar' ? 'لا يوجد مدربون حالياً.' : 'No trainers assigned yet.'}</p>
+                                ) : (
+                                    trainers.map(t => (
+                                        <div key={t.assignment_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.75rem', marginBottom: '0.75rem', borderBottom: '1px solid var(--border)' }}>
+                                            <div>
+                                                <div style={{ fontWeight: 'bold', color: 'var(--text-1)' }}>{t.full_name}</div>
+                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t.email} {t.department ? `- ${t.department}` : ''}</div>
+                                            </div>
+                                            <button 
+                                                className="btn btn-sm btn-outline-danger" 
+                                                style={{ borderColor: '#ef4444', color: '#ef4444' }}
+                                                onClick={() => handleRemoveTrainer(t.assignment_id)}
+                                            >
+                                                {lang === 'ar' ? 'إزالة' : 'Remove'}
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Search & Assign */}
+                        <div className="card p-4" style={{ background: 'var(--bg-0)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem' }}>
+                            <h4 style={{ marginBottom: '1rem', color: 'var(--text-1)' }}>{lang === 'ar' ? 'تعيين مدرب جديد' : 'Assign New Trainer'}</h4>
+                            <div className="form-group" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                                <input 
+                                    type="text" 
+                                    placeholder={lang === 'ar' ? 'ابحث عن مدرب بالاسم...' : 'Search trainer by name...'}
+                                    value={searchTrainerQuery}
+                                    onChange={e => setSearchTrainerQuery(e.target.value)}
+                                    style={{ flex: 1 }}
+                                />
+                                <button className="btn btn-secondary" onClick={handleSearchTrainers} disabled={searchingTrainers || !searchTrainerQuery}>
+                                    {searchingTrainers ? <Loader2 className="spin" size={16} /> : (lang === 'ar' ? 'بحث' : 'Search')}
+                                </button>
+                            </div>
+
+                            <div className="search-results" style={{ marginTop: '1.5rem' }}>
+                                {availableTrainers.length > 0 && availableTrainers.map(tr => (
+                                    <div key={tr.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.75rem', marginBottom: '0.75rem', borderBottom: '1px solid var(--border)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            {tr.avatar_url ? (
+                                                <img src={tr.avatar_url} alt="avatar" style={{width: 32, height: 32, borderRadius: '50%', objectFit: 'cover'}} />
+                                            ) : (
+                                                <div style={{width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.8rem'}}>
+                                                    {tr.full_name.charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
+                                            <div>
+                                                <div style={{ fontWeight: 'bold', color: 'var(--text-1)' }}>{tr.full_name}</div>
+                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{tr.email} • {tr.role}</div>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            className="btn btn-sm btn-primary" 
+                                            onClick={() => handleAssignTrainer(tr.id)}
+                                            disabled={assigningTrainer || trainers.some(t => t.trainer_id === tr.id)}
+                                        >
+                                            {trainers.some(t => t.trainer_id === tr.id) 
+                                                ? (lang === 'ar' ? 'معين مسبقاً' : 'Assigned') 
+                                                : (lang === 'ar' ? 'تعيين' : 'Assign')}
+                                        </button>
+                                    </div>
+                                ))}
+                                {availableTrainers.length === 0 && searchTrainerQuery && !searchingTrainers && (
+                                    <p className="text-sm text-muted mt-2">{lang === 'ar' ? 'لم يتم العثور على نتائج.' : 'No results found.'}</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -1613,7 +1810,7 @@ void loop() {
                 isOpen={showAddStudentModal}
                 onClose={() => setShowAddStudentModal(false)}
                 courseId={courseId}
-                courseName={course ? (lang === 'ar' && course.name_ar ? course.name_ar : course.name_en) : ''}
+                courseName={course ? (course.name) : ''}
                 onStudentAdded={() => fetchTrainees()}
             />
             {/* Certificate Preview Modal */}
@@ -1633,6 +1830,61 @@ void loop() {
                     traineeId={certData.traineeId}
                     trainers={trainers}
                 />
+            )}
+            {/* Edit Course Modal */}
+            {showEditCourseModal && (
+                <div className="modal-overlay" onClick={() => setShowEditCourseModal(false)}>
+                    <div className="modal-box" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header-row">
+                            <h2>{lang === 'ar' ? 'تعديل بيانات الدورة' : 'Edit Course'}</h2>
+                            <button type="button" className="modal-close-btn" onClick={() => setShowEditCourseModal(false)}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleUpdateCourse} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+                            <div className="form-group">
+                                <label>{lang === 'ar' ? 'اسم الدورة التدريبية' : 'Course Name'}</label>
+                                <input type="text" value={editCourseForm.name} onChange={e => setEditCourseForm({...editCourseForm, name: e.target.value})} required />
+                            </div>
+                            <div className="form-group">
+                                <label>{lang === 'ar' ? 'وصف الدورة' : 'Course Description'}</label>
+                                <textarea rows="3" value={editCourseForm.description} onChange={e => setEditCourseForm({...editCourseForm, description: e.target.value})} />
+                            </div>
+                            <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div className="form-group">
+                                    <label>{lang === 'ar' ? 'تاريخ البدء' : 'Start Date'}</label>
+                                    <input type="date" value={editCourseForm.start_date} onChange={e => setEditCourseForm({...editCourseForm, start_date: e.target.value})} />
+                                </div>
+                                <div className="form-group">
+                                    <label>{lang === 'ar' ? 'تاريخ الانتهاء' : 'End Date'}</label>
+                                    <input type="date" value={editCourseForm.end_date} onChange={e => setEditCourseForm({...editCourseForm, end_date: e.target.value})} />
+                                </div>
+                            </div>
+                            <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                                <div className="form-group">
+                                    <label>{lang === 'ar' ? 'الساعات التدريبية' : 'Duration (Hours)'}</label>
+                                    <input type="number" min="1" value={editCourseForm.duration_hours} onChange={e => setEditCourseForm({...editCourseForm, duration_hours: e.target.value})} />
+                                </div>
+                                <div className="form-group">
+                                    <label>{lang === 'ar' ? 'المسار التدريبي' : 'Track / Category'}</label>
+                                    <input type="text" value={editCourseForm.category} onChange={e => setEditCourseForm({...editCourseForm, category: e.target.value})} />
+                                </div>
+                                <div className="form-group">
+                                    <label>{lang === 'ar' ? 'مستوى المهارة' : 'Skill Level'}</label>
+                                    <input type="text" value={editCourseForm.level} onChange={e => setEditCourseForm({...editCourseForm, level: e.target.value})} />
+                                </div>
+                            </div>
+                            <div className="modal-actions">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowEditCourseModal(false)}>
+                                    {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                                </button>
+                                <button type="submit" className="btn btn-primary" disabled={isUpdatingCourse}>
+                                    {isUpdatingCourse ? <Loader2 className="spin" size={16} /> : (lang === 'ar' ? 'حفظ التعديلات' : 'Save Changes')}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             )}
 
             {/* EXCLUSIVE ROBOTICS MASCOT ASSISTANT */}

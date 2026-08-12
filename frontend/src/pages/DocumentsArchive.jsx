@@ -67,7 +67,7 @@ export default function DocumentsArchive() {
     const filtered = docs.filter(d => {
         const haystack = [
             d.file_name || '', d.doc_type || '',
-            d.trainee_name || '', d.course_name_en || ''
+            d.trainee_name || '', d.course_name || ''
         ].join(' ').toLowerCase();
         return haystack.includes(search.toLowerCase());
     });
@@ -121,7 +121,7 @@ export default function DocumentsArchive() {
                             <option value="">{lang === 'ar' ? 'جميع الدورات' : 'All Courses'}</option>
                             {courses.map(c => (
                                 <option key={c.id} value={c.id}>
-                                    {lang === 'ar' && c.name_ar ? c.name_ar : c.name_en}
+                                    {c.name}
                                 </option>
                             ))}
                         </select>
@@ -184,7 +184,7 @@ export default function DocumentsArchive() {
                                         <td>{doc.trainee_name || '—'}</td>
                                         <td>
                                             <span className="da-course-tag">
-                                                {lang === 'ar' && doc.course_name_ar ? doc.course_name_ar : (doc.course_name_en || '—')}
+                                                {lang === 'ar' && doc.course_name_ar ? doc.course_name_ar : (doc.course_name || '—')}
                                             </span>
                                         </td>
                                         <td className="da-size">{formatSize(doc.file_size)}</td>

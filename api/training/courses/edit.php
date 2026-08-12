@@ -14,12 +14,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data = body();
 $courseId      = (int)($data['id'] ?? 0);
-$name          = sanitizeString($data['name'] ?? $data['name_en'] ?? '');
-$nameEn        = sanitizeString($data['name_en'] ?? $name);
-$nameAr        = sanitizeString($data['name_ar'] ?? $name);
-$description   = sanitizeString($data['description'] ?? $data['description_en'] ?? '');
-$descriptionEn = sanitizeString($data['description_en'] ?? $description);
-$descriptionAr = sanitizeString($data['description_ar'] ?? $description);
+$name          = sanitizeString($data['name'] ?? $data['name'] ?? '');
+$nameEn        = sanitizeString($data['name'] ?? $name);
+$nameAr        = sanitizeString($data['name'] ?? $name);
+$description   = sanitizeString($data['description'] ?? $data['description'] ?? '');
+$descriptionEn = sanitizeString($data['description'] ?? $description);
+$descriptionAr = sanitizeString($data['description'] ?? $description);
 $startDate     = trim($data['start_date'] ?? '');
 $endDate       = trim($data['end_date'] ?? '');
 $durationHours = isset($data['duration_hours']) ? (int)$data['duration_hours'] : (isset($data['duration']) ? (int)$data['duration'] : null);
@@ -41,7 +41,7 @@ try {
 if ($durationHours !== null && $durationHours > 0) {
     $stmt = $db->prepare("
         UPDATE training_courses 
-        SET name_en = ?, name_ar = ?, description_en = ?, description_ar = ?, 
+        SET name = ?, name = ?, description = ?, description = ?, 
             start_date = ?, end_date = ?, duration_hours = ?, status = ?
         WHERE id = ?
     ");
@@ -59,7 +59,7 @@ if ($durationHours !== null && $durationHours > 0) {
 } else {
     $stmt = $db->prepare("
         UPDATE training_courses 
-        SET name_en = ?, name_ar = ?, description_en = ?, description_ar = ?, 
+        SET name = ?, name = ?, description = ?, description = ?, 
             start_date = ?, end_date = ?, status = ?
         WHERE id = ?
     ");

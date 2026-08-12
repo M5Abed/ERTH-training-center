@@ -102,7 +102,7 @@ foreach ($rows as $rowIndex => $row) {
             $hash = password_hash($defaultPass, PASSWORD_DEFAULT);
 
             $insStmt = $db->prepare("
-                INSERT INTO users (email, username, password_hash, full_name_en, role, student_id, college_key, academic_year, major, approval_status, email_verified, created_at)
+                INSERT INTO users (email, username, password_hash, full_name, role, student_id, college_key, academic_year, major, approval_status, email_verified, created_at)
                 VALUES (?, ?, ?, ?, 'trainee', ?, ?, ?, ?, 'approved', 1, NOW())
             ");
             $insStmt->execute([

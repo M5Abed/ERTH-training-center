@@ -45,7 +45,7 @@ if (!$userId) {
 // VERIFY USER EXISTS AND IS UNVERIFIED
 // =========================================================
 
-$stmt = db()->prepare("SELECT id, email, full_name_en, email_verified FROM users WHERE id = ?");
+$stmt = db()->prepare("SELECT id, email, full_name, email_verified FROM users WHERE id = ?");
 $stmt->execute([$userId]);
 $user = $stmt->fetch();
 
@@ -105,7 +105,7 @@ unset($_SESSION['pending_verification_email']);
 
 // Fetch full user profile for the response
 $stmt = db()->prepare("
-    SELECT id, email, full_name_en, student_id, college_key,
+    SELECT id, email, full_name, student_id, college_key,
            academic_year, major, bio, avatar_url, is_admin, role,
            avg_rating, email_verified, created_at
     FROM users WHERE id = ?

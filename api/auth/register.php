@@ -45,7 +45,7 @@ $data = body();
 $email      = strtolower(sanitizeString($data['email'] ?? ''));
 $username   = trim($data['username'] ?? '');
 $password   = $data['password'] ?? '';
-$nameEn     = sanitizeString($data['full_name_en'] ?? '');
+$nameEn     = sanitizeString($data['full_name'] ?? '');
 
 // Type validation — reject non-string inputs
 if (!is_string($data['email'] ?? null) || !is_string($data['password'] ?? null) || !is_string($data['username'] ?? null)) {
@@ -127,7 +127,7 @@ if ($chkUser->fetch()) {
 $hash = password_hash($password, PASSWORD_DEFAULT);
 
 $stmt = db()->prepare("
-    INSERT INTO users (full_name_en, username, email, password_hash, student_id, college_key, academic_year, major, role, approval_status, email_verified)
+    INSERT INTO users (full_name, username, email, password_hash, student_id, college_key, academic_year, major, role, approval_status, email_verified)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)
 ");
 $stmt->execute([

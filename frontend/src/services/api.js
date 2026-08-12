@@ -14,8 +14,8 @@ export function escapeHTML(str) {
 // Normalize user objects: backend returns full_name_en, frontend expects full_name
 function normalizeUser(obj) {
     if (!obj || typeof obj !== 'object') return obj;
-    if (!obj.full_name && obj.full_name_en) {
-        obj.full_name = obj.full_name_en || '';
+    if (!obj.full_name && obj.full_name) {
+        obj.full_name = obj.full_name || '';
     }
     if (obj.college_key) {
         const lang = localStorage.getItem('thinktank_lang') || 'en';

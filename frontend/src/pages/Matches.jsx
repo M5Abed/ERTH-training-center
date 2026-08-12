@@ -239,7 +239,7 @@ export default function Matches() {
             {(() => {
                 const q = searchQuery.toLowerCase().trim();
                 let filtered = q ? students.filter(st => {
-                    const name = (st.full_name || st.full_name_en || st.email || '').toLowerCase();
+                    const name = (st.full_name || st.full_name || st.email || '').toLowerCase();
                     const stId = (st.student_id || '').toString().toLowerCase();
                     return name.includes(q) || stId.includes(q);
                 }) : students;

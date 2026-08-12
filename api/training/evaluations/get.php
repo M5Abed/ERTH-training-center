@@ -29,8 +29,8 @@ if ($role === 'trainee' && !$isAdmin && $traineeId !== $uid) {
 $db = db();
 $stmt = $db->prepare("
     SELECT te.*, 
-           u.full_name_en AS trainee_name, u.email AS trainee_email, u.student_id,
-           ev.full_name_en AS evaluator_name
+           u.full_name AS trainee_name, u.email AS trainee_email, u.student_id,
+           ev.full_name AS evaluator_name
     FROM training_evaluations te
     JOIN users u ON te.trainee_id = u.id
     LEFT JOIN users ev ON te.evaluator_id = ev.id

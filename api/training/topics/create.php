@@ -14,10 +14,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data = body();
 $courseId      = (int)($data['course_id'] ?? 0);
-$titleEn       = sanitizeString($data['title_en'] ?? '');
-$titleAr       = sanitizeString($data['title_ar'] ?? '');
-$descriptionEn = sanitizeString($data['description_en'] ?? '');
-$descriptionAr = sanitizeString($data['description_ar'] ?? '');
+$titleEn       = sanitizeString($data['title'] ?? '');
+$titleAr       = sanitizeString($data['title'] ?? '');
+$descriptionEn = sanitizeString($data['description'] ?? '');
+$descriptionAr = sanitizeString($data['description'] ?? '');
 $dueDate       = trim($data['due_date'] ?? '');
 
 if (!$courseId || !$titleEn) {
@@ -32,7 +32,7 @@ $ordStmt->execute([$courseId]);
 $nextOrder = (int)$ordStmt->fetchColumn();
 
 $stmt = $db->prepare("
-    INSERT INTO training_topics (course_id, title_en, title_ar, description_en, description_ar, due_date, order_index)
+    INSERT INTO training_topics (course_id, title, title, description, description, due_date, order_index)
     VALUES (?, ?, ?, ?, ?, ?, ?)
 ");
 $stmt->execute([

@@ -102,7 +102,7 @@ STRICT RULES:
         'system'       => 'You are an expert academic project proposal writer for university training programs. '
             . 'Generate a full project proposal in JSON format based on the given keywords and domain. '
             . 'The JSON must have exactly these fields: '
-            . 'title_en, title_ar, description_en, description_ar, problem_statement, tech_stack, expected_output. '
+            . 'title, title, description, description, problem_statement, tech_stack, expected_output. '
             . 'RULES: '
             . '1) Keep descriptions realistic for a university training project. '
             . '2) tech_stack should be a comma-separated string of technologies. '

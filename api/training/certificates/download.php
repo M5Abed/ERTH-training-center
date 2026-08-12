@@ -22,9 +22,9 @@ $cert = false;
 if ($code) {
     $stmt = $db->prepare("
         SELECT tc.*,
-               COALESCE(u.full_name_en, u.username) AS trainee_name_en, u.student_id,
-               c.name_en AS course_title_en,
-               COALESCE(issuer.full_name_en, issuer.username) AS issuer_name
+               COALESCE(u.full_name, u.username) AS trainee_name, u.student_id,
+               c.name AS course_title,
+               COALESCE(issuer.full_name, issuer.username) AS issuer_name
         FROM training_certificates tc
         JOIN users u ON tc.trainee_id = u.id
         JOIN training_courses c ON tc.course_id = c.id
@@ -38,9 +38,9 @@ if ($code) {
 if (!$cert && $courseId && $traineeId) {
     $stmt = $db->prepare("
         SELECT tc.*,
-               COALESCE(u.full_name_en, u.username) AS trainee_name_en, u.student_id,
-               c.name_en AS course_title_en,
-               COALESCE(issuer.full_name_en, issuer.username) AS issuer_name
+               COALESCE(u.full_name, u.username) AS trainee_name, u.student_id,
+               c.name AS course_title,
+               COALESCE(issuer.full_name, issuer.username) AS issuer_name
         FROM training_certificates tc
         JOIN users u ON tc.trainee_id = u.id
         JOIN training_courses c ON tc.course_id = c.id
@@ -53,8 +53,8 @@ if (!$cert && $courseId && $traineeId) {
 
 if (!$cert && $courseId && $traineeId) {
     $chk = $db->prepare("
-        SELECT COALESCE(u.full_name_en, u.username) AS trainee_name_en,
-               c.name_en AS course_title_en
+        SELECT COALESCE(u.full_name, u.username) AS trainee_name,
+               c.name AS course_title
         FROM users u, training_courses c
         WHERE u.id = ? AND c.id = ?
     ");
@@ -64,8 +64,8 @@ if (!$cert && $courseId && $traineeId) {
         $cert = [
             'cert_code'       => 'NMU-VERIFY-PREVIEW',
             'issued_at'       => date('Y-m-d H:i:s'),
-            'trainee_name_en' => $info['trainee_name_en'],
-            'course_title_en' => $info['course_title_en'],
+            'trainee_name' => $info['trainee_name'],
+            'course_title' => $info['course_title'],
             'issuer_name'     => 'Prof. Khaled Fouad'
         ];
     }
@@ -75,10 +75,39 @@ if (!$cert) {
     respondError('Certificate not found or not yet issued', 404);
 }
 
-$traineeName = trim($cert['trainee_name_en'] ?: 'Trainee Name');
-$courseTitle = trim($cert['course_title_en'] ?: 'Summer Training Course');
+$traineeName = trim($cert['trainee_name'] ?: 'Trainee Name');
+$courseTitle = trim($cert['course_title'] ?: 'Summer Training Course');
 $certCode    = $cert['cert_code'];
 $issuedAt    = $cert['issued_at'] ? date('d F Y', strtotime($cert['issued_at'])) : date('d F Y');
+
+$courseDurationHours = 0;
+if (isset($cert['duration_hours']) && (int)$cert['duration_hours'] > 0) {
+    $courseDurationHours = (int)$cert['duration_hours'];
+} else {
+    $cId = (int)($cert['course_id'] ?? $courseId);
+    if ($cId > 0) {
+        $topicsDurationSum = 0;
+        try {
+            $topStmt = $db->prepare("SELECT duration_hours FROM training_topics WHERE course_id = ?");
+            $topStmt->execute([$cId]);
+            foreach ($topStmt->fetchAll() as $tp) {
+                $topicsDurationSum += (int)($tp['duration_hours'] ?? 0);
+            }
+            if ($topicsDurationSum > 0) {
+                $courseDurationHours = $topicsDurationSum;
+            }
+        } catch(Exception $e) {}
+    }
+}
+if ($courseDurationHours === 0) {
+    if (stripos($courseTitle, 'robotics') !== false) {
+        $courseDurationHours = 63;
+    } else {
+        $courseDurationHours = 40;
+    }
+}
+
+$courseTitleWithHours = $courseTitle . " (" . $courseDurationHours . " Hours)";
 
 // Custom FPDF Generator matching CertificateModal.jsx layout & CSS corner triangles exactly
 class NMUCertificatePDF extends FPDF {
@@ -163,7 +192,7 @@ $pdf->Cell(297, 16, 'CERTIFICATE', 0, 1, 'C');
 $pdf->SetFont('Helvetica', '', 11.5);
 $pdf->SetTextColor(50, 50, 50);
 $pdf->SetXY(30, 74);
-$pdf->MultiCell(237, 6.5, "CERTIFICATE OF ACHIEVEMENT FOR SUCCESSFUL COMPLETION IN " . strtoupper($courseTitle) . " COURSE IS PRESENTED TO:", 0, 'C');
+$pdf->MultiCell(237, 6.5, "CERTIFICATE OF ACHIEVEMENT FOR SUCCESSFUL COMPLETION IN " . strtoupper($courseTitleWithHours) . " COURSE IS PRESENTED TO:", 0, 'C');
 
 // 7. Student / Trainee Recipient Name (38pt Bold)
 $pdf->SetFont('Times', 'B', 38);

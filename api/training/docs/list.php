@@ -74,18 +74,18 @@ try {
 
     $stmt = $db->prepare("
         SELECT td.*, 
-               u.full_name_en AS trainee_name, 
+               u.full_name AS trainee_name, 
                u.email AS trainee_email, 
                u.student_id,
                COALESCE(
-                   (SELECT title_en FROM training_ideas WHERE id = td.idea_id LIMIT 1),
-                   (SELECT title_en FROM training_ideas WHERE course_id = td.course_id AND (trainee_id = td.trainee_id OR owner_id = td.trainee_id) ORDER BY id DESC LIMIT 1),
+                   (SELECT title FROM training_ideas WHERE id = td.idea_id LIMIT 1),
+                   (SELECT title FROM training_ideas WHERE course_id = td.course_id AND (trainee_id = td.trainee_id OR owner_id = td.trainee_id) ORDER BY id DESC LIMIT 1),
                    'Summer Training Project'
                ) AS project_title,
                COALESCE(
-                   (SELECT title_ar FROM training_ideas WHERE id = td.idea_id LIMIT 1),
-                   (SELECT title_ar FROM training_ideas WHERE course_id = td.course_id AND (trainee_id = td.trainee_id OR owner_id = td.trainee_id) ORDER BY id DESC LIMIT 1)
-               ) AS project_title_ar
+                   (SELECT title FROM training_ideas WHERE id = td.idea_id LIMIT 1),
+                   (SELECT title FROM training_ideas WHERE course_id = td.course_id AND (trainee_id = td.trainee_id OR owner_id = td.trainee_id) ORDER BY id DESC LIMIT 1)
+               ) AS project_title
         FROM trainee_documentation td
         LEFT JOIN users u ON td.trainee_id = u.id
         $whereSql

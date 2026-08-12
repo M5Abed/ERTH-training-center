@@ -19,7 +19,7 @@ if (!$topicId) {
 
 $db = db();
 $stmt = $db->prepare("
-    SELECT tc.*, u.full_name_en AS uploader_name
+    SELECT tc.*, u.full_name AS uploader_name
     FROM topic_content tc
     LEFT JOIN users u ON tc.uploaded_by = u.id
     WHERE tc.topic_id = ?

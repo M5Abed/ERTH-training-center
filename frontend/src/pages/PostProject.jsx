@@ -130,7 +130,7 @@ export default function PostProject() {
             const courseFinal = course === '__custom' ? '' : course;
             const collegeFinal = college === 'other' ? customCollege.trim() : college;
             const result = await createProject({
-                title_en: title, description_en: desc,
+                title: title, description: desc,
                 type, college_key: collegeFinal || null,
                 major: major || null,
                 team_size_needed: teamSize,

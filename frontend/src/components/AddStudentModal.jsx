@@ -197,7 +197,7 @@ export default function AddStudentModal({ isOpen, onClose, courseId, courseName,
                         ) : (
                             <div className="candidates-list">
                                 {candidates.map(candidate => {
-                                    const initial = (candidate.full_name_en || candidate.username || 'S').charAt(0).toUpperCase();
+                                    const initial = (candidate.full_name || candidate.username || 'S').charAt(0).toUpperCase();
                                     const isEnrolled = candidate.is_enrolled;
                                     const isCurrentEnrolling = enrollingId === candidate.id;
 
@@ -206,14 +206,14 @@ export default function AddStudentModal({ isOpen, onClose, courseId, courseName,
                                             <div className="candidate-avatar-col">
                                                 <div className="candidate-avatar">
                                                     {candidate.avatar_url ? (
-                                                        <img src={candidate.avatar_url} alt={candidate.full_name_en} />
+                                                        <img src={candidate.avatar_url} alt={candidate.full_name} />
                                                     ) : (
                                                         <span>{initial}</span>
                                                     )}
                                                 </div>
                                                 <div className="candidate-info">
                                                     <span className="candidate-name">
-                                                        {candidate.full_name_en || candidate.username}
+                                                        {candidate.full_name || candidate.username}
                                                     </span>
                                                     <div className="candidate-meta-row">
                                                         {candidate.email && (

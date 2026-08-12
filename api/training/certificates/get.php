@@ -24,9 +24,9 @@ $db = db();
 if ($certCode) {
     $stmt = $db->prepare("
         SELECT tc.*,
-               u.full_name_en AS trainee_name_en, u.full_name_en AS trainee_name_ar, u.student_id, u.email AS trainee_email,
-               c.name_en AS course_title_en, c.name_ar AS course_title_ar,
-               issuer.full_name_en AS issuer_name
+               u.full_name AS trainee_name, u.full_name AS trainee_name, u.student_id, u.email AS trainee_email,
+               c.name AS course_title, c.name AS course_title,
+               issuer.full_name AS issuer_name
         FROM training_certificates tc
         JOIN users u ON tc.trainee_id = u.id
         JOIN training_courses c ON tc.course_id = c.id
@@ -42,9 +42,9 @@ if ($certCode) {
     
     $stmt = $db->prepare("
         SELECT tc.*,
-               u.full_name_en AS trainee_name_en, u.full_name_en AS trainee_name_ar, u.student_id, u.email AS trainee_email,
-               c.name_en AS course_title_en, c.name_ar AS course_title_ar,
-               issuer.full_name_en AS issuer_name
+               u.full_name AS trainee_name, u.full_name AS trainee_name, u.student_id, u.email AS trainee_email,
+               c.name AS course_title, c.name AS course_title,
+               issuer.full_name AS issuer_name
         FROM training_certificates tc
         JOIN users u ON tc.trainee_id = u.id
         JOIN training_courses c ON tc.course_id = c.id

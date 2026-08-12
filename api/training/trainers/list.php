@@ -19,7 +19,7 @@ if (!$courseId) {
 
 $db = db();
 $stmt = $db->prepare("
-    SELECT ta.id AS assignment_id, ta.topic_id, u.id AS trainer_id, u.full_name_en, u.email, u.department, tt.title_en AS topic_title
+    SELECT ta.id AS assignment_id, ta.topic_id, u.id AS trainer_id, u.full_name, u.email, u.department, tt.title AS topic_title
     FROM trainer_assignments ta
     JOIN users u ON ta.trainer_id = u.id
     LEFT JOIN training_topics tt ON ta.topic_id = tt.id

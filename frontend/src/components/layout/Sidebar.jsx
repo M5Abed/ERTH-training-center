@@ -154,12 +154,12 @@ export default function Sidebar({ open, onClose }) {
                                 <div className="sidebar-avatar">
                                     {profile?.avatar_url
                                         ? <img src={profile.avatar_url} alt="" />
-                                        : <span>{(profile?.full_name || profile?.full_name_en || user.email || '?')[0].toUpperCase()}</span>
+                                        : <span>{(profile?.full_name || profile?.full_name || user.email || '?')[0].toUpperCase()}</span>
                                     }
                                 </div>
                                 <div className="sidebar-user-info" onClick={() => setUserMenuOpen(!userMenuOpen)} style={{ cursor: 'pointer', flex: 1, userSelect: 'none' }}>
                                     <div className="sidebar-user-name" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        {profile?.full_name || profile?.full_name_en || (lang === 'ar' ? 'مستخدم' : 'User')}
+                                        {profile?.full_name || profile?.full_name || (lang === 'ar' ? 'مستخدم' : 'User')}
                                         <span style={{ fontSize: '10px', opacity: 0.5, transform: userMenuOpen ? 'none' : 'rotate(180deg)', transition: 'transform 0.2s' }}>▼</span>
                                     </div>
                                     <div className="sidebar-user-email">{user.email}</div>

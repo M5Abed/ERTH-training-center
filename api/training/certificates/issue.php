@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS training_certificates (
 ");
 
 // 1. Fetch Trainee details
-$tStmt = $db->prepare("SELECT id, full_name_en, student_id, email FROM users WHERE id = ?");
+$tStmt = $db->prepare("SELECT id, full_name, student_id, email FROM users WHERE id = ?");
 $tStmt->execute([$traineeId]);
 $trainee = $tStmt->fetch();
 if (!$trainee) {
@@ -48,7 +48,7 @@ if (!$trainee) {
 }
 
 // 2. Fetch Course details
-$cStmt = $db->prepare("SELECT id, name_en, name_ar FROM training_courses WHERE id = ?");
+$cStmt = $db->prepare("SELECT id, name, name FROM training_courses WHERE id = ?");
 $cStmt->execute([$courseId]);
 $course = $cStmt->fetch();
 if (!$course) {
@@ -97,8 +97,8 @@ $nStmt = $db->prepare("
     INSERT INTO notifications (user_id, type, message_en, message_ar)
     VALUES (?, 'certificate_issued', ?, ?)
 ");
-$courseTitleEn = $course['name_en'] ?? 'Summer Training Course';
-$courseTitleAr = $course['name_ar'] ?? 'دورة التدريب الصيفي';
+$courseTitleEn = $course['name'] ?? 'Summer Training Course';
+$courseTitleAr = $course['name'] ?? 'دورة التدريب الصيفي';
 $msgEn = "Congratulations! Your completion certificate for '{$courseTitleEn}' has been issued.";
 $msgAr = "تهانينا! تم إصدار شهادة إتمام التدريب الخاصة بك لدورة '{$courseTitleAr}'.";
 $nStmt->execute([$traineeId, $msgEn, $msgAr]);
@@ -108,11 +108,11 @@ respond([
     'message'     => 'Certificate issued successfully',
     'certificate' => $certificate,
     'trainee'     => [
-        'name'       => $trainee['full_name_en'],
+        'name'       => $trainee['full_name'],
         'student_id' => $trainee['student_id']
     ],
     'course'      => [
-        'title' => $course['name_en']
+        'title' => $course['name']
     ]
 ]);
 ?>

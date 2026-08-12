@@ -123,8 +123,8 @@ export default function TraineeProjects() {
         if (idea) {
             setEditingIdeaId(idea.id);
             setSubmitCourseId(idea.course_id);
-            setSubmitTitleEn(idea.title_en || '');
-            setSubmitDescEn(idea.description_en || '');
+            setSubmitTitleEn(idea.title || '');
+            setSubmitDescEn(idea.description || '');
             setSubmitTechStack(idea.tech_stack || '');
             setSubmitProblemStmt(idea.problem_statement || '');
             setSubmitExpectedOutput(idea.expected_output || '');
@@ -153,8 +153,8 @@ export default function TraineeProjects() {
             });
             const data = await res.json();
             if (res.ok && data.proposal) {
-                setSubmitTitleEn(data.proposal.title_en || '');
-                setSubmitDescEn(data.proposal.description_en || '');
+                setSubmitTitleEn(data.proposal.title || '');
+                setSubmitDescEn(data.proposal.description || '');
                 setSubmitProblemStmt(data.proposal.problem_statement || '');
                 setSubmitTechStack(data.proposal.tech_stack || '');
                 setSubmitExpectedOutput(data.proposal.expected_output || '');
@@ -180,8 +180,8 @@ export default function TraineeProjects() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     course_id: submitCourseId,
-                    title_en: submitTitleEn,
-                    description_en: submitDescEn,
+                    title: submitTitleEn,
+                    description: submitDescEn,
                     tech_stack: submitTechStack,
                     problem_statement: submitProblemStmt,
                     expected_output: submitExpectedOutput
@@ -482,7 +482,7 @@ export default function TraineeProjects() {
     };
 
     const filteredProjects = projects.filter(p => {
-        const title = (p.title_en || p.title_ar || '').toLowerCase();
+        const title = (p.title || p.title_ar || '').toLowerCase();
         const traineeName = (p.trainee_name || '').toLowerCase();
         const studentId = (p.student_id || '').toLowerCase();
         const query = searchQuery.toLowerCase();
@@ -546,7 +546,7 @@ export default function TraineeProjects() {
                             <option value="">{lang === 'ar' ? 'جميع الدورات' : 'All Courses'}</option>
                             {courses.map(c => (
                                 <option key={c.id} value={c.id}>
-                                    {lang === 'ar' && c.name_ar ? c.name_ar : c.name_en}
+                                    {c.name}
                                 </option>
                             ))}
                         </select>
@@ -605,18 +605,18 @@ export default function TraineeProjects() {
 
                             <div className="project-card-body">
                                 <h3 className="project-title">
-                                    {project.title_en || project.title_ar}
+                                    {project.title || project.title_ar}
                                 </h3>
                                 <div className="course-tag">
                                     <BookOpen size={13} />
-                                    <span>{lang === 'ar' && project.course_name_ar ? project.course_name_ar : project.course_name_en}</span>
+                                    <span>{project.course_name}</span>
                                 </div>
                                 <div className="course-tag" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa' }}>
                                     <UserCheck size={13} />
                                     <span>{lang === 'ar' ? 'المدرب المشرف:' : 'Supervising Trainer:'} <strong>{project.reviewer_name || project.effective_trainer_name || (lang === 'ar' ? 'مدرب الدورة' : 'Course Trainer')}</strong></span>
                                 </div>
                                 <p className="project-desc">
-                                    {project.description_en || project.description_ar || project.problem_statement || (lang === 'ar' ? 'لا يوجد وصف متاح' : 'No description provided')}
+                                    {project.description || project.description_ar || project.problem_statement || (lang === 'ar' ? 'لا يوجد وصف متاح' : 'No description provided')}
                                 </p>
 
                                 {project.tech_stack && (
@@ -762,7 +762,7 @@ export default function TraineeProjects() {
                                                 <option value="">{lang === 'ar' ? '-- اختر الدورة --' : '-- Select Course --'}</option>
                                                 {(isEvaluator ? (allActiveCourses.length > 0 ? allActiveCourses : courses) : courses).map(c => (
                                                     <option key={c.id} value={c.id}>
-                                                        {lang === 'ar' && c.name_ar ? c.name_ar : c.name_en}
+                                                        {c.name}
                                                     </option>
                                                 ))}
                                             </select>
@@ -942,7 +942,7 @@ export default function TraineeProjects() {
                     <div className="modal-box modal-lg" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
                             <div>
-                                <h2>{activeProject.title_en || activeProject.title_ar}</h2>
+                                <h2>{activeProject.title || activeProject.title_ar}</h2>
                                 <p className="modal-subtext">
                                     {lang === 'ar' ? 'مقدّم بواسطة:' : 'Submitted by:'} <strong>{activeProject.trainee_name}</strong> ({activeProject.student_id || activeProject.trainee_email})
                                 </p>
@@ -956,7 +956,7 @@ export default function TraineeProjects() {
                         <div className="modal-body-content">
                             <div className="detail-section">
                                 <label>{lang === 'ar' ? 'الدورة التدريبية' : 'Course'}</label>
-                                <p className="detail-text">{lang === 'ar' && activeProject.course_name_ar ? activeProject.course_name_ar : activeProject.course_name_en}</p>
+                                <p className="detail-text">{activeProject.course_name}</p>
                             </div>
 
                             <div className="supervising-trainer-box" style={{ marginBottom: '1.25rem' }}>
@@ -970,7 +970,7 @@ export default function TraineeProjects() {
 
                             <div className="detail-section">
                                 <label>{lang === 'ar' ? 'وصف الفكرة / المشروع' : 'Description / Proposal'}</label>
-                                <p className="detail-text">{activeProject.description_en || activeProject.description_ar || 'N/A'}</p>
+                                <p className="detail-text">{activeProject.description || activeProject.description_ar || 'N/A'}</p>
                             </div>
 
                             {activeProject.problem_statement && (

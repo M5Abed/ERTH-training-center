@@ -1,11 +1,11 @@
 <?php
 /**
- * GET /api/users/search-staff.php
- * Searches for registered academic staff (professors, lecturers, TAs).
+ * GET /api/users/search-trainers.php
+ * Searches for registered users with the 'trainer' or 'admin' role.
  */
 require_once __DIR__ . '/../config.php';
 
-requireSession(); // Must be logged in
+requireAdmin(); // Only admins should search trainers for assignment
 
 $q = trim($_GET['q'] ?? '');
 if (!$q) {
@@ -13,9 +13,9 @@ if (!$q) {
 }
 
 $stmt = db()->prepare("
-    SELECT id, email, full_name, role, avatar_url 
+    SELECT id, email, full_name, role, avatar_url, department
     FROM users 
-    WHERE role IN ('ta', 'lecturer', 'professor') 
+    WHERE role IN ('trainer', 'admin') 
       AND full_name LIKE ? 
     LIMIT 10
 ");

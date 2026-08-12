@@ -76,7 +76,7 @@ export default function PublicProfile() {
         </div>
     );
 
-    const name = profile.full_name || profile.full_name_en || '';
+    const name = profile.full_name || profile.full_name || '';
     const hasSkills = Object.keys(groupedSkills).length > 0;
 
     return (
@@ -169,8 +169,8 @@ export default function PublicProfile() {
                         </h2>
                         <div className="gv-project-list">
                             {projects.map((p, i) => {
-                                const title = p.title || p.title_en || p.title_ar || 'Untitled';
-                                const desc = p.description || p.description_en || p.description_ar || '';
+                                const title = p.title || p.title || p.title_ar || 'Untitled';
+                                const desc = p.description || p.description || p.description_ar || '';
                                 return (
                                     <div key={p.id ?? i} className="gv-project-item">
                                         <div className="gv-project-dot" />

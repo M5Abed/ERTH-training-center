@@ -43,12 +43,12 @@ $whereSql = $whereClauses ? "WHERE " . implode(" AND ", $whereClauses) : "";
 
 $sql = "
     SELECT ti.*, 
-           u.full_name_en AS trainee_name, 
+           u.full_name AS trainee_name, 
            u.email AS trainee_email, 
            u.student_id,
-           tc.name_en AS course_name_en,
-           tc.name_ar AS course_name_ar,
-           rev.full_name_en AS reviewer_name,
+           tc.name AS course_name,
+           tc.name AS course_name,
+           rev.full_name AS reviewer_name,
            rev.email AS reviewer_email
     FROM training_ideas ti
     JOIN users u ON ti.owner_id = u.id
@@ -72,7 +72,7 @@ function attachVotesAndTrainers($db, array &$ideas, int $currentUserId) {
         try {
             $cInClause = implode(',', array_fill(0, count($courseIds), '?'));
             $tStmt = $db->prepare("
-                SELECT ta.course_id, tu.full_name_en AS trainer_name, tu.email AS trainer_email
+                SELECT ta.course_id, tu.full_name AS trainer_name, tu.email AS trainer_email
                 FROM trainer_assignments ta
                 JOIN users tu ON ta.trainer_id = tu.id
                 WHERE ta.course_id IN ($cInClause)
@@ -87,7 +87,7 @@ function attachVotesAndTrainers($db, array &$ideas, int $currentUserId) {
 
     try {
         $votesSql = "
-            SELECT tv.*, u.full_name_en AS evaluator_name, u.role AS evaluator_role
+            SELECT tv.*, u.full_name AS evaluator_name, u.role AS evaluator_role
             FROM training_votes tv
             JOIN users u ON tv.evaluator_id = u.id
             WHERE tv.idea_id IN ($inClause)

@@ -39,10 +39,10 @@ if (!$userId && !$email) {
 // =========================================================
 
 if ($userId) {
-    $stmt = db()->prepare("SELECT id, email, full_name_en, email_verified FROM users WHERE id = ?");
+    $stmt = db()->prepare("SELECT id, email, full_name, email_verified FROM users WHERE id = ?");
     $stmt->execute([$userId]);
 } else {
-    $stmt = db()->prepare("SELECT id, email, full_name_en, email_verified FROM users WHERE email = ?");
+    $stmt = db()->prepare("SELECT id, email, full_name, email_verified FROM users WHERE email = ?");
     $stmt->execute([$email]);
 }
 $user = $stmt->fetch();
@@ -94,7 +94,7 @@ if (!$userLimit['allowed']) {
 
 try {
     $otpCode = createOtp($user['id'], $user['email'], 'email_verify');
-    sendOtpEmail($user['email'], $user['full_name_en'], $otpCode);
+    sendOtpEmail($user['email'], $user['full_name'], $otpCode);
 } catch (\Exception $e) {
     error_log("Resend OTP email failed for user {$user['id']}: " . $e->getMessage());
     respondError(

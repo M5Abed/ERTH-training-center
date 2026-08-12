@@ -21,7 +21,7 @@ if ($isAdmin) {
     // Admin sees all courses
     $stmt = $db->query("
         SELECT tc.*, 
-               u.full_name_en AS creator_name,
+               u.full_name AS creator_name,
                (SELECT COUNT(*) FROM training_topics WHERE course_id = tc.id) AS total_topics,
                (SELECT COUNT(*) FROM trainee_enrollments WHERE course_id = tc.id) AS total_trainees
         FROM training_courses tc

@@ -14,8 +14,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data = body();
 $topicId = (int)($data['topic_id'] ?? 0);
-$titleEn = sanitizeString($data['title_en'] ?? '');
-$titleAr = sanitizeString($data['title_ar'] ?? '');
+$titleEn = sanitizeString($data['title'] ?? '');
+$titleAr = sanitizeString($data['title'] ?? '');
 $url     = trim($data['url'] ?? '');
 $type    = trim(strtolower($data['type'] ?? 'url')); // url, youtube
 
@@ -29,7 +29,7 @@ if (!filter_var($url, FILTER_VALIDATE_URL)) {
 
 $db = db();
 $stmt = $db->prepare("
-    INSERT INTO topic_content (topic_id, uploaded_by, type, title_en, title_ar, url)
+    INSERT INTO topic_content (topic_id, uploaded_by, type, title, title, url)
     VALUES (?, ?, ?, ?, ?, ?)
 ");
 $stmt->execute([
@@ -43,7 +43,7 @@ $stmt->execute([
 $contentId = (int)$db->lastInsertId();
 
 // Notify enrolled trainees
-$topicRow = $db->prepare("SELECT tt.course_id, tt.title_en FROM training_topics tt WHERE tt.id = ?");
+$topicRow = $db->prepare("SELECT tt.course_id, tt.title FROM training_topics tt WHERE tt.id = ?");
 $topicRow->execute([$topicId]);
 $topic = $topicRow->fetch();
 if ($topic) {
@@ -54,8 +54,8 @@ if ($topic) {
         $matTitle = $titleEn ?: $url;
         $nStmt = $db->prepare("INSERT INTO notifications (user_id, type, message_en, message_ar) VALUES (?, 'new_content', ?, ?)");
         foreach ($enrolled as $tid) {
-            $msgEn = "New link added to topic \"{$topic['title_en']}\": $matTitle";
-            $msgAr = "تم إضافة رابط جديد إلى الموضوع \"{$topic['title_en']}\": $matTitle";
+            $msgEn = "New link added to topic \"{$topic['title']}\": $matTitle";
+            $msgAr = "تم إضافة رابط جديد إلى الموضوع \"{$topic['title']}\": $matTitle";
             $nStmt->execute([(int)$tid, $msgEn, $msgAr]);
         }
     }

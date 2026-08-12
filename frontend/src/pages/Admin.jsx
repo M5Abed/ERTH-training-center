@@ -61,7 +61,7 @@ export default function Admin() {
     ];
 
     const filteredUsers = userSearch
-        ? users.filter(u => (u.full_name_en || '').toLowerCase().includes(userSearch.toLowerCase()) ||
+        ? users.filter(u => (u.full_name || '').toLowerCase().includes(userSearch.toLowerCase()) ||
 
             (u.email || '').toLowerCase().includes(userSearch.toLowerCase()))
         : users;
@@ -120,7 +120,7 @@ export default function Admin() {
         const result = await adminCreateStaff({
             email: staffEmail.trim(),
             password: staffPassword.trim(),
-            full_name_en: staffName.trim(),
+            full_name: staffName.trim(),
             role: staffRole,
             college_key: staffCollege || null,
         });
@@ -316,10 +316,10 @@ export default function Admin() {
                                                 <div className="admin-user-cell">
                                                     {u.avatar_url
                                                         ? <img src={u.avatar_url} className="admin-user-avatar admin-user-avatar--img" alt="" />
-                                                        : <div className="admin-user-avatar">{(u.full_name_en || u.email || '?')[0].toUpperCase()}</div>
+                                                        : <div className="admin-user-avatar">{(u.full_name || u.email || '?')[0].toUpperCase()}</div>
                                                     }
                                                     <div>
-                                                        <div className="admin-user-name">{u.full_name_en || '—'}</div>
+                                                        <div className="admin-user-name">{u.full_name || '—'}</div>
                                                         <div className="admin-user-email">{u.email || ''}</div>
                                                     </div>
                                                 </div>
@@ -333,7 +333,7 @@ export default function Admin() {
                                                 <button
                                                     className="btn-admin-delete"
                                                     title={lang === 'ar' ? 'حذف المستخدم' : 'Delete user'}
-                                                    onClick={() => confirmDelete('user', u.id, u.full_name_en || u.email)}
+                                                    onClick={() => confirmDelete('user', u.id, u.full_name || u.email)}
                                                     disabled={u.is_admin}
                                                 >
                                                     <Trash2 size={14} />
@@ -367,7 +367,7 @@ export default function Admin() {
                                 </thead>
                                 <tbody>
                                     {projects.slice(0, 30).map((p, i) => {
-                                        const title = lang === 'ar' ? (p.title_ar || p.title_en || p.title) : (p.title_en || p.title);
+                                        const title = lang === 'ar' ? (p.title_ar || p.title || p.title) : (p.title || p.title);
                                         const teamCount = (p.team_members || []).length;
                                         const isExpired = p.deadline && new Date(p.deadline) < new Date();
                                         return (

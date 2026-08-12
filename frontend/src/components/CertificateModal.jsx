@@ -50,9 +50,19 @@ export default function CertificateModal({
 
   if (!isOpen) return null;
 
-  const finalTraineeName = studentName || certificate?.trainee_name_en || trainee?.full_name_en || trainee?.name || 'Trainee Name';
-  const rawCourseTitle = courseTitle || certificate?.course_title_en || course?.title_en || course?.title || 'Summer Training Course';
-  const finalCourseTitle = rawCourseTitle.toUpperCase();
+  const finalTraineeName = studentName || certificate?.trainee_name || trainee?.full_name || trainee?.name || 'Trainee Name';
+  const rawCourseTitle = courseTitle || certificate?.course_title || course?.title || course?.name || course?.title || 'Summer Training Course';
+  
+  let courseDurationHours = course?.duration_hours || certificate?.duration_hours || 0;
+  if (!courseDurationHours) {
+      if (rawCourseTitle.toLowerCase().includes('robotics')) {
+          courseDurationHours = 63;
+      } else {
+          courseDurationHours = 40;
+      }
+  }
+  
+  const finalCourseTitle = `${rawCourseTitle.toUpperCase()} (${courseDurationHours} HOURS)`;
 
   const realCertCode = (certCode && certCode !== 'VERIFY-BEFORE-ISSUE' && certCode !== 'NMU-CERT-2026-PENDING')
     ? certCode 
@@ -182,7 +192,7 @@ export default function CertificateModal({
                 {trainers && trainers.length > 0 && (
                   <div className="cert-signature-block">
                     <div className="signature-line"></div>
-                    <strong className="signatory-name">{trainers[0].full_name_en || trainers[0].name || trainers[0].username || 'Trainer'}</strong>
+                    <strong className="signatory-name">{trainers[0].full_name || trainers[0].name || trainers[0].username || 'Trainer'}</strong>
                     <span className="signatory-title">Course Supervisor</span>
                   </div>
                 )}

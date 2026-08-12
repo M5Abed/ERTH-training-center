@@ -88,10 +88,10 @@ export default function TrainingApprovals() {
                         <div key={req.request_id} className="request-card">
                             <div className="card-top">
                                 <div className="user-avatar">
-                                    {(req.full_name_en || req.email)[0].toUpperCase()}
+                                    {(req.full_name || req.email)[0].toUpperCase()}
                                 </div>
                                 <div>
-                                    <h3>{req.full_name_en}</h3>
+                                    <h3>{req.full_name}</h3>
                                     <p className="user-email">{req.email}</p>
                                 </div>
                             </div>

@@ -24,6 +24,8 @@ export default function TrainingCourses() {
     const [desc, setDesc] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [category, setCategory] = useState('');
+    const [level, setLevel] = useState('');
     const [durationHours, setDurationHours] = useState(40);
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState('');
@@ -62,6 +64,8 @@ export default function TrainingCourses() {
                     description: desc,
                     start_date: startDate,
                     end_date: endDate,
+                    category: category,
+                    level: level,
                     duration_hours: parseInt(durationHours) || 40
                 })
             });
@@ -70,6 +74,7 @@ export default function TrainingCourses() {
                 setShowCreateModal(false);
                 setName(''); setDesc('');
                 setStartDate(''); setEndDate('');
+                setCategory(''); setLevel('');
                 setDurationHours(40);
                 fetchCourses();
             } else {
@@ -84,9 +89,9 @@ export default function TrainingCourses() {
 
     const filteredCourses = courses.filter(c => {
         const query = search.toLowerCase();
-        return (c.name_en || '').toLowerCase().includes(query) ||
+        return (c.name || '').toLowerCase().includes(query) ||
                (c.name_ar || '').includes(query) ||
-               (c.description_en || '').toLowerCase().includes(query);
+               (c.description || '').toLowerCase().includes(query);
     });
 
     return (
@@ -135,13 +140,13 @@ export default function TrainingCourses() {
                     {filteredCourses.map(course => (
                         <div key={course.id} className="course-card">
                             <div className="course-card-header">
-                                <h3>{lang === 'ar' && course.name_ar ? course.name_ar : course.name_en}</h3>
+                                <h3>{course.name}</h3>
                                 <span className={`status-badge status-${course.status}`}>
                                     {course.status}
                                 </span>
                             </div>
                             <p className="course-desc">
-                                {lang === 'ar' && course.description_ar ? course.description_ar : course.description_en}
+                                {course.description}
                             </p>
 
                             <div className="course-meta">
@@ -191,7 +196,7 @@ export default function TrainingCourses() {
                 isOpen={!!selectedCourseForAdd}
                 onClose={() => setSelectedCourseForAdd(null)}
                 courseId={selectedCourseForAdd?.id}
-                courseName={selectedCourseForAdd ? (lang === 'ar' && selectedCourseForAdd.name_ar ? selectedCourseForAdd.name_ar : selectedCourseForAdd.name_en) : ''}
+                courseName={selectedCourseForAdd ? (selectedCourseForAdd.name) : ''}
                 onStudentAdded={() => fetchCourses()}
             />
 
@@ -237,6 +242,28 @@ export default function TrainingCourses() {
                                     onChange={e => setDurationHours(e.target.value)} 
                                     placeholder="40" 
                                 />
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label>{lang === 'ar' ? 'التصنيف / المسار *' : 'Track / Category *'}</label>
+                                    <input 
+                                        type="text" 
+                                        required 
+                                        value={category} 
+                                        onChange={e => setCategory(e.target.value)} 
+                                        placeholder="e.g. Computer Science" 
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>{lang === 'ar' ? 'مستوى المهارة *' : 'Skill Level *'}</label>
+                                    <input 
+                                        type="text" 
+                                        required 
+                                        value={level} 
+                                        onChange={e => setLevel(e.target.value)} 
+                                        placeholder="e.g. Intermediate" 
+                                    />
+                                </div>
                             </div>
                             <div className="form-row">
                                 <div className="form-group">
