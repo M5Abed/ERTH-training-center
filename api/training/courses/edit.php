@@ -41,7 +41,7 @@ try {
 if ($durationHours !== null && $durationHours > 0) {
     $stmt = $db->prepare("
         UPDATE training_courses 
-        SET name = ?, name = ?, description = ?, description = ?, 
+        SET name_en = ?, name_ar = ?, description_en = ?, description_ar = ?, 
             start_date = ?, end_date = ?, duration_hours = ?, status = ?
         WHERE id = ?
     ");
@@ -59,7 +59,7 @@ if ($durationHours !== null && $durationHours > 0) {
 } else {
     $stmt = $db->prepare("
         UPDATE training_courses 
-        SET name = ?, name = ?, description = ?, description = ?, 
+        SET name_en = ?, name_ar = ?, description_en = ?, description_ar = ?, 
             start_date = ?, end_date = ?, status = ?
         WHERE id = ?
     ");

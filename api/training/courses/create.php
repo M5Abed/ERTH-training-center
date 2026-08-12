@@ -41,12 +41,12 @@ try {
     }
     $catCols = $db->query("SHOW COLUMNS FROM training_courses LIKE 'category'")->fetchAll();
     if (empty($catCols)) {
-        $db->exec("ALTER TABLE training_courses ADD COLUMN category VARCHAR(150) NULL AFTER name, ADD COLUMN level VARCHAR(100) NULL AFTER category");
+        $db->exec("ALTER TABLE training_courses ADD COLUMN category VARCHAR(150) NULL AFTER name_en, ADD COLUMN level VARCHAR(100) NULL AFTER category");
     }
 } catch (Throwable $e) {}
 
 $stmt = $db->prepare("
-    INSERT INTO training_courses (name, category, level, description, start_date, end_date, duration_hours, status, created_by)
+    INSERT INTO training_courses (name_en, category, level, description_en, start_date, end_date, duration_hours, status, created_by)
     VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)
 ");
 $stmt->execute([

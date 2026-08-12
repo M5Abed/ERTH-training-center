@@ -48,7 +48,7 @@ if (!$stmt->fetch()) {
 // Update the course
 $updateStmt = $db->prepare("
     UPDATE training_courses 
-    SET name = ?, category = ?, level = ?, description = ?, start_date = ?, end_date = ?, duration_hours = ?
+    SET name_en = ?, category = ?, level = ?, description_en = ?, start_date = ?, end_date = ?, duration_hours = ?
     WHERE id = ?
 ");
 $updateStmt->execute([

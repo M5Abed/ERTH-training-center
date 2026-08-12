@@ -1,0 +1,1 @@
+[2026-08-12 02:04:21] Email: test_student@nmu.edu.eg | OTP: 970806 | Purpose: email_verify | User ID: 13
