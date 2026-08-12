@@ -7,7 +7,7 @@ if (empty($_SESSION['user_id'])) {
 
 $uid  = (int)$_SESSION['user_id'];
 $stmt = db()->prepare("
-    SELECT id, email, username, full_name_en AS full_name, student_id, college_key,
+    SELECT id, email, username, full_name, student_id, college_key,
            academic_year, major, bio, avatar_url, availability, enrolled_courses, is_admin, avg_rating, role, email_verified, created_at
     FROM users WHERE id = ?
 ");

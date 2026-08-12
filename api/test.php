@@ -1,14 +1,7 @@
 <?php
-/**
- * GET /api/users/search-trainers.php
- * Searches for registered users with the 'trainer' or 'admin' role.
- */
-require_once __DIR__ . '/../config.php';
+require __DIR__ . '/config.php';
 
-requireAdmin(); // Only admins should search trainers for assignment
-
-$q = trim($_GET['q'] ?? '');
-
+$q = ''; // empty string
 $stmt = db()->prepare("
     SELECT id, email, full_name, username, role, avatar_url, department
     FROM users 
@@ -19,5 +12,4 @@ $stmt = db()->prepare("
 $searchMatch = "%{$q}%";
 $stmt->execute([$searchMatch, $searchMatch, $searchMatch]);
 $results = $stmt->fetchAll();
-
-respond($results);
+print_r($results);

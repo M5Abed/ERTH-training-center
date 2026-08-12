@@ -20,8 +20,8 @@ $db = db();
 if ($isAdmin) {
     // Admin sees all courses
     $stmt = $db->query("
-        SELECT tc.*, tc.name_en AS name, tc.description_en AS description,
-               u.full_name_en AS creator_name,
+        SELECT tc.*, tc.name AS name, tc.description AS description,
+               u.full_name AS creator_name,
                (SELECT COUNT(*) FROM training_topics WHERE course_id = tc.id) AS total_topics,
                (SELECT COUNT(*) FROM trainee_enrollments WHERE course_id = tc.id) AS total_trainees
         FROM training_courses tc
@@ -32,7 +32,7 @@ if ($isAdmin) {
 } elseif ($role === 'trainer') {
     // Trainer sees courses they are assigned to (whole course or topic level)
     $stmt = $db->prepare("
-        SELECT DISTINCT tc.*, tc.name_en AS name, tc.description_en AS description,
+        SELECT DISTINCT tc.*, tc.name AS name, tc.description AS description,
                (SELECT COUNT(*) FROM training_topics WHERE course_id = tc.id) AS total_topics,
                (SELECT COUNT(*) FROM trainee_enrollments WHERE course_id = tc.id) AS total_trainees
         FROM training_courses tc
@@ -46,7 +46,7 @@ if ($isAdmin) {
     // Trainee sees courses they are enrolled in (or all active courses if requested)
     if (isset($_GET['all']) && $_GET['all'] == '1') {
         $stmt = $db->query("
-            SELECT tc.*, tc.name_en AS name, tc.description_en AS description,
+            SELECT tc.*, tc.name AS name, tc.description AS description,
                    (SELECT COUNT(*) FROM training_topics WHERE course_id = tc.id) AS total_topics
             FROM training_courses tc
             WHERE tc.status = 'active'
@@ -55,7 +55,7 @@ if ($isAdmin) {
         $courses = $stmt->fetchAll();
     } else {
         $stmt = $db->prepare("
-            SELECT tc.*, tc.name_en AS name, tc.description_en AS description,
+            SELECT tc.*, tc.name AS name, tc.description AS description,
                    te.enrolled_at,
                    (SELECT COUNT(*) FROM training_topics WHERE course_id = tc.id) AS total_topics,
                    (SELECT COUNT(*) FROM trainee_topic_progress ttp 

@@ -34,6 +34,7 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
     const [availableTrainers, setAvailableTrainers] = useState([]);
     const [searchingTrainers, setSearchingTrainers] = useState(false);
     const [searchTrainerQuery, setSearchTrainerQuery] = useState('');
+    const [hasSearched, setHasSearched] = useState(false);
     const [assigningTrainer, setAssigningTrainer] = useState(false);
     const [myIdea, setMyIdea] = useState(null);
     const [allIdeas, setAllIdeas] = useState([]);
@@ -409,8 +410,8 @@ void loop() {
     };
 
     const handleSearchTrainers = async () => {
-        if (!searchTrainerQuery) return;
         setSearchingTrainers(true);
+        setHasSearched(true);
         try {
             const res = await fetch(`/api/users/search-trainers.php?q=${encodeURIComponent(searchTrainerQuery)}`);
             const data = await res.json();
@@ -1586,10 +1587,14 @@ void loop() {
                                     type="text" 
                                     placeholder={lang === 'ar' ? 'ابحث عن مدرب بالاسم...' : 'Search trainer by name...'}
                                     value={searchTrainerQuery}
-                                    onChange={e => setSearchTrainerQuery(e.target.value)}
+                                    onChange={e => {
+                                        setSearchTrainerQuery(e.target.value);
+                                        if (e.target.value === '') setHasSearched(false);
+                                    }}
+                                    onKeyDown={e => e.key === 'Enter' && handleSearchTrainers()}
                                     style={{ flex: 1 }}
                                 />
-                                <button className="btn btn-secondary" onClick={handleSearchTrainers} disabled={searchingTrainers || !searchTrainerQuery}>
+                                <button className="btn btn-secondary" onClick={handleSearchTrainers} disabled={searchingTrainers}>
                                     {searchingTrainers ? <Loader2 className="spin" size={16} /> : (lang === 'ar' ? 'بحث' : 'Search')}
                                 </button>
                             </div>
@@ -1621,7 +1626,7 @@ void loop() {
                                         </button>
                                     </div>
                                 ))}
-                                {availableTrainers.length === 0 && searchTrainerQuery && !searchingTrainers && (
+                                {availableTrainers.length === 0 && hasSearched && !searchingTrainers && (
                                     <p className="text-sm text-muted mt-2">{lang === 'ar' ? 'لم يتم العثور على نتائج.' : 'No results found.'}</p>
                                 )}
                             </div>

@@ -27,7 +27,7 @@ $courseId = 0;
 if (is_numeric($rawId)) {
     $courseId = (int)$rawId;
     $stmt = $db->prepare("
-        SELECT tc.*, tc.name_en AS name, tc.description_en AS description, u.full_name_en AS creator_name
+        SELECT tc.*, tc.name AS name, tc.description AS description, u.full_name AS creator_name
         FROM training_courses tc
         LEFT JOIN users u ON tc.created_by = u.id
         WHERE tc.id = ?
@@ -37,13 +37,13 @@ if (is_numeric($rawId)) {
 } else {
     // String slug lookup e.g. 'robotics'
     $stmt = $db->prepare("
-        SELECT tc.*, tc.name_en AS name, tc.description_en AS description, u.full_name_en AS creator_name
+        SELECT tc.*, tc.name AS name, tc.description AS description, u.full_name AS creator_name
         FROM training_courses tc
         LEFT JOIN users u ON tc.created_by = u.id
-        WHERE tc.name_en LIKE ? OR tc.name_ar LIKE ? OR tc.category LIKE ?
+        WHERE tc.name LIKE ? OR tc.name LIKE ?
         LIMIT 1
     ");
-    $stmt->execute(['%' . $rawId . '%', '%' . $rawId . '%', '%' . $rawId . '%']);
+    $stmt->execute(['%' . $rawId . '%', '%' . $rawId . '%']);
     $course = $stmt->fetch();
     if ($course) {
         $courseId = (int)$course['id'];
@@ -92,7 +92,7 @@ $topics = $topStmt->fetchAll();
 
 // Fetch assigned trainers
 $trStmt = $db->prepare("
-    SELECT ta.id AS assignment_id, ta.topic_id, u.id AS trainer_id, u.full_name_en AS full_name, u.email, u.department
+    SELECT ta.id AS assignment_id, ta.topic_id, u.id AS trainer_id, u.full_name, u.email, u.department
     FROM trainer_assignments ta
     JOIN users u ON ta.trainer_id = u.id
     WHERE ta.course_id = ?

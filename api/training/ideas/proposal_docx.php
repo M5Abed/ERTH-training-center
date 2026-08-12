@@ -23,10 +23,10 @@ if (!$ideaId) respondError('idea_id is required');
 
 $db = db();
 if ($isEval) {
-    $stmt = $db->prepare('SELECT i.*, u.full_name_en AS owner_name FROM training_ideas i LEFT JOIN users u ON u.id = i.owner_id WHERE i.id = ?');
+    $stmt = $db->prepare('SELECT i.*, u.full_name AS owner_name FROM training_ideas i LEFT JOIN users u ON u.id = i.owner_id WHERE i.id = ?');
     $stmt->execute([$ideaId]);
 } else {
-    $stmt = $db->prepare('SELECT i.*, u.full_name_en AS owner_name FROM training_ideas i LEFT JOIN users u ON u.id = i.owner_id WHERE i.id = ? AND i.owner_id = ?');
+    $stmt = $db->prepare('SELECT i.*, u.full_name AS owner_name FROM training_ideas i LEFT JOIN users u ON u.id = i.owner_id WHERE i.id = ? AND i.owner_id = ?');
     $stmt->execute([$ideaId, $uid]);
 }
 $idea = $stmt->fetch();
