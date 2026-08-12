@@ -433,8 +433,8 @@ export default function Auth() {
             {/* Brand panel */}
             <div className="auth-brand">
                 <Link to="/" className="auth-brand-logo" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <img src="/logo.png" alt="THINK TANK" style={{ height: '48px' }} />
-                    <span className="logo-text">THINK<span className="logo-accent"> TANK</span></span>
+                    <img src="/assets/university_logo.png" alt="NMU ERTH Training Center" style={{ height: '48px', objectFit: 'contain' }} />
+                    <span className="logo-text">NMU ERTH<span className="logo-accent"> Training Center</span></span>
                 </Link>
                 <div className="auth-brand-content">
                     <div className="auth-brand-tag">
@@ -445,7 +445,7 @@ export default function Auth() {
                         {lang === 'ar' ? 'ÙƒÙˆÙ‘Ù† Ù Ø±ÙŠÙ‚Ùƒ' : 'Find your'}<br />
                         <span className="gradient-text">{lang === 'ar' ? 'Ø§Ù„Ù…Ø«Ø§Ù„ÙŠ Ø¨Ø°ÙƒØ§Ø¡.' : 'perfect team.'}</span>
                     </h2>
-                    <p>{lang === 'ar' ? 'ThinkTank ÙŠØ­Ù„Ù„ Ù…Ù‡Ø§Ø±Ø§ØªÙƒ ÙˆØ£Ø³Ù„ÙˆØ¨ Ø¹Ù…Ù„Ùƒ Ù„ØªÙˆØµÙŠÙ„Ùƒ Ø¨Ø£ÙØ¶Ù„ Ø§Ù„Ø²Ù…Ù„Ø§Ø¡ Ù„Ù…Ø´Ø§Ø±ÙŠØ¹Ùƒ Ø§Ù„Ø£ÙƒØ§Ø¯ÙŠÙ…ÙŠØ© Ø¹Ø¨Ø± Ø¬Ù…Ø¹ Ù…Ø§Ù†Ø³ÙˆØ±Ø© Ø§Ù„Ø¬Ø¯ÙŠØ¯Ø©.' : 'ThinkTank matches students by skill, work style, and availability â€” so you spend less time searching and more time building.'}</p>
+                    <p>{lang === 'ar' ? 'ERTH Training Center ÙŠØ­Ù„Ù„ Ù…Ù‡Ø§Ø±Ø§ØªÙƒ ÙˆØ£Ø³Ù„ÙˆØ¨ Ø¹Ù…Ù„Ùƒ Ù„ØªÙˆØµÙŠÙ„Ùƒ Ø¨Ø£ÙØ¶Ù„ Ø§Ù„Ø²Ù…Ù„Ø§Ø¡ Ù„Ù…Ø´Ø§Ø±ÙŠØ¹Ùƒ Ø§Ù„Ø£ÙƒØ§Ø¯ÙŠÙ…ÙŠØ© Ø¹Ø¨Ø± Ø¬Ù…Ø¹ Ù…Ø§Ù†Ø³ÙˆØ±Ø© Ø§Ù„Ø¬Ø¯ÙŠØ¯Ø©.' : 'ERTH Training Center matches students by skill, work style, and availability â€” so you spend less time searching and more time building.'}</p>
                     <div className="auth-features">
                         <div className="auth-feature-item">
                             <Brain size={18} className="auth-feature-icon" />
@@ -462,7 +462,7 @@ export default function Auth() {
                     </div>
                 </div>
                 <div className="auth-brand-bottom">
-                    <p className="auth-brand-copy">&copy; 2026 THINK TANK &middot; New Mansoura University</p>
+                    <p className="auth-brand-copy">&copy; 2026 ERTH Training Center &middot; New Mansoura University</p>
                 </div>
                 <div className="auth-brand-decoration">
                     <div className="auth-orb auth-orb--1" />
@@ -475,8 +475,8 @@ export default function Auth() {
                 <div className="auth-form-container" style={{ maxWidth: tab === 'register' ? '520px' : '420px' }}>
                     {/* Mobile logo */}
                     <div className="auth-mobile-logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                        <img src="/logo.png" alt="THINK TANK" style={{ height: '36px' }} />
-                        THINK <span>TANK</span>
+                        <img src="/assets/university_logo.png" alt="NMU ERTH Training Center" style={{ height: '36px', objectFit: 'contain' }} />
+                        NMU ERTH <span>Training Center</span>
                     </div>
 
                     {/* Tabs */}

@@ -115,12 +115,6 @@ export default function Sidebar({ open, onClose }) {
         });
     }
 
-    // Profile available to all
-    navItems.push({
-        to: '/profile',
-        icon: <UserCircle size={20} />,
-        label: t('nav_profile')
-    });
 
     const filteredAdminItems = [];
 
@@ -131,8 +125,8 @@ export default function Sidebar({ open, onClose }) {
                 <div className="sidebar-header">
                     {/* Logo acts as home link */}
                     <NavLink to="/" className="sidebar-logo" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <img src="/logo.png" alt="THINK TANK" style={{ height: '32px' }} />
-                        <span className="logo-text">THINK<span className="logo-accent"> TANK</span></span>
+                        <img src="/logo.png" alt="ERTH Training Center" style={{ height: '32px' }} />
+                        <span className="logo-text">ERTH<span className="logo-accent"> Training Center</span></span>
                     </NavLink>
                     <button className="sidebar-close" onClick={onClose}><X size={20} /></button>
                 </div>
@@ -157,12 +151,12 @@ export default function Sidebar({ open, onClose }) {
                     {user && (
                         <div className="sidebar-footer-container" style={{ position: 'relative' }}>
                             <div className="sidebar-user">
-                                <Link to="/profile" className="sidebar-avatar" onClick={onClose}>
+                                <div className="sidebar-avatar">
                                     {profile?.avatar_url
                                         ? <img src={profile.avatar_url} alt="" />
                                         : <span>{(profile?.full_name || profile?.full_name_en || user.email || '?')[0].toUpperCase()}</span>
                                     }
-                                </Link>
+                                </div>
                                 <div className="sidebar-user-info" onClick={() => setUserMenuOpen(!userMenuOpen)} style={{ cursor: 'pointer', flex: 1, userSelect: 'none' }}>
                                     <div className="sidebar-user-name" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         {profile?.full_name || profile?.full_name_en || (lang === 'ar' ? 'مستخدم' : 'User')}

@@ -83,7 +83,7 @@ export default function PublicProfile() {
         <div className="gv-shell">
             {/* Minimal header — brand only, no nav links */}
             <header className="gv-topbar">
-                <span className="gv-brand"><span>THINK TANK</span></span>
+                <span className="gv-brand"><span>ERTH Training Center</span></span>
                 <Link to="/auth" className="gv-login-btn">
                     <Lock size={14} />
                     {lang === 'ar' ? 'تسجيل الدخول' : 'Sign In'}
@@ -201,7 +201,7 @@ export default function PublicProfile() {
             </main>
 
             <footer className="gv-footer">
-                ThinkTank — Smart Team Formation &nbsp;·&nbsp; Developed by{' '}
+                ERTH Training Center — Smart Team Formation &nbsp;·&nbsp; Developed by{' '}
                 <a href="https://erth.dev" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>
                     ERTH
                 </a>

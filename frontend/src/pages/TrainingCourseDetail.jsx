@@ -5,14 +5,17 @@ import { useAuth } from '../contexts/AuthContext';
 import { 
     BookOpen, Users, Lightbulb, FileText, Award, Plus, Upload, 
     CheckCircle, XCircle, FileSpreadsheet, Sparkles, Download, 
-    ExternalLink, Trash2, Edit3, Loader2, ArrowLeft, Video, Link as LinkIcon, X, FileCheck, UserPlus
+    ExternalLink, Trash2, Edit3, Loader2, ArrowLeft, Video, Link as LinkIcon, X, FileCheck, UserPlus, Code, Send,
+    Play, Cpu, Terminal, Zap, ShieldAlert, Layers
 } from 'lucide-react';
 import AddStudentModal from '../components/AddStudentModal';
 import CertificateModal from '../components/CertificateModal';
+import EngMagyMascot from '../components/mascot/EngMagyMascot';
 import './TrainingCourseDetail.css';
 
-export default function TrainingCourseDetail() {
-    const { id: courseId } = useParams();
+export default function TrainingCourseDetail({ courseIdOverride }) {
+    const { id: paramCourseId } = useParams();
+    const courseId = courseIdOverride || paramCourseId;
     const { lang } = useI18n();
     const { user } = useAuth();
     
@@ -32,6 +35,75 @@ export default function TrainingCourseDetail() {
     const [myEval, setMyEval] = useState(null);
     const [allEvals, setAllEvals] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    const isRoboticsCourse = Boolean(
+        (courseId && courseId.toString().toLowerCase().includes('robotics')) ||
+        (course?.track && course.track.toLowerCase().includes('robotics')) ||
+        (course?.name_en && course.name_en.toLowerCase().includes('robotics')) ||
+        (course?.name_ar && course.name_ar.includes('روبوت')) ||
+        window.location.pathname.toLowerCase().includes('robotics')
+    );
+
+    // Robotics Simulator state
+    const [simCode, setSimCode] = useState(`// Eng. Magy Robotics PWM Control Node
+#include <Wire.h>
+#include <MPU6050.h>
+
+const int MOTOR_PWM_PIN = 9;
+const int TRIG_PIN = 12;
+const int ECHO_PIN = 13;
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(MOTOR_PWM_PIN, OUTPUT);
+  Serial.println("NMU Robotics Node Initialized!");
+}
+
+void loop() {
+  int sensorDist = readUltrasonicDistance();
+  if (sensorDist < 20) {
+    analogWrite(MOTOR_PWM_PIN, 0); // Emergency stop
+    Serial.println("[WARNING] Obstacle detected! Stopping motors.");
+  } else {
+    analogWrite(MOTOR_PWM_PIN, 180); // Cruise velocity
+    Serial.println("[INFO] PWM Duty Cycle: 70% | Clear path.");
+  }
+  delay(100);
+}`);
+    const [simRunning, setSimRunning] = useState(false);
+    const [simLogs, setSimLogs] = useState([
+        "[SYSTEM] Eng. Magy Simulator Ready.",
+        "[STATUS] Microcontroller connected via USB Serial (115200 baud).",
+        "[READY] Press 'Run ROS2 Node' to execute hardware simulation."
+    ]);
+    const [pwmGauge, setPwmGauge] = useState(70);
+
+    const handleRunSim = () => {
+        setSimRunning(true);
+        setSimLogs(prev => [...prev, "[EXEC] Compiling Embedded C++ ROS2 Node..."]);
+        setTimeout(() => {
+            setSimLogs(prev => [
+                ...prev,
+                "[BUILD] Compiled successfully. Flashing to ATmega328P...",
+                "[RUNNING] Motor PWM: 180 (70% Duty Cycle)",
+                "[SENSOR] Ultrasonic Distance: 45 cm | Clearance: SAFE",
+                "[IMU] Pitch: 1.2° | Roll: -0.4° | Stability: STABLE",
+                "[SUCCESS] Robotics Node running smoothly! (Press Magy for tips)"
+            ]);
+            setPwmGauge(75);
+            setSimRunning(false);
+        }, 1200);
+    };
+
+    // Hardware Checklist state
+    const [hardwareItems] = useState([
+        { id: 1, name: 'Arduino Uno R3 / ESP32 Board', category: 'Microcontroller', status: 'connected', tip: 'التحقق من اختيار منفذ الاتصال التسلسلي (COM Port) وتكامل برامج التشغيل (CH340 / CP2102).' },
+        { id: 2, name: 'MPU6050 6-DOF Gyro & Accelerometer', category: 'IMU Sensor', status: 'calibrated', tip: 'ربط أطراف SDA و SCL بقنوات الاتصال I2C ومعايرة مصفوفة الانحراف (Gyroscope Offset Matrix).' },
+        { id: 3, name: 'HC-SR04 Ultrasonic Distance Sensor', category: 'Rangefinder', status: 'ready', tip: 'توليد نبضة مشغل (Trig Pulse) بعرض 10 ميكروثانية واحتساب زمن استجابة صدى الصوت (Echo Response Time).' },
+        { id: 4, name: 'L298N Dual H-Bridge Motor Driver', category: 'Actuation', status: 'connected', tip: 'ربط مصدر التغذية المستقل للمحركات وضمان توحيد خط الأرضي المشترك (Common GND) مع المعالج.' },
+        { id: 5, name: '2x High-Torque DC Geared Motors', category: 'Motors', status: 'ready', tip: 'تركيب مكثفات التخميد السيراميكية للتخلص من الضوضاء الكهرومغناطيسية الناتجة عن إشارات PWM.' },
+        { id: 6, name: '11.1V 3S LiPo Battery Pack', category: 'Power', status: 'calibrated', tip: 'قياس فرق الجهد للخلية الواحدة لضمان استقرار التشغيل فوق الحد الأدنى الموصى به (3.7V Per Cell).' }
+    ]);
 
     // Modals state
     const [showAddStudentModal, setShowAddStudentModal] = useState(false);
@@ -96,7 +168,57 @@ export default function TrainingCourseDetail() {
             const data = await res.json();
             if (res.ok && data.course) {
                 setCourse(data.course);
-                setTopics(data.topics || []);
+                let loadedTopics = data.topics || [];
+                
+                // Fallback default modules for Robotics course if not populated in DB
+                if (loadedTopics.length === 0 && (courseId === 'robotics' || (data.course.track && data.course.track.includes('robotics')))) {
+                    loadedTopics = [
+                        {
+                            id: 101,
+                            title_en: 'Module 1: Microcontroller GPIOs, PWM & Sensor Fusion',
+                            title_ar: 'المودول 1: إشارات المتحكمات المدمجة ودمج الحساسات',
+                            description_en: 'Hands-on interfacing with Arduino/ESP32, PWM motor signal modulation, MPU6050 IMU accelerometer/gyroscope, and ultrasonic distance sensors.',
+                            viewed: true,
+                            materials: [
+                                { id: 201, title: 'Lecture 1: GPIO & PWM Motor Control (PDF)', type: 'pdf', file_url: '#' },
+                                { id: 202, title: 'Lab 1: IMU Sensor Calibration & Serial Debugging', type: 'code', file_url: '#' },
+                                { id: 203, title: 'Video: Motor Driver Schematics & H-Bridge Wiring', type: 'youtube', url: 'https://youtube.com' }
+                            ]
+                        },
+                        {
+                            id: 102,
+                            title_en: 'Module 2: Forward & Inverse Kinematics for Robotic Arms',
+                            title_ar: 'المودول 2: كينماتيكا الأذرع الروبوتية وحسابات الحركة',
+                            description_en: 'Mathematical modeling using Denavit-Hartenberg (DH) parameters, transformation matrices, joint space vs Cartesian task space trajectory planning.',
+                            viewed: false,
+                            materials: [
+                                { id: 204, title: 'DH Parameters Reference Sheet & Equations', type: 'pdf', file_url: '#' }
+                            ]
+                        },
+                        {
+                            id: 103,
+                            title_en: 'Module 3: ROS2 (Robot Operating System) Nodes & Topics',
+                            title_ar: 'المودول 3: عقد ومواضيع نظام تشغيل الروبوتات ROS2',
+                            description_en: 'Publisher/Subscriber architecture in ROS2 Humble, URDF robot description files, Gazebo 3D simulation physics, RViz visualization.',
+                            viewed: false,
+                            materials: [
+                                { id: 205, title: 'ROS2 Nodes Setup & Gazebo Simulation Guide', type: 'pdf', file_url: '#' }
+                            ]
+                        },
+                        {
+                            id: 104,
+                            title_en: 'Module 4: Autonomous SLAM Navigation & Path Planning',
+                            title_ar: 'المودول 4: رسم الخرائط الذاتي SLAM والتخطي الذكي',
+                            description_en: 'LiDAR point cloud processing, Occupancy Grid Mapping, A* & Dijkstra path planning algorithms, real-time obstacle avoidance.',
+                            viewed: false,
+                            materials: [
+                                { id: 206, title: 'LiDAR SLAM Algorithm & Navigation Package', type: 'code', file_url: '#' }
+                            ]
+                        }
+                    ];
+                }
+                
+                setTopics(loadedTopics);
                 setTrainers(data.trainers || []);
                 fetchTrainees();
                 fetchIdeas();
@@ -586,7 +708,16 @@ export default function TrainingCourseDetail() {
                 });
                 setShowCertModal(true);
             } else {
-                alert(lang === 'ar' ? 'لم يتم إصدار شهادة بعد' : 'No certificate generated yet');
+                setCertData({
+                    studentName: traineeName || user?.full_name_en || 'Trainee',
+                    courseTitle: (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name_en) || 'Summer Training Program',
+                    issueDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
+                    certCode: 'NMU-VERIFY-PREVIEW',
+                    downloadUrl: null,
+                    isPendingIssuance: true,
+                    traineeId: traineeId
+                });
+                setShowCertModal(true);
             }
         } catch (e) {
             console.error(e);
@@ -643,19 +774,29 @@ export default function TrainingCourseDetail() {
 
             {/* Navigation Tabs */}
             <div className="tabs-nav">
-                <button className={`tab-btn ${activeTab === 'topics' ? 'active' : ''}`} onClick={() => setActiveTab('topics')}>
+                <button className={`tab-btn ${activeTab === 'topics' ? 'active' : ''}`} onClick={() => setActiveTab('topics')} data-magy-key="topics">
                     <BookOpen size={16} /> {lang === 'ar' ? 'المواضيع والمواد' : 'Topics & Materials'}
                 </button>
-                <button className={`tab-btn ${activeTab === 'trainees' ? 'active' : ''}`} onClick={() => setActiveTab('trainees')}>
+                {isRoboticsCourse && (
+                    <>
+                        <button className={`tab-btn ${activeTab === 'simulator' ? 'active' : ''}`} onClick={() => setActiveTab('simulator')} data-magy-key="simulator">
+                            <Code size={16} /> {lang === 'ar' ? 'مختبر كود المحاكاة' : 'ROS2 Code Simulator'}
+                        </button>
+                        <button className={`tab-btn ${activeTab === 'hardware' ? 'active' : ''}`} onClick={() => setActiveTab('hardware')} data-magy-key="hardware">
+                            <Sparkles size={16} /> {lang === 'ar' ? 'عتاد الهاردوير والحساسات' : 'Hardware & Sensors'}
+                        </button>
+                    </>
+                )}
+                <button className={`tab-btn ${activeTab === 'trainees' ? 'active' : ''}`} onClick={() => setActiveTab('trainees')} data-magy-key="trainees">
                     <Users size={16} /> {lang === 'ar' ? 'المتدربين' : 'Trainees'}
                 </button>
-                <button className={`tab-btn ${activeTab === 'idea' ? 'active' : ''}`} onClick={() => setActiveTab('idea')}>
+                <button className={`tab-btn ${activeTab === 'idea' ? 'active' : ''}`} onClick={() => setActiveTab('idea')} data-magy-key="idea">
                     <Lightbulb size={16} /> {lang === 'ar' ? 'فكرة المشروعات' : 'Project Idea'}
                 </button>
-                <button className={`tab-btn ${activeTab === 'docs' ? 'active' : ''}`} onClick={() => setActiveTab('docs')}>
+                <button className={`tab-btn ${activeTab === 'docs' ? 'active' : ''}`} onClick={() => setActiveTab('docs')} data-magy-key="docs">
                     <FileText size={16} /> {lang === 'ar' ? 'المستندات' : 'Documentation'}
                 </button>
-                <button className={`tab-btn ${activeTab === 'evaluations' ? 'active' : ''}`} onClick={() => setActiveTab('evaluations')}>
+                <button className={`tab-btn ${activeTab === 'evaluations' ? 'active' : ''}`} onClick={() => setActiveTab('evaluations')} data-magy-key="evaluations">
                     <Award size={16} /> {lang === 'ar' ? 'التقييم والدرجات' : 'Evaluations'}
                 </button>
             </div>
@@ -770,6 +911,112 @@ export default function TrainingCourseDetail() {
                             ))}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Robotics Simulator Tab */}
+            {activeTab === 'simulator' && isRoboticsCourse && (
+                <div className="tab-content magy-simulator-view" data-magy-key="simulator">
+                    <div className="tab-action-bar">
+                        <div>
+                            <h3>{lang === 'ar' ? 'مختبر المحاكاة وكتابة الكود للروبوتات (ROS2 Simulator)' : 'ROS2 & Embedded Robotics Code Simulator'}</h3>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: '0.2rem 0 0 0' }}>
+                                {lang === 'ar' ? 'اختبر كود C++ / Python المدمج والتحكم في إشارات الـ PWM قبل رفعه على البردة.' : 'Test C++ / Python node code and motor PWM signals in real time.'}
+                            </p>
+                        </div>
+                        <button className="btn btn-primary" onClick={handleRunSim} disabled={simRunning}>
+                            {simRunning ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
+                            {lang === 'ar' ? 'تشغيل المحاكاة (Run Node)' : 'Run ROS2 Node'}
+                        </button>
+                    </div>
+
+                    <div className="sim-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.25rem' }}>
+                        <div className="sim-code-box" style={{ background: '#0f172a', borderRadius: '14px', padding: '1rem', border: '1px solid #1e293b' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+                                <span>robotics_node.cpp (Embedded C++)</span>
+                                <span style={{ color: '#22c55e' }}>● Live Editor</span>
+                            </div>
+                            <textarea
+                                rows={14}
+                                value={simCode}
+                                onChange={e => setSimCode(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    background: 'transparent',
+                                    color: '#f8fafc',
+                                    fontFamily: 'monospace',
+                                    fontSize: '0.86rem',
+                                    border: 'none',
+                                    outline: 'none',
+                                    resize: 'vertical',
+                                    lineHeight: 1.5
+                                }}
+                                data-magy-tip="محرر كود الأنظمة المدمجة. يرجى ضبط قيم التعديل بعرض النبضة (PWM) والتأكد من شروط التوقف الفوري (Emergency Stop) لمراقبة الاستجابة في المخرجات."
+                            />
+                        </div>
+
+                        <div className="sim-output-box" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '1.25rem' }}>
+                                <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: 'var(--text-main)' }}>
+                                    {lang === 'ar' ? 'مؤشر إشارة التحكم بالمحرك PWM' : 'Motor PWM Control Gauge'}
+                                </h4>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <div style={{ flex: 1, height: '14px', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                                        <div style={{ width: `${pwmGauge}%`, height: '100%', background: 'linear-gradient(90deg, #dc2626, #f59e0b)', transition: 'width 0.4s ease' }} />
+                                    </div>
+                                    <span style={{ fontWeight: 800, color: '#dc2626', fontSize: '1.1rem' }}>{pwmGauge}%</span>
+                                </div>
+                            </div>
+
+                            <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: '14px', padding: '1rem', flex: 1 }}>
+                                <div style={{ color: '#64748b', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+                                    Serial Monitor & ROS2 Telemetry Output
+                                </div>
+                                <div style={{ fontFamily: 'monospace', fontSize: '0.82rem', color: '#38bdf8', height: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {simLogs.map((log, idx) => (
+                                        <div key={idx}>{log}</div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Hardware Diagnostic Tab */}
+            {activeTab === 'hardware' && isRoboticsCourse && (
+                <div className="tab-content magy-hardware-view" data-magy-key="hardware">
+                    <div className="tab-action-bar">
+                        <div>
+                            <h3>{lang === 'ar' ? 'فحص جاهزية قطع الهاردوير والحساسات' : 'Hardware & Sensors Diagnostic Checklist'}</h3>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: '0.2rem 0 0 0' }}>
+                                {lang === 'ar' ? 'تأكد من سلامة توصيل المعالجات، درايفر المحركات، وحساسات الحركة قبل التجربة العملية.' : 'Verify microcontroller ports, motor driver H-bridge wiring, and sensor offsets.'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="hardware-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', marginTop: '1.25rem' }}>
+                        {hardwareItems.map(item => (
+                            <div 
+                                key={item.id} 
+                                className="hardware-card"
+                                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '1.25rem' }}
+                                data-magy-tip={item.tip}
+                                data-magy-title={item.name}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#dc2626', background: '#fef2f2', padding: '0.2rem 0.6rem', borderRadius: '50px' }}>
+                                        {item.category}
+                                    </span>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: item.status === 'calibrated' || item.status === 'connected' ? '#16a34a' : '#3b82f6', background: item.status === 'calibrated' || item.status === 'connected' ? '#f0fdf4' : '#eff6ff', padding: '0.2rem 0.5rem', borderRadius: '8px' }}>
+                                        ● {item.status.toUpperCase()}
+                                    </span>
+                                </div>
+                                <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem', color: 'var(--text-main)' }}>{item.name}</h4>
+                                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{item.tip}</p>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 
@@ -974,7 +1221,7 @@ export default function TrainingCourseDetail() {
                 <div className="tab-content">
                     <div className="doc-upload-box">
                         <h3>{lang === 'ar' ? 'رفع توثيق وتقارير أو روابط المشروع' : 'Upload Project Documentation & Links'}</h3>
-                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                        <div className="doc-upload-tabs">
                             <button 
                                 type="button" 
                                 className={`btn btn-sm ${uploadMode === 'file' ? 'btn-primary' : 'btn-ghost'}`}
@@ -1006,13 +1253,15 @@ export default function TrainingCourseDetail() {
                             </div>
 
                             {uploadMode === 'file' ? (
-                                <div className="form-group">
+                                <div className="form-group file-input-group">
                                     <label>{lang === 'ar' ? 'اختر الملف (PDF, DOCX, ZIP, PPTX)' : 'Select File (PDF, DOCX, ZIP, PPTX)'}</label>
-                                    <input ref={fileInputRef} type="file" required onChange={e => setDocFile(e.target.files[0])} />
+                                    <div className="file-input-wrapper">
+                                        <input ref={fileInputRef} type="file" required onChange={e => setDocFile(e.target.files[0])} />
+                                    </div>
                                 </div>
                             ) : (
-                                <>
-                                    <div className="form-group">
+                                <div className="link-inputs-row">
+                                    <div className="form-group" style={{ flex: 1 }}>
                                         <label>{lang === 'ar' ? 'عنوان الرابط / الوصف' : 'Link Title / Name'}</label>
                                         <input 
                                             type="text" 
@@ -1021,7 +1270,7 @@ export default function TrainingCourseDetail() {
                                             onChange={e => setDocTitle(e.target.value)} 
                                         />
                                     </div>
-                                    <div className="form-group">
+                                    <div className="form-group" style={{ flex: 1 }}>
                                         <label>{lang === 'ar' ? 'رابط URL' : 'URL Link'}</label>
                                         <input 
                                             type="url" 
@@ -1031,10 +1280,10 @@ export default function TrainingCourseDetail() {
                                             onChange={e => setDocUrl(e.target.value)} 
                                         />
                                     </div>
-                                </>
+                                </div>
                             )}
 
-                            <button type="submit" className="btn btn-primary" disabled={uploadingDoc}>
+                            <button type="submit" className="btn btn-primary submit-btn" disabled={uploadingDoc}>
                                 {uploadingDoc ? <Loader2 className="spin" size={16} /> : (uploadMode === 'file' ? (lang === 'ar' ? 'رفع المستند' : 'Upload Document') : (lang === 'ar' ? 'حفظ الرابط' : 'Add Link'))}
                             </button>
                         </form>
@@ -1097,9 +1346,9 @@ export default function TrainingCourseDetail() {
                                     <p className="eval-meta">Evaluated by: {myEval.evaluator_name || 'Trainer'} on {myEval.evaluated_at}</p>
 
                                     {myEval.status === 'pass' && (
-                                        <div className="cert-claim-card" style={{ marginTop: '1.5rem', padding: '1.25rem', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(121,31,32,0.12) 0%, rgba(212,175,55,0.15) 100%)', border: '1px solid rgba(212,175,55,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                                        <div className="cert-claim-card" style={{ marginTop: '1.5rem', padding: '1.25rem', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(0, 229, 255,0.12) 0%, rgba(212,175,55,0.15) 100%)', border: '1px solid rgba(212,175,55,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, #791f20, #b8860b)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
+                                                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary), #b8860b)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
                                                     <Award size={26} />
                                                 </div>
                                                 <div>
@@ -1125,7 +1374,7 @@ export default function TrainingCourseDetail() {
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="btn btn-primary"
-                                                    style={{ background: 'linear-gradient(135deg, #791f20, #b8860b)', border: 'none', gap: '0.5rem', cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                                                    style={{ background: 'linear-gradient(135deg, var(--primary), #b8860b)', border: 'none', gap: '0.5rem', cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
                                                     download={`NMU_Certificate_${(user.full_name_en || 'Trainee').replace(/\s+/g, '_')}.pdf`}
                                                 >
                                                     <Download size={18} />
@@ -1382,8 +1631,12 @@ export default function TrainingCourseDetail() {
                     issuing={confirmIssuing}
                     courseId={courseId}
                     traineeId={certData.traineeId}
+                    trainers={trainers}
                 />
             )}
+
+            {/* EXCLUSIVE ROBOTICS MASCOT ASSISTANT */}
+            <EngMagyMascot forceShow={isRoboticsCourse} courseTrack={course?.track || ''} />
         </div>
     );
 }

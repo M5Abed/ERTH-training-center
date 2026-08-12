@@ -15,17 +15,7 @@ if ($method === 'GET') {
     if (!$reqId && !$uid) { respondError('No user specified', 400); }
 
     $stmt = db()->prepare("
-        SELECT u.*,
-               (SELECT JSON_ARRAYAGG(
-                   JSON_OBJECT('skill_id', us.skill_id, 'proficiency', us.proficiency)
-               ) FROM user_skills us WHERE us.user_id = u.id) AS user_skills,
-               (SELECT JSON_OBJECT(
-                   'pressure_score', up.pressure_score,
-                   'leadership_score', up.leadership_score,
-                   'execution_score', up.execution_score,
-                   'available_hours_per_week', up.available_hours_per_week,
-                   'preferred_project_type', up.preferred_project_type
-               ) FROM user_preferences up WHERE up.user_id = u.id) AS user_preferences
+        SELECT u.*
         FROM users u
         WHERE " . ($reqId ? "(u.student_id = ? OR u.username = ? OR u.id = ?)" : "u.id = ?") . "
     ");

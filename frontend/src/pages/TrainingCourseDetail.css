@@ -269,3 +269,113 @@
     color: var(--text-2);
     margin-bottom: 1rem;
 }
+
+/* ── Document Upload UI Fixes ────────────────────── */
+.doc-upload-box {
+    background: var(--bg-0);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.doc-upload-box h3 {
+    margin-bottom: 1.25rem;
+    font-size: 1.15rem;
+    color: var(--text-1);
+}
+
+.doc-upload-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    background: var(--bg-1);
+    padding: 0.35rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    width: fit-content;
+}
+
+.doc-upload-tabs .btn {
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.doc-upload-tabs .btn-ghost {
+    color: var(--text-2) !important;
+}
+
+.doc-upload-tabs .btn-ghost:hover {
+    color: var(--text-1) !important;
+    background: var(--bg-2) !important;
+}
+
+.doc-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.link-inputs-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.file-input-group {
+    background: var(--bg-1);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.file-input-group:focus-within, .file-input-group:hover {
+    border-color: var(--primary);
+    background: var(--bg-2);
+}
+
+.file-input-group label {
+    font-size: 0.9rem;
+    color: var(--text-1);
+    margin-bottom: 0;
+    text-transform: none; /* override form-group label uppercase */
+    letter-spacing: normal;
+}
+
+.file-input-wrapper input[type="file"] {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: var(--text-2);
+    font-size: 0.85rem;
+    box-shadow: none !important;
+}
+
+.file-input-wrapper input[type="file"]::file-selector-button {
+    background: var(--bg-3);
+    color: var(--text-1);
+    border: 1px solid var(--border);
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    margin-right: 1rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.file-input-wrapper input[type="file"]::file-selector-button:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.submit-btn {
+    align-self: flex-start;
+    margin-top: 0.5rem;
+}

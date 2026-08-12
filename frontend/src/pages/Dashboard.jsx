@@ -25,7 +25,7 @@ export default function Dashboard() {
             try {
                 const [f, s] = await Promise.all([
                     getActivityFeed(10).catch(() => []),
-                    fetch('/api/admin/stats.php').then(r => r.ok ? r.json() : null).catch(() => null)
+                    fetch('/api/training/dashboard_stats.php').then(r => r.ok ? r.json() : null).catch(() => null)
                 ]);
                 setFeed(f || []);
                 setStats(s);

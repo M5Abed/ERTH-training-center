@@ -7,12 +7,12 @@ export function ThemeProvider({ children }) {
     const toggleTheme = useCallback(() => {}, []);
 
     useEffect(() => {
-        document.documentElement.setAttribute('data-theme', 'light');
-        localStorage.setItem('thinktank_theme', 'light');
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('thinktank_theme', 'dark');
     }, []);
 
     return (
-        <ThemeContext.Provider value={{ theme: 'light', setTheme, toggleTheme, isDark: false }}>
+        <ThemeContext.Provider value={{ theme: 'dark', setTheme, toggleTheme, isDark: true }}>
             {children}
         </ThemeContext.Provider>
     );

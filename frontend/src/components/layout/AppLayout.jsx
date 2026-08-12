@@ -12,6 +12,7 @@ export default function AppLayout() {
     return (
         <div className="app-layout">
             <div className="bg-glow" />
+            <div className="lp-bg-wm" aria-hidden="true">ERTH</div>
             {/* Sidebar kept only for mobile slide-out */}
             <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
             <div className="app-main">

@@ -12,7 +12,6 @@ const Projects = lazy(() => import('./pages/Projects'))
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail'))
 const PostProject = lazy(() => import('./pages/PostProject'))
 const Matches = lazy(() => import('./pages/Matches'))
-const Profile = lazy(() => import('./pages/Profile'))
 const People = lazy(() => import('./pages/People'))
 const Reviews = lazy(() => import('./pages/Reviews'))
 const Admin = lazy(() => import('./pages/Admin'))
@@ -85,6 +84,8 @@ export default function App() {
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/courses" element={<TrainingCourses />} />
+          <Route path="/courses/robotics" element={<TrainingCourseDetail courseIdOverride="robotics" />} />
+          <Route path="/courses/robotics/*" element={<TrainingCourseDetail courseIdOverride="robotics" />} />
           <Route path="/courses/:id" element={<TrainingCourseDetail />} />
           <Route path="/submitted-projects" element={<TraineeProjects />} />
           <Route path="/post-project" element={<PostProject />} />
@@ -98,8 +99,7 @@ export default function App() {
           <Route path="/projects" element={<Navigate to="/submitted-projects" replace />} />
           <Route path="/people" element={<Navigate to="/courses" replace />} />
           
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/profile/:id" element={<Profile />} />
+
           <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
         </Route>
 

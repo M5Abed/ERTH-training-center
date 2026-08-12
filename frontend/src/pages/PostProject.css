@@ -33,7 +33,7 @@
 
 .pp-template-card--active {
     border-color: var(--tpl-color, var(--primary));
-    background: rgba(121,31,32, 0.06) !important;
+    background: rgba(0, 229, 255, 0.06) !important;
 }
 
 .pp-template-icon {
@@ -97,7 +97,7 @@
 .pp-form select:focus,
 .pp-form textarea:focus {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(121, 31, 32, 0.15);
+    box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.15);
 }
 
 .input-with-icon {
@@ -385,7 +385,7 @@
 .skill-tag--pref {
     border-color: var(--primary);
     color: var(--primary-l);
-    background: rgba(121,31,32, 0.08);
+    background: rgba(0, 229, 255, 0.08);
 }
 
 /* Form Styles Specific to Mobile Wrapping */
@@ -431,7 +431,7 @@
     border: 1px solid rgba(255, 255, 255, 0.15);
     transition: all 0.3s ease;
     cursor: pointer;
-    box-shadow: 0 4px 15px rgba(121,31,32, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 229, 255, 0.2);
     position: relative;
     overflow: hidden;
 }
@@ -450,7 +450,7 @@
 
 .ai-btn:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(121,31,32, 0.4);
+    box-shadow: 0 6px 20px rgba(0, 229, 255, 0.4);
     color: #FFFFFF;
     border-color: rgba(255, 255, 255, 0.3);
 }
@@ -638,11 +638,11 @@
 
 .pp-skill-group--open .pp-skill-group-header {
     border-bottom-color: var(--border) !important;
-    background: rgba(121,31,32, 0.06) !important;
+    background: rgba(0, 229, 255, 0.06) !important;
 }
 
 .pp-skill-group-header:hover {
-    background: rgba(121,31,32, 0.08) !important;
+    background: rgba(0, 229, 255, 0.08) !important;
 }
 
 .pp-skill-group-chevron {
@@ -717,7 +717,7 @@
 .pp-skill-tag:hover {
     border-color: var(--primary) !important;
     color: var(--primary-l) !important;
-    background: rgba(121,31,32, 0.06) !important;
+    background: rgba(0, 229, 255, 0.06) !important;
 }
 
 /* Required state */
@@ -840,7 +840,7 @@
 }
 
 .skill-tag--pref {
-    background: rgba(121,31,32, 0.1) !important;
+    background: rgba(0, 229, 255, 0.1) !important;
     border: 1px solid var(--border) !important;
     color: var(--text-2) !important;
 }

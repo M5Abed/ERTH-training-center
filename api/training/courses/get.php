@@ -15,22 +15,55 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);
 }
 
-$courseId = (int)($_GET['id'] ?? 0);
-if (!$courseId) {
+$rawId = $_GET['id'] ?? '0';
+if (!$rawId) {
     respondError('Course ID is required');
 }
 
 $db = db();
+$course = null;
+$courseId = 0;
 
-// Fetch course details
-$stmt = $db->prepare("
-    SELECT tc.*, u.full_name_en AS creator_name
-    FROM training_courses tc
-    LEFT JOIN users u ON tc.created_by = u.id
-    WHERE tc.id = ?
-");
-$stmt->execute([$courseId]);
-$course = $stmt->fetch();
+if (is_numeric($rawId)) {
+    $courseId = (int)$rawId;
+    $stmt = $db->prepare("
+        SELECT tc.*, u.full_name_en AS creator_name
+        FROM training_courses tc
+        LEFT JOIN users u ON tc.created_by = u.id
+        WHERE tc.id = ?
+    ");
+    $stmt->execute([$courseId]);
+    $course = $stmt->fetch();
+} else {
+    // String slug lookup e.g. 'robotics'
+    $stmt = $db->prepare("
+        SELECT tc.*, u.full_name_en AS creator_name
+        FROM training_courses tc
+        LEFT JOIN users u ON tc.created_by = u.id
+        WHERE tc.name_en LIKE ? OR tc.name_ar LIKE ? OR tc.track LIKE ?
+        LIMIT 1
+    ");
+    $stmt->execute(['%' . $rawId . '%', '%' . $rawId . '%', '%' . $rawId . '%']);
+    $course = $stmt->fetch();
+    if ($course) {
+        $courseId = (int)$course['id'];
+    }
+}
+
+// Default fallback for Robotics course if not in database yet
+if (!$course && strtolower($rawId) === 'robotics') {
+    $course = [
+        'id' => 'robotics',
+        'name_en' => 'Robotics & Autonomous Systems Engineering',
+        'name_ar' => 'هندسة الروبوتات والأنظمة الذاتية',
+        'description_en' => 'Comprehensive hands-on course covering microcontrollers, ROS2 nodes, motor PWM control, IMU sensor fusion, computer vision, and capstone autonomous navigation.',
+        'description_ar' => 'كورس تطبيقي شامل يغطي المتحكمات المدمجة، العقد المدمجة بروس 2، تحكم المحركات، دمج الحساسات، الرؤية الحاسوبية، والتحكم الذاتي.',
+        'track' => 'robotics',
+        'duration_hours' => 60,
+        'status' => 'active',
+        'created_at' => date('Y-m-d H:i:s')
+    ];
+}
 
 if (!$course) {
     respondError('Course not found', 404);

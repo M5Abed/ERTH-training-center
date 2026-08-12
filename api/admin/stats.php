@@ -60,19 +60,14 @@ try { $totalProjects = (int)$db->query("SELECT COUNT(*) FROM projects")->fetchCo
 $users = $db->query("
     SELECT u.id, u.full_name_en, u.email,
            u.college_key, u.academic_year, u.avatar_url,
-           u.avg_rating, u.created_at, u.student_id, u.role,
-           GROUP_CONCAT(us.skill_id) AS skill_ids
+           u.avg_rating, u.created_at, u.student_id, u.role
     FROM users u
-    LEFT JOIN user_skills us ON us.user_id = u.id
-    GROUP BY u.id
     ORDER BY u.created_at DESC
     LIMIT 200
 ")->fetchAll();
 
 foreach ($users as &$u) {
-    $ids = $u['skill_ids'] ? explode(',', $u['skill_ids']) : [];
-    $u['user_skills'] = array_map(fn($sid) => ['skill_id' => $sid], $ids);
-    unset($u['skill_ids']);
+    $u['user_skills'] = [];
     $u['avg_rating'] = $u['avg_rating'] !== null ? (float)$u['avg_rating'] : null;
 }
 unset($u);

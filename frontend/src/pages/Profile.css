@@ -33,8 +33,8 @@
     color: #fff;
     font-weight: 800;
     font-size: 2.5rem;
-    border: 2px solid rgba(121,31,32, 0.25);
-    box-shadow: 0 0 20px rgba(121,31,32, 0.15), 0 4px 12px rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(0, 229, 255, 0.25);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.15), 0 4px 12px rgba(0, 0, 0, 0.3);
     flex-shrink: 0;
 }
 
@@ -203,16 +203,16 @@
 .profile-action-btn:hover {
     color: var(--primary);
     border-color: var(--border-hover);
-    background: rgba(121,31,32, 0.08);
+    background: rgba(0, 229, 255, 0.08);
     box-shadow: var(--shadow-glow-primary);
     transform: translateY(-2px);
 }
 
 .profile-action-btn--copied {
     color: var(--green) !important;
-    border-color: rgba(121,31,32, 0.4) !important;
-    background: rgba(121,31,32, 0.12) !important;
-    box-shadow: 0 0 15px rgba(121,31,32, 0.2) !important;
+    border-color: rgba(0, 229, 255, 0.4) !important;
+    background: rgba(0, 229, 255, 0.12) !important;
+    box-shadow: 0 0 15px rgba(0, 229, 255, 0.2) !important;
 }
 
 [data-theme="light"] .profile-action-btn {
@@ -554,7 +554,7 @@
 }
 
 .inv-badge--pending {
-    background: rgba(121,31,32, 0.12) !important;
+    background: rgba(0, 229, 255, 0.12) !important;
     color: var(--primary-l) !important;
 }
 

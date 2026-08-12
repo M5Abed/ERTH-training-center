@@ -173,8 +173,8 @@ export default function Topbar({ onMenuClick }) {
 
                 {/* Logo */}
                 <Link to="/" className="topbar-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <img src="/logo.png" alt="THINK TANK" className="topbar-logo-img" />
-                    <span className="topbar-logo-text">THINK<span className="topbar-logo-accent"> TANK</span></span>
+                    <img src="/assets/university_logo.png" alt="NMU ERTH Training Center" className="topbar-logo-img" style={{ height: '36px', width: 'auto' }} />
+                    <span className="topbar-logo-text">NMU ERTH<span className="topbar-logo-accent"> Training Center</span></span>
                 </Link>
 
                 {/* Desktop Nav Links */}
@@ -230,7 +230,7 @@ export default function Topbar({ onMenuClick }) {
                                                     setShowNotifs(false);
                                                     if (n.type === 'chat' && n.project_id) navigate(`/project/${n.project_id}/chat`);
                                                     else if (n.project_id) navigate(`/project/${n.project_id}`);
-                                                    else if (['invite', 'pending', 'application'].includes(n.type)) navigate('/profile', { state: { tab: 'invitations' } });
+                                                    else if (['invite', 'pending', 'application'].includes(n.type)) setShowNotifs(false);
                                                 }}
                                                 style={{ cursor: n.project_id || ['invite', 'pending', 'application'].includes(n.type) ? 'pointer' : 'default' }}
                                             >
@@ -260,10 +260,7 @@ export default function Topbar({ onMenuClick }) {
                         </button>
                         {showUserMenu && (
                             <div className="topbar-user-dropdown">
-                                <Link to="/profile" className="topbar-dropdown-item" onClick={() => setShowUserMenu(false)}>
-                                    <UserCircle size={16} />
-                                    {lang === 'ar' ? 'الملف الشخصي' : 'My Profile'}
-                                </Link>
+
                                 <button className="topbar-dropdown-item" onClick={() => { setShowUserMenu(false); setShowPasswordModal(true); }}>
                                     <Shield size={16} />
                                     {lang === 'ar' ? 'تغيير كلمة المرور' : 'Change Password'}

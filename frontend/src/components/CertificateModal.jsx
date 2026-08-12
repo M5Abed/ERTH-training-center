@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Award, Download, Printer, CheckCircle, ExternalLink, X, ShieldCheck, Loader2 } from 'lucide-react';
 import './CertificateModal.css';
 
@@ -17,9 +17,36 @@ export default function CertificateModal({
   downloadUrl,
   isPendingIssuance = false,
   onConfirmIssuance,
-  issuing = false
+  issuing = false,
+  trainers = []
 }) {
   const [copied, setCopied] = useState(false);
+  const wrapperRef = useRef(null);
+  const [scale, setScale] = useState(1);
+
+  // Dynamic scaling logic
+  useEffect(() => {
+    if (!wrapperRef.current) return;
+    const resizeObserver = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        // The certificate intrinsic size is 820x580 (aspect ratio 1.414)
+        // Add some padding inside the wrapper
+        const availableWidth = width - 32; 
+        const availableHeight = height - 32;
+        
+        const scaleX = availableWidth / 820;
+        const scaleY = availableHeight / 580;
+        
+        // Use the smaller scale to ensure it fits both horizontally and vertically
+        const newScale = Math.min(scaleX, scaleY, 1); // Max scale is 1
+        setScale(newScale);
+      }
+    });
+    
+    resizeObserver.observe(wrapperRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
 
   if (!isOpen) return null;
 
@@ -100,8 +127,8 @@ export default function CertificateModal({
         )}
 
         {/* Certificate Graphic Canvas Preview */}
-        <div className="cert-preview-wrapper">
-          <div className="cert-canvas">
+        <div className="cert-preview-wrapper" ref={wrapperRef}>
+          <div className="cert-canvas" style={{ transform: `scale(${scale})`, transformOrigin: 'center center' }}>
             {/* Top Corner Geometric Accents */}
             <div className="cert-corner-tl-red"></div>
             <div className="cert-corner-tl-gold"></div>
@@ -135,7 +162,7 @@ export default function CertificateModal({
               Awarded with distinction in recognition of exceptional technical competence, innovative problem-solving, and outstanding academic performance throughout the specialized university training program.
             </p>
 
-            {/* Bottom Elements: Left QR Code, Center Date Ribbon, Right Signature */}
+            {/* Bottom Elements: Left QR Code, Center Date Ribbon, Right Signatures */}
             <div className="cert-bottom-row">
               {/* Left QR Code Block */}
               <div className="cert-qr-block">
@@ -149,11 +176,23 @@ export default function CertificateModal({
                 <span className="date-value">{finalIssuedDate}</span>
               </div>
 
-              {/* Signature Block */}
-              <div className="cert-signature-block">
-                <div className="signature-line"></div>
-                <strong className="signatory-name">Prof. Khaled Fouad</strong>
-                <span className="signatory-title">Dean of the Faculty</span>
+              {/* Signatures Block Container */}
+              <div style={{ display: 'flex', gap: '3cqi', justifySelf: 'end' }}>
+                {/* Supervisor Block */}
+                {trainers && trainers.length > 0 && (
+                  <div className="cert-signature-block">
+                    <div className="signature-line"></div>
+                    <strong className="signatory-name">{trainers[0].full_name_en || trainers[0].name || trainers[0].username || 'Trainer'}</strong>
+                    <span className="signatory-title">Course Supervisor</span>
+                  </div>
+                )}
+                
+                {/* Dean Signature Block */}
+                <div className="cert-signature-block">
+                  <div className="signature-line"></div>
+                  <strong className="signatory-name">Prof. Khaled Fouad</strong>
+                  <span className="signatory-title">Dean of the Faculty</span>
+                </div>
               </div>
             </div>
 

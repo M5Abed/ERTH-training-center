@@ -378,7 +378,7 @@
 .tb-add-btn:hover {
     color: var(--primary-l);
     border-color: var(--primary);
-    background: rgba(121,31,32, 0.04) !important;
+    background: rgba(0, 229, 255, 0.04) !important;
 }
 
 /* Confetti */

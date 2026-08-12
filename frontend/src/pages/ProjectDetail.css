@@ -96,7 +96,7 @@
     background: var(--primary);
     border-color: var(--primary);
     color: #fff;
-    box-shadow: 0 0 15px rgba(121,31,32, 0.3);
+    box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
 }
 
 .pd-timeline-step--done .pd-timeline-label {
@@ -265,7 +265,7 @@
 
 .pd-notice {
     padding: 0.75rem 1rem;
-    background: rgba(121,31,32, 0.06);
+    background: rgba(0, 229, 255, 0.06);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     font-size: 0.8125rem;

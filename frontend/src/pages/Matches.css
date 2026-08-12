@@ -436,12 +436,12 @@
 .btn-filter--active {
     border-color: var(--indigo) !important;
     color: var(--indigo-l) !important;
-    background: rgba(121,31,32, 0.12) !important;
+    background: rgba(0, 229, 255, 0.12) !important;
     
 }
 
 .btn-filter--active:hover {
-    background: rgba(121,31,32, 0.18) !important;
+    background: rgba(0, 229, 255, 0.18) !important;
 }
 
 .filter-badge {
@@ -573,13 +573,13 @@
 
 .filter-skill-chip--active {
     border-color: var(--indigo) !important;
-    background: rgba(121,31,32, 0.12) !important;
+    background: rgba(0, 229, 255, 0.12) !important;
     color: var(--indigo-l) !important;
     
 }
 
 .filter-skill-chip--active:hover {
-    background: rgba(121,31,32, 0.2) !important;
+    background: rgba(0, 229, 255, 0.2) !important;
 }
 
 .filter-empty {

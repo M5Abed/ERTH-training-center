@@ -124,13 +124,13 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    box-shadow: 0 0 3px rgba(121,31,32,0.12), 0 0 12px rgba(121,31,32,0.05);
+    box-shadow: 0 0 3px rgba(0, 229, 255,0.12), 0 0 12px rgba(0, 229, 255,0.05);
 }
 
 .project-card:hover {
     transform: translateY(-2px);
     border-color: var(--border-hover);
-    box-shadow: 0 0 5px rgba(121,31,32,0.2), 0 0 20px rgba(121,31,32,0.08);
+    box-shadow: 0 0 5px rgba(0, 229, 255,0.2), 0 0 20px rgba(0, 229, 255,0.08);
 }
 
 .project-card-top {
@@ -308,5 +308,5 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
 }
 [data-theme="light"] .project-card:hover {
-    box-shadow: 0 2px 6px rgba(121,31,32,0.1), 0 8px 24px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 6px rgba(0, 229, 255,0.1), 0 8px 24px rgba(0,0,0,0.06);
 }

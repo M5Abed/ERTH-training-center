@@ -117,13 +117,13 @@
 }
 
 .sidebar-link--active {
-    background: rgba(121,31,32, 0.12) !important;
+    background: rgba(0, 229, 255, 0.12) !important;
     color: var(--primary-l) !important;
     border-left: 3px solid var(--primary);
 }
 
 .sidebar-link--active:hover {
-    background: rgba(121,31,32, 0.18) !important;
+    background: rgba(0, 229, 255, 0.18) !important;
 }
 
 .sidebar-badge {
@@ -241,7 +241,7 @@
 }
 
 .settings-item:hover {
-    background: rgba(121,31,32, 0.08) !important;
+    background: rgba(0, 229, 255, 0.08) !important;
     color: var(--primary-l) !important;
 }
 
@@ -483,13 +483,13 @@
 
 /* ═══ Light Mode Overrides ═══ */
 [data-theme="light"] .sidebar-link--active {
-    background: rgba(121,31,32, 0.08) !important;
+    background: rgba(0, 229, 255, 0.08) !important;
     color: var(--primary) !important;
 }
 [data-theme="light"] .sidebar-link--active:hover {
-    background: rgba(121,31,32, 0.12) !important;
+    background: rgba(0, 229, 255, 0.12) !important;
 }
 [data-theme="light"] .settings-item:hover {
-    background: rgba(121,31,32, 0.06) !important;
+    background: rgba(0, 229, 255, 0.06) !important;
     color: var(--primary) !important;
 }

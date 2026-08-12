@@ -6,11 +6,19 @@
 // Load credentials from .env file (keeps secrets out of source code)
 $envFile = __DIR__ . '/../.env';
 if (file_exists($envFile)) {
-    $envVars = parse_ini_file($envFile);
-    if ($envVars) {
-        foreach ($envVars as $key => $value) {
-            if (!defined($key))
-                define($key, $value);
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($lines) {
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (empty($line) || strpos($line, '#') === 0) continue;
+            if (strpos($line, '=') !== false) {
+                list($key, $value) = explode('=', $line, 2);
+                $key = trim($key);
+                $value = trim(trim($value), '"\''); // Remove quotes
+                if (!defined($key)) {
+                    define($key, $value);
+                }
+            }
         }
     }
 }
