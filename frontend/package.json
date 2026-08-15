@@ -14,6 +14,8 @@
     "@tsparticles/react": "^3.0.0",
     "@tsparticles/slim": "^3.9.1",
     "chart.js": "^4.5.1",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.575.0",
     "pdfjs-dist": "^5.5.207",
     "react": "^19.2.0",

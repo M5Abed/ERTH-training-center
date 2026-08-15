@@ -1,400 +1,321 @@
-import { FileText, Target, Layers, Code2, GitBranch, AlertTriangle, CheckCircle2, BookOpen, Database, Users, Monitor, Zap, Cpu, FlaskConical, ShieldCheck, ListTodo, BookMarked, BarChart3 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FileText, Download, Sparkles, Edit3, CheckCircle2, User, Users, Calendar, BookOpen, Loader2, X, AlertCircle } from 'lucide-react';
 import './ProposalViewer.css';
 
-/**
- * ProposalViewer — Premium ERTH AI Proposal Document UI
- *
- * Supports both the new 30-chapter flat schema and the legacy 6-chapter nested schema.
- *
- * Props:
- *   proposal {object}  — the proposal object from the AI engine
- *   title    {string}  — optional override for the display title
- *   compact  {boolean} — render in a condensed mode
- */
-export default function ProposalViewer({ proposal, title, compact = false }) {
-    if (!proposal || (!proposal.project_identification && !proposal.title && !proposal.title_en && !proposal.executive_summary)) {
+export default function ProposalViewer({
+    ideaId,
+    initialProposal = null,
+    documentLabel = 'proposal', // 'proposal' for trainee, 'documentation' for trainer/admin
+    canEdit = true,
+    onProposalUpdated = null,
+    lang = 'en'
+}) {
+    const [proposal, setProposal] = useState(initialProposal);
+    const [loading, setLoading] = useState(!initialProposal && !!ideaId);
+    const [error, setError] = useState('');
+    
+    // Live Section Edit (Case A) State
+    const [editingSection, setEditingSection] = useState(null);
+    const [editInstruction, setEditInstruction] = useState('');
+    const [savingEdit, setSavingEdit] = useState(false);
+    const [editError, setEditError] = useState('');
+    const [editSuccess, setEditSuccess] = useState('');
+
+    useEffect(() => {
+        if (initialProposal) {
+            setProposal(initialProposal);
+        } else if (ideaId) {
+            fetchProposal();
+        }
+    }, [ideaId, initialProposal]);
+
+    const fetchProposal = async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const res = await fetch(`/api/training/ideas/proposal_get.php?idea_id=${ideaId}`);
+            const data = await res.json();
+            if (res.ok && data.proposal) {
+                setProposal(data.proposal);
+            } else {
+                setError(data.error || 'Failed to load proposal details');
+            }
+        } catch (e) {
+            setError('Network error loading proposal');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleOpenEdit = (sec) => {
+        setEditingSection(sec);
+        setEditInstruction('');
+        setEditError('');
+        setEditSuccess('');
+    };
+
+    const handleSaveSectionEdit = async () => {
+        if (!editInstruction.trim() || !editingSection) return;
+        setSavingEdit(true);
+        setEditError('');
+        try {
+            const res = await fetch('/api/training/ideas/proposal_edit_section.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    idea_id: ideaId,
+                    section_key: editingSection.key,
+                    instruction: editInstruction.trim()
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                // Update targeted section only
+                setProposal(prev => {
+                    if (!prev || !prev.sections) return prev;
+                    const nextSections = prev.sections.map(s => {
+                        if (s.key === editingSection.key) {
+                            return { ...s, content: data.updated_content, source: 'ai_edited' };
+                        }
+                        return s;
+                    });
+                    const updated = { ...prev, sections: nextSections };
+                    if (onProposalUpdated) onProposalUpdated(updated);
+                    return updated;
+                });
+                setEditSuccess(lang === 'ar' ? 'تم تحديث هذا القسم بنجاح' : 'Section updated successfully');
+                setTimeout(() => {
+                    setEditingSection(null);
+                    setEditSuccess('');
+                }, 800);
+            } else {
+                setEditError(data.error || 'Failed to update section');
+            }
+        } catch (e) {
+            setEditError('Error connecting to AI revision service');
+        } finally {
+            setSavingEdit(false);
+        }
+    };
+
+    if (loading) {
         return (
-            <div className="pv-empty">
-                <div className="pv-empty-icon"><FileText size={32} strokeWidth={1.2} /></div>
-                <h4>No Proposal Generated Yet</h4>
-                <p>Generate a full Erth AI proposal from the project submission form to see the complete 30-page documentation here.</p>
+            <div className="proposal-viewer-container" style={{ padding: '3rem', textAlign: 'center' }}>
+                <Loader2 className="spin" size={32} style={{ color: '#3b82f6', marginBottom: '0.75rem' }} />
+                <p style={{ margin: 0, color: '#94a3b8' }}>
+                    {lang === 'ar' ? 'جاري تحميل وثيقة المقترح...' : 'Loading official document...'}
+                </p>
             </div>
         );
     }
 
-    const isNewSchema = !!proposal.executive_summary;
-    const displayTitle = title || proposal.title || proposal.project_identification?.title || 'Project Proposal';
-
-    const renderList = (items, numbered = false) => {
-        if (!Array.isArray(items) || items.length === 0) return <p className="pv-na">Not specified</p>;
+    if (error || !proposal) {
         return (
-            <ul className={`pv-list ${numbered ? 'pv-list-numbered' : ''}`}>
-                {items.map((item, i) => (
-                    <li key={i}>{typeof item === 'string' ? item : JSON.stringify(item)}</li>
-                ))}
-            </ul>
-        );
-    };
-
-    const Chip = ({ label, color = 'purple' }) => (
-        <span className={`pv-chip pv-chip-${color}`}>{label}</span>
-    );
-
-    const Card = ({ icon: Icon, label, children, accent, className = '' }) => (
-        <div className={`pv-card ${accent ? 'pv-card-accent' : ''} ${className}`}>
-            <div className="pv-card-header">
-                <span className="pv-card-icon"><Icon size={14} /></span>
-                <span className="pv-card-label">{label}</span>
+            <div className="proposal-viewer-container" style={{ padding: '2rem', textAlign: 'center' }}>
+                <AlertCircle size={32} style={{ color: '#ef4444', marginBottom: '0.5rem' }} />
+                <p style={{ color: '#ef4444', margin: 0 }}>{error || 'No proposal data available'}</p>
             </div>
-            <div className="pv-card-body">{children}</div>
-        </div>
-    );
+        );
+    }
 
-    const InfoRow = ({ label, value }) => value ? (
-        <div className="pv-info-row">
-            <span className="pv-info-label">{label}</span>
-            <span className="pv-info-value">{value}</span>
-        </div>
-    ) : null;
+    const sections = proposal.sections || [];
+    const team = proposal.team || {};
+    const title = proposal.project_title || proposal.title || 'Training Project';
+    const category = proposal.category || 'software';
+    const isDocLabel = documentLabel === 'documentation';
+
+    const displayTitle = isDocLabel 
+        ? (lang === 'ar' ? 'توثيق المشروع الرسمي' : 'Official Project Documentation')
+        : (lang === 'ar' ? 'مقترح المشروع الأكاديمي' : 'Official Project Proposal');
 
     return (
-        <div className={`proposal-viewer ${compact ? 'pv-compact' : ''}`}>
-
-            {/* ══ HERO HEADER ══ */}
-            <div className="pv-hero">
-                <div className="pv-hero-glow" />
-                <div className="pv-hero-top">
-                    <div className="pv-erth-badge">
-                        <img src="/logo.png" alt="Erth" style={{ height: '14px' }} />
-                        <span>ERTH AI · Project Proposal / Documentation</span>
+        <div className="proposal-viewer-container">
+            {/* Header */}
+            <div className="proposal-viewer-header">
+                <div className="proposal-title-area">
+                    <div className="proposal-icon-badge">
+                        <FileText size={24} />
                     </div>
-                    <Chip label="30-Page NMU Template" color="blue" />
+                    <div className="proposal-header-text">
+                        <h3>{displayTitle}</h3>
+                        <div className="proposal-header-meta">
+                            <span className={`category-tag ${category}`}>{category}</span>
+                            <span>•</span>
+                            <span style={{ fontWeight: 600, color: '#f1f5f9' }}>{title}</span>
+                            {proposal.source === 'catalog_seed' && (
+                                <span className="source-badge">
+                                    {lang === 'ar' ? 'محتوى معتمد جاهز' : 'Verified Catalog Template'}
+                                </span>
+                            )}
+                        </div>
+                    </div>
                 </div>
-                <h1 className="pv-hero-title">{displayTitle}</h1>
 
-                {isNewSchema ? (
-                    <div className="pv-hero-meta">
-                        {proposal.platform && <InfoRow label="Platform" value={proposal.platform} />}
-                        {proposal.training_track && <InfoRow label="Track" value={proposal.training_track} />}
-                        {proposal.keywords?.length > 0 && (
-                            <div className="pv-keywords">
-                                {proposal.keywords.map((k, i) => <Chip key={i} label={k} color="indigo" />)}
-                            </div>
-                        )}
+                <div className="proposal-header-actions">
+                    {ideaId && (
+                        <a
+                            href={`/api/training/ideas/proposal_docx.php?idea_id=${ideaId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-docx-download"
+                        >
+                            <Download size={15} />
+                            <span>{lang === 'ar' ? 'تحميل التقرير الرسمي (.docx)' : 'Download Official Word Report (.docx)'}</span>
+                        </a>
+                    )}
+                </div>
+            </div>
+
+            {/* Team & Context Metadata Bar */}
+            <div className="proposal-team-bar">
+                {team.leader && (
+                    <div className="team-bar-item">
+                        <User size={14} className="text-primary" />
+                        <span>{lang === 'ar' ? 'قائد الفريق:' : 'Team Leader:'} <strong>{team.leader}</strong></span>
                     </div>
-                ) : (
-                    <div className="pv-hero-meta">
-                        {proposal.project_identification?.domain && <InfoRow label="Domain" value={proposal.project_identification.domain} />}
-                        {proposal.project_identification?.target_audience && <InfoRow label="Target Audience" value={proposal.project_identification.target_audience} />}
+                )}
+                {team.members && team.members.length > 0 && (
+                    <div className="team-bar-item">
+                        <Users size={14} />
+                        <span>{lang === 'ar' ? 'الأعضاء:' : 'Members:'} <strong>{team.members.join(', ')}</strong></span>
+                    </div>
+                )}
+                {team.trainer && (
+                    <div className="team-bar-item">
+                        <CheckCircle2 size={14} style={{ color: '#10b981' }} />
+                        <span>{lang === 'ar' ? 'المشرف:' : 'Supervisor:'} <strong>{team.trainer}</strong></span>
+                    </div>
+                )}
+                {team.course && (
+                    <div className="team-bar-item">
+                        <BookOpen size={14} />
+                        <span>{team.course}</span>
+                    </div>
+                )}
+                {team.date && (
+                    <div className="team-bar-item">
+                        <Calendar size={14} />
+                        <span>{team.date}</span>
                     </div>
                 )}
             </div>
 
-            {/* ══ NEW 30-CHAPTER SCHEMA ══ */}
-            {isNewSchema ? (
-                <div className="pv-body">
+            {/* Document Sections List */}
+            <div className="proposal-sections-list">
+                {sections.map((sec, idx) => (
+                    <div 
+                        key={sec.key || idx} 
+                        className="proposal-section-card revealing"
+                        style={{ animationDelay: `${idx * 0.08}s` }}
+                    >
+                        <div className="section-card-header">
+                            <div className="section-number-title">
+                                <span className="section-num">{idx + 1}</span>
+                                <h4>{sec.title || sec.key}</h4>
+                            </div>
 
-                    {/* Executive Summary */}
-                    {proposal.executive_summary && (
-                        <div className="pv-summary-block">
-                            <div className="pv-summary-label"><BookOpen size={13} /> Executive Summary</div>
-                            <p>{proposal.executive_summary}</p>
+                            {canEdit && (
+                                <div className="section-actions">
+                                    <button
+                                        type="button"
+                                        className="btn-ai-edit-section"
+                                        onClick={() => handleOpenEdit(sec)}
+                                        title={lang === 'ar' ? 'طلب تعديل ذكي لهذا القسم بالذكاء الاصطناعي' : 'Request AI revision for this specific section'}
+                                    >
+                                        <Sparkles size={13} />
+                                        <span>{lang === 'ar' ? 'تعديل ذكي بالذكاء الاصطناعي' : 'AI Section Edit'}</span>
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                    )}
 
-                    {/* Stats Row */}
-                    <div className="pv-stats-row">
-                        {proposal.ch4_tech_stack && (
-                            <div className="pv-stat-tile">
-                                <Code2 size={18} className="pv-stat-icon" />
-                                <div>
-                                    <div className="pv-stat-label">Technology Stack</div>
-                                    <div className="pv-stat-val">{proposal.ch4_tech_stack.split(',').length} Technologies</div>
-                                </div>
-                            </div>
-                        )}
-                        {Array.isArray(proposal.ch3_functional_requirements) && (
-                            <div className="pv-stat-tile">
-                                <ListTodo size={18} className="pv-stat-icon" />
-                                <div>
-                                    <div className="pv-stat-label">Functional Requirements</div>
-                                    <div className="pv-stat-val">{proposal.ch3_functional_requirements.length} Requirements</div>
-                                </div>
-                            </div>
-                        )}
-                        {Array.isArray(proposal.ch6_test_cases) && (
-                            <div className="pv-stat-tile">
-                                <FlaskConical size={18} className="pv-stat-icon" />
-                                <div>
-                                    <div className="pv-stat-label">Test Cases</div>
-                                    <div className="pv-stat-val">{proposal.ch6_test_cases.length} Cases Defined</div>
-                                </div>
-                            </div>
-                        )}
-                        {proposal.ch5_scenario && (
-                            <div className="pv-stat-tile">
-                                <ShieldCheck size={18} className="pv-stat-icon" />
-                                <div>
-                                    <div className="pv-stat-label">Validation</div>
-                                    <div className="pv-stat-val">Production-Ready</div>
-                                </div>
-                            </div>
-                        )}
+                        <div className="section-card-content">
+                            {sec.content || <em style={{ color: '#64748b' }}>Pending implementation details...</em>}
+                        </div>
                     </div>
+                ))}
+            </div>
 
-                    {/* Problem & Gap */}
-                    {(proposal.ch3_problem_statement || proposal.ch2_gap) && (
-                        <div className="pv-section-group">
-                            <div className="pv-section-group-label"><Target size={13} /> Problem Definition & Research Gap</div>
-                            <div className="pv-two-col">
-                                {proposal.ch3_problem_statement && (
-                                    <Card icon={Target} label="Problem Statement" accent>
-                                        <p>{proposal.ch3_problem_statement}</p>
-                                    </Card>
-                                )}
-                                {proposal.ch2_gap && (
-                                    <Card icon={BookMarked} label="Research / Design Gap">
-                                        <p>{proposal.ch2_gap}</p>
-                                    </Card>
-                                )}
-                            </div>
+            {/* Case A: AI Section Live Revision Modal */}
+            {editingSection && (
+                <div className="ai-edit-modal-overlay" onClick={() => !savingEdit && setEditingSection(null)}>
+                    <div className="ai-edit-modal-card" onClick={e => e.stopPropagation()}>
+                        <div className="ai-edit-modal-header">
+                            <h4>
+                                <Sparkles size={18} style={{ color: '#c084fc' }} />
+                                <span>{lang === 'ar' ? `تعديل قسم: ${editingSection.title}` : `Revise Section: ${editingSection.title}`}</span>
+                            </h4>
+                            <button 
+                                className="btn btn-ghost btn-icon" 
+                                onClick={() => setEditingSection(null)}
+                                disabled={savingEdit}
+                            >
+                                <X size={18} />
+                            </button>
                         </div>
-                    )}
 
-                    {/* Architecture & Stack */}
-                    {(proposal.ch4_tech_stack || proposal.ch4_system_architecture) && (
-                        <div className="pv-section-group">
-                            <div className="pv-section-group-label"><Cpu size={13} /> System Architecture & Technology</div>
-                            <div className="pv-two-col">
-                                {proposal.ch4_tech_stack && (
-                                    <Card icon={Code2} label="Technology Stack">
-                                        <div className="pv-tech-chips">
-                                            {proposal.ch4_tech_stack.split(',').map((t, i) => (
-                                                <Chip key={i} label={t.trim()} color="indigo" />
-                                            ))}
-                                        </div>
-                                    </Card>
-                                )}
-                                {proposal.ch4_system_architecture && (
-                                    <Card icon={GitBranch} label="System Architecture">
-                                        <p>{proposal.ch4_system_architecture}</p>
-                                    </Card>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                        <div className="ai-edit-modal-body">
+                            {editError && <div className="alert alert-error" style={{ marginBottom: '1rem' }}>{editError}</div>}
+                            {editSuccess && <div className="alert alert-success" style={{ marginBottom: '1rem' }}>{editSuccess}</div>}
 
-                    {/* Functional Requirements */}
-                    {Array.isArray(proposal.ch3_functional_requirements) && proposal.ch3_functional_requirements.length > 0 && (
-                        <div className="pv-section-group">
-                            <div className="pv-section-group-label"><ListTodo size={13} /> Functional Requirements</div>
-                            <div className="pv-req-grid">
-                                {proposal.ch3_functional_requirements.map((fr, idx) => (
-                                    <div key={idx} className="pv-req-card">
-                                        <div className="pv-req-id">
-                                            <span className="pv-req-num">{fr.id || `FR-${idx + 1}`}</span>
-                                            <span className={`pv-req-priority pv-req-priority-${(fr.priority || 'MEDIUM').toLowerCase()}`}>{fr.priority || 'MEDIUM'}</span>
-                                        </div>
-                                        <p className="pv-req-text">{fr.requirement}</p>
-                                    </div>
+                            <label>
+                                {lang === 'ar'
+                                    ? 'اكتب تعليماتك للتعديل (سيقوم الذكاء الاصطناعي بتعديل هذا القسم فقط دون تغيير باقي الوثيقة):'
+                                    : 'Specify how you want this section revised (AI will update ONLY this section):'}
+                            </label>
+                            <textarea
+                                rows="3"
+                                placeholder={lang === 'ar' 
+                                    ? 'مثال: اجعل صياغة المشكلة أكثر تركيزاً على المستخدمين كبار السن، أو اختصر منهجية العمل...'
+                                    : 'e.g. Make the problem statement more specific to healthcare kiosks, or shorten this section to 2 paragraphs...'}
+                                value={editInstruction}
+                                onChange={e => setEditInstruction(e.target.value)}
+                            />
+
+                            <div className="quick-prompts">
+                                <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center' }}>
+                                    {lang === 'ar' ? 'اقتراحات سريعة:' : 'Quick Prompts:'}
+                                </span>
+                                {[
+                                    { en: 'Make it more formal and academic', ar: 'اجعل الصياغة أكثر أكاديمية ورسمية' },
+                                    { en: 'Add focus on real-time performance', ar: 'ركز أكثر على الأداء والسرعة اللحظية' },
+                                    { en: 'Shorten and simplify', ar: 'اختصر ولخص النقاط الأساسية' },
+                                ].map((qp, i) => (
+                                    <button
+                                        key={i}
+                                        type="button"
+                                        className="quick-prompt-btn"
+                                        onClick={() => setEditInstruction(lang === 'ar' ? qp.ar : qp.en)}
+                                    >
+                                        {lang === 'ar' ? qp.ar : qp.en}
+                                    </button>
                                 ))}
                             </div>
                         </div>
-                    )}
 
-                    {/* Success Criteria */}
-                    {Array.isArray(proposal.ch3_success_criteria) && proposal.ch3_success_criteria.length > 0 && (
-                        <Card icon={CheckCircle2} label="Success Criteria & KPIs">
-                            <div className="pv-criteria-grid">
-                                {proposal.ch3_success_criteria.map((c, i) => (
-                                    <div key={i} className="pv-criteria-item">
-                                        <CheckCircle2 size={14} className="pv-criteria-icon" />
-                                        <span>{c}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </Card>
-                    )}
-
-                    {/* Scenario */}
-                    {proposal.ch5_scenario && (
-                        <Card icon={Monitor} label="Application Scenario & Implementation">
-                            <p>{proposal.ch5_scenario}</p>
-                        </Card>
-                    )}
-
-                    {/* Test Cases */}
-                    {Array.isArray(proposal.ch6_test_cases) && proposal.ch6_test_cases.length > 0 && (
-                        <div className="pv-section-group">
-                            <div className="pv-section-group-label"><FlaskConical size={13} /> Test Cases</div>
-                            <div className="pv-test-grid">
-                                {proposal.ch6_test_cases.map((tc, i) => (
-                                    <div key={i} className="pv-test-card">
-                                        <div className="pv-test-header">
-                                            <span className="pv-test-id">{tc.id || `TC-${i + 1}`}</span>
-                                            <span className={`pv-test-status ${tc.status === 'Pass' ? 'pass' : 'pending'}`}>
-                                                {tc.status === 'Pass' ? '✓ PASS' : '● PENDING'}
-                                            </span>
-                                        </div>
-                                        <p className="pv-test-name">{tc.test}</p>
-                                        <div className="pv-test-expected"><strong>Expected:</strong> {tc.expected}</div>
-                                    </div>
-                                ))}
-                            </div>
+                        <div className="ai-edit-modal-footer">
+                            <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() => setEditingSection(null)}
+                                disabled={savingEdit}
+                            >
+                                {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={handleSaveSectionEdit}
+                                disabled={savingEdit || !editInstruction.trim()}
+                                style={{ background: 'linear-gradient(135deg, #a855f7, #6366f1)', border: 'none', gap: '6px' }}
+                            >
+                                {savingEdit ? <Loader2 className="spin" size={15} /> : <Sparkles size={15} />}
+                                <span>{savingEdit ? (lang === 'ar' ? 'جاري التعديل...' : 'Revising...') : (lang === 'ar' ? 'تطبيق التعديل' : 'Apply AI Revision')}</span>
+                            </button>
                         </div>
-                    )}
-                </div>
-
-            ) : (
-                /* ══ LEGACY 6-CHAPTER SCHEMA ══ */
-                <div className="pv-body">
-                    {proposal.project_identification?.scope && (
-                        <div className="pv-summary-block">
-                            <div className="pv-summary-label"><BookOpen size={13} /> Scope & System Boundaries</div>
-                            <p>{proposal.project_identification.scope}</p>
-                        </div>
-                    )}
-
-                    {proposal.problem_statement && (
-                        <div className="pv-section-group">
-                            <div className="pv-section-group-label"><Target size={13} /> Problem Statement & Context</div>
-                            <div className="pv-three-col">
-                                {proposal.problem_statement.pain_points && (
-                                    <Card icon={AlertTriangle} label="Pain Points" accent>
-                                        <p>{proposal.problem_statement.pain_points}</p>
-                                    </Card>
-                                )}
-                                {(proposal.problem_statement.existing_solutions_limitations || proposal.problem_statement.existing_limitations) && (
-                                    <Card icon={ShieldCheck} label="Existing Limitations">
-                                        <p>{proposal.problem_statement.existing_solutions_limitations || proposal.problem_statement.existing_limitations}</p>
-                                    </Card>
-                                )}
-                                {proposal.problem_statement.proposed_novelty && (
-                                    <Card icon={Zap} label="Proposed Novelty">
-                                        <p>{proposal.problem_statement.proposed_novelty}</p>
-                                    </Card>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {proposal.technical_stack && (
-                        <Card icon={Code2} label="Tailored Technology Stack">
-                            <div className="pv-legacy-stack-grid">
-                                {proposal.technical_stack.frontend && (
-                                    <div className="pv-stack-row"><Monitor size={13} /><strong>Frontend:</strong><span>{proposal.technical_stack.frontend}</span></div>
-                                )}
-                                {proposal.technical_stack.backend && (
-                                    <div className="pv-stack-row"><Zap size={13} /><strong>Backend:</strong><span>{proposal.technical_stack.backend}</span></div>
-                                )}
-                                {proposal.technical_stack.database && (
-                                    <div className="pv-stack-row"><Database size={13} /><strong>Database:</strong><span>{proposal.technical_stack.database}</span></div>
-                                )}
-                                {(proposal.technical_stack.cloud_devops || proposal.technical_stack.infrastructure) && (
-                                    <div className="pv-stack-row"><Layers size={13} /><strong>DevOps:</strong><span>{proposal.technical_stack.cloud_devops || proposal.technical_stack.infrastructure}</span></div>
-                                )}
-                                {(proposal.technical_stack.ai_third_party || proposal.technical_stack.ai_apis) && (
-                                    <div className="pv-stack-row"><Cpu size={13} /><strong>AI / APIs:</strong><span>{proposal.technical_stack.ai_third_party || proposal.technical_stack.ai_apis}</span></div>
-                                )}
-                            </div>
-                            {proposal.technical_stack.justification && (
-                                <div className="pv-justification-box">
-                                    <strong>Architecture Justification:</strong>
-                                    <p>{proposal.technical_stack.justification}</p>
-                                </div>
-                            )}
-                        </Card>
-                    )}
-
-                    {proposal.requirements && (
-                        <div className="pv-two-col">
-                            <Card icon={Users} label="Functional Requirements">
-                                {Array.isArray(proposal.requirements.functional) ? proposal.requirements.functional.map((fr, idx) => (
-                                    <div key={idx} className="pv-legacy-role-block">
-                                        <strong>Role: {fr.role}</strong>
-                                        {renderList(fr.requirements)}
-                                    </div>
-                                )) : <p className="pv-na">—</p>}
-                            </Card>
-                            <Card icon={CheckCircle2} label="Non-Functional Requirements">
-                                {renderList(proposal.requirements.non_functional)}
-                            </Card>
-                        </div>
-                    )}
-
-                    {proposal.system_architecture && (
-                        <Card icon={GitBranch} label="System Architecture & Database Design">
-                            <div className="pv-two-col" style={{ marginBottom: '1rem' }}>
-                                {proposal.system_architecture.high_level_pattern || proposal.system_architecture.pattern ? (
-                                    <div><strong>High-Level Pattern:</strong><p style={{ marginTop: '4px' }}>{proposal.system_architecture.high_level_pattern || proposal.system_architecture.pattern}</p></div>
-                                ) : null}
-                                {proposal.system_architecture.data_flow ? (
-                                    <div><strong>Data Flow:</strong><p style={{ marginTop: '4px' }}>{proposal.system_architecture.data_flow}</p></div>
-                                ) : null}
-                            </div>
-                            <div className="pv-two-col" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem' }}>
-                                {(proposal.system_architecture.er_diagram_entities || proposal.system_architecture.er_entities) ? (
-                                    <div><strong style={{ marginBottom: '8px', display: 'block' }}>ER Entities:</strong>{renderList(proposal.system_architecture.er_diagram_entities || proposal.system_architecture.er_entities)}</div>
-                                ) : null}
-                                {proposal.system_architecture.api_endpoints ? (
-                                    <div><strong style={{ marginBottom: '8px', display: 'block' }}>Core API Endpoints:</strong>{renderList(proposal.system_architecture.api_endpoints)}</div>
-                                ) : null}
-                            </div>
-                        </Card>
-                    )}
-
-                    {proposal.implementation_roadmap && (
-                        <>
-                            {Array.isArray(proposal.implementation_roadmap.phases) && (
-                                <Card icon={Layers} label="Implementation Phases & Roadmap">
-                                    <div className="pv-phases">
-                                        {proposal.implementation_roadmap.phases.map((phase, i) => (
-                                            <div key={i} className="pv-phase-card">
-                                                <div className="pv-phase-header">
-                                                    <span className="pv-phase-num">{i + 1}</span>
-                                                    <div>
-                                                        <h5>{phase.phase}</h5>
-                                                        {phase.duration && <span className="pv-phase-duration">⏳ {phase.duration}</span>}
-                                                    </div>
-                                                </div>
-                                                {phase.deliverable && <p className="pv-phase-deliverable">📦 {phase.deliverable}</p>}
-                                                {Array.isArray(phase.tasks) && (
-                                                    <ul className="pv-phase-tasks">
-                                                        {phase.tasks.map((t, ti) => <li key={ti}>{t}</li>)}
-                                                    </ul>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </Card>
-                            )}
-
-                            {Array.isArray(proposal.implementation_roadmap.risk_management) && (
-                                <Card icon={AlertTriangle} label="Risk Management Matrix">
-                                    <div className="pv-risks">
-                                        {proposal.implementation_roadmap.risk_management.map((risk, i) => (
-                                            <div key={i} className="pv-risk-row">
-                                                <AlertTriangle size={15} className="pv-risk-icon" />
-                                                <div>
-                                                    <span className="pv-risk-name">{risk.risk}</span>
-                                                    <p className="pv-risk-mitigation"><strong>Mitigation:</strong> {risk.mitigation}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </Card>
-                            )}
-                        </>
-                    )}
+                    </div>
                 </div>
             )}
-
-            {/* ══ FOOTER ══ */}
-            <div className="pv-footer">
-                <span>Generated by ERTH AI · NMU Field Training Documentation Engine</span>
-                <span className="pv-footer-dot">·</span>
-                <span>30-Page University Template</span>
-            </div>
         </div>
     );
 }

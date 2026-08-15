@@ -67,6 +67,19 @@ $stmt = $db->prepare("
 ");
 $stmt->execute([$traineePass]);
 
+$stmt = $db->prepare("
+    INSERT INTO users (username, email, password_hash, role, is_admin, email_verified, approval_status, full_name, student_id, academic_year, major) 
+    VALUES ('student', 'student@nmu.edu.eg', ?, 'trainee', 0, 1, 'approved', 'Omar Khaled', '20230002', 3, 'Software Engineering')
+    ON DUPLICATE KEY UPDATE 
+        password_hash = VALUES(password_hash), 
+        role = 'trainee', 
+        is_admin = 0, 
+        email_verified = 1, 
+        approval_status = 'approved',
+        full_name = 'Omar Khaled'
+");
+$stmt->execute([$traineePass]);
+
 // Clear rate limits
 $db->query("DELETE FROM otp_rate_limits");
 

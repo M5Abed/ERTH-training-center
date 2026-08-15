@@ -1,0 +1,1054 @@
+/* =====================================================
+   ProposalDocModal — NMU Field Training Template
+   A4 Page Sheets | Smooth In-Modal Navigation | Print PDF
+   ===================================================== */
+
+/* ── Overlay ────────────────────────────────────────── */
+.pdm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    background: rgba(2, 6, 23, 0.85);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-end;
+    overflow: hidden;
+    animation: pdmFadeIn 0.2s ease;
+}
+@keyframes pdmFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Modal Shell ────────────────────────────────────── */
+.pdm-modal {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 1040px;
+    background: #2a3447;
+    height: 100vh;
+    max-height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+    animation: pdmSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: -24px 0 70px rgba(0,0,0,0.6);
+    position: relative;
+}
+@keyframes pdmSlideIn {
+    from { transform: translateX(100px); opacity: 0; }
+    to   { transform: translateX(0);     opacity: 1; }
+}
+
+/* ── Top Bar ────────────────────────────────────────── */
+.pdm-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.5rem;
+    background: #1b2a4a;
+    color: #e8edf4;
+    gap: 1rem;
+    flex-shrink: 0;
+    border-bottom: 3px solid #c8a951;
+    z-index: 10;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.pdm-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    overflow: hidden;
+    min-width: 0;
+}
+.pdm-topbar-icon {
+    width: 38px; height: 38px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #c8a951, #e2c76e);
+    display: flex; align-items: center; justify-content: center;
+    color: #1b2a4a; flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(200,169,81,0.35);
+}
+.pdm-topbar-label {
+    font-size: 0.68rem; font-weight: 700;
+    color: #c8a951; text-transform: uppercase; letter-spacing: 0.12em;
+    font-family: 'Inter', sans-serif;
+}
+.pdm-topbar-title {
+    font-size: 0.95rem; font-weight: 700; color: #f8fafc;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 480px; font-family: 'Inter', sans-serif;
+}
+.pdm-topbar-actions {
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+
+.pdm-progress-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 14px;
+    background: rgba(200,169,81,0.14);
+    border: 1px solid rgba(200,169,81,0.4);
+    border-radius: 20px;
+    color: #e2c76e; font-size: 0.78rem; font-weight: 700;
+    font-family: 'Inter', sans-serif;
+}
+
+/* ── Download Button ──────────────────────────────── */
+.pdm-btn-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0.45rem 1.1rem;
+    background: linear-gradient(135deg, #c8a951, #b8952e);
+    border: none;
+    border-radius: 8px;
+    color: #1b2a4a;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    font-family: 'Inter', sans-serif;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+.pdm-btn-download:hover:not(:disabled) {
+    background: linear-gradient(135deg, #e2c76e, #c8a951);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(200,169,81,0.35);
+}
+/* ── AI Fill Button ───────────────────────────────── */
+.pdm-btn-ai-fill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0.45rem 1.1rem;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    border: none;
+    border-radius: 8px;
+    color: #ffffff;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    font-family: 'Inter', sans-serif;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    box-shadow: 0 2px 10px rgba(99,102,241,0.35);
+}
+.pdm-btn-ai-fill:hover:not(:disabled) {
+    background: linear-gradient(135deg, #818cf8, #6366f1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(99,102,241,0.5);
+}
+.pdm-btn-ai-fill:disabled,
+.pdm-btn-ai-fill.loading {
+    opacity: 0.75;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.pdm-close-btn {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: #cbd5e1; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.18s ease;
+}
+.pdm-close-btn:hover { background: rgba(239,68,68,0.25); color: #fca5a5; transform: rotate(90deg); }
+
+/* ── Scrollable Document Body ────────────────────────── */
+.pdm-body {
+    flex: 1 1 0px !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    background: #334155;
+    padding: 2rem 1.5rem 4rem;
+    scroll-behavior: smooth;
+}
+.pdm-body::-webkit-scrollbar { width: 10px; }
+.pdm-body::-webkit-scrollbar-track { background: #1e293b; }
+.pdm-body::-webkit-scrollbar-thumb { background: #64748b; border-radius: 5px; }
+.pdm-body::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+.pdm-document-container {
+    max-width: 860px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+/* ══════════════════════════════════════════════════════
+   A4 PAGE CARD (Each page is a distinct academic sheet)
+   ══════════════════════════════════════════════════════ */
+.pdm-page-card {
+    background: #ffffff;
+    border-radius: 4px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+    padding: 3rem 3.5rem 2.5rem;
+    font-family: 'Calibri', 'Georgia', 'Arial', serif;
+    color: #1e293b;
+    position: relative;
+    box-sizing: border-box;
+    min-height: 520px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Page Header */
+.pdm-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 2px solid #1b2a4a;
+    padding-bottom: 0.9rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+.pdm-page-header-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    flex: 1;
+}
+.pdm-page-number-pill {
+    background: #1b2a4a;
+    color: #c8a951;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 5px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.pdm-page-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.pdm-page-heading {
+    margin: 0;
+    font-size: 1.22rem;
+    font-weight: 800;
+    color: #1b2a4a;
+    font-family: 'Calibri', 'Segoe UI', sans-serif;
+    line-height: 1.25;
+}
+.pdm-page-subheading {
+    font-size: 0.82rem;
+    color: #64748b;
+    font-family: 'Inter', sans-serif;
+    font-style: italic;
+}
+.pdm-page-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* Section Status Badges */
+.pdm-section-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 11px;
+    border-radius: 20px;
+    letter-spacing: 0.04em;
+    font-family: 'Inter', sans-serif;
+    flex-shrink: 0;
+}
+.pdm-badge-ai      { background: rgba(59,130,246,0.12); color: #2563eb; border: 1px solid rgba(59,130,246,0.35); }
+.pdm-badge-saved   { background: rgba(22,163,74,0.12);  color: #16a34a; border: 1px solid rgba(22,163,74,0.4); font-weight: 800; }
+.pdm-badge-fill    { background: rgba(245,158,11,0.12); color: #b45309; border: 1px solid rgba(245,158,11,0.4); font-weight: 700; }
+.pdm-badge-default { background: rgba(100,116,139,0.1); color: #475569; border: 1px solid rgba(100,116,139,0.25); }
+
+/* Buttons */
+.pdm-btn-guide {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: 'Inter', sans-serif;
+}
+.pdm-btn-guide:hover, .pdm-btn-guide.active {
+    background: #e2e8f0;
+    color: #1b2a4a;
+}
+
+.pdm-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 13px;
+    border-radius: 6px;
+    background: rgba(27,42,74,0.08);
+    border: 1px solid rgba(27,42,74,0.25);
+    color: #1b2a4a;
+    font-size: 0.76rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: 'Inter', sans-serif;
+    flex-shrink: 0;
+}
+.pdm-edit-btn:hover {
+    background: rgba(200,169,81,0.2);
+    border-color: #c8a951;
+    color: #92711e;
+    transform: translateY(-1px);
+}
+
+/* Official Guidance Box */
+.pdm-guidance-box {
+    background: #f8fafc;
+    border-left: 3px solid #3b82f6;
+    border-top: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 0 6px 6px 0;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+    animation: pdmFadeIn 0.2s ease;
+}
+.pdm-guidance-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #2563eb;
+    font-size: 0.78rem;
+    font-family: 'Inter', sans-serif;
+    margin-bottom: 4px;
+}
+.pdm-guidance-text {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #475569;
+    line-height: 1.5;
+    font-family: 'Inter', sans-serif;
+}
+
+/* ══════════════════════════════════════════════════════
+   NMU TEMPLATE PAGE TOPBAR (dark teal + gold, matches the .docx)
+   ══════════════════════════════════════════════════════ */
+.pdm-page-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #0b3d3a;
+    padding: 0.65rem 1.1rem;
+    gap: 12px;
+    flex-shrink: 0;
+}
+.pdm-page-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.pdm-nmu-emblem {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, #c8a951, #e2c76e);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.65rem; font-weight: 900;
+    color: #0b3d3a;
+    letter-spacing: 0.03em;
+    flex-shrink: 0;
+    font-family: 'Arial', sans-serif;
+}
+.pdm-page-topbar-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.pdm-page-topbar-uni {
+    font-size: 0.75rem; font-weight: 700; color: #e2c76e;
+    font-family: 'Arial', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pdm-page-topbar-sub {
+    font-size: 0.65rem; color: rgba(200,169,81,0.7);
+    font-family: 'Arial', sans-serif; font-style: italic;
+}
+.pdm-page-topbar-right { flex-shrink: 0; }
+.pdm-page-num-badge {
+    background: rgba(200,169,81,0.18);
+    color: #c8a951;
+    border: 1px solid rgba(200,169,81,0.4);
+    font-size: 0.68rem; font-weight: 800;
+    padding: 3px 10px; border-radius: 12px;
+    font-family: 'Arial', sans-serif; letter-spacing: 0.06em;
+    white-space: nowrap;
+}
+
+/* Gold separator rule under topbar */
+.pdm-gold-rule {
+    height: 2px;
+    background: linear-gradient(90deg, #c8a951 0%, rgba(200,169,81,0.2) 100%);
+    flex-shrink: 0;
+    margin-bottom: 1rem;
+}
+
+/* Title row: chapter heading + action buttons */
+.pdm-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+    padding: 0 0.25rem;
+}
+.pdm-title-block { flex: 1; min-width: 0; }
+.pdm-chapter-heading {
+    margin: 0 0 4px;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #0b3d3a;
+    font-family: 'Arial', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+}
+.pdm-section-subtitle {
+    font-size: 0.82rem;
+    color: #b8862b;
+    font-family: 'Arial', sans-serif;
+    font-style: italic;
+}
+.pdm-title-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+/* Section head (ALL-CAPS detected lines within body text) */
+.pdm-section-head {
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: #0b3d3a;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: 'Arial', sans-serif;
+    margin: 1.1rem 0 0.4rem;
+    border-bottom: 1px solid rgba(11,61,58,0.15);
+    padding-bottom: 3px;
+}
+
+/* Table-formatted lines */
+.pdm-table-line {
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem;
+    color: #1e293b;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.7;
+    background: #f8fafb;
+    padding: 1px 4px;
+    border-left: 2px solid #e2e8f0;
+}
+
+/* NMU-style body paragraph */
+.pdm-nmu-para {
+    margin: 0 0 0.65rem;
+    text-align: justify;
+    font-family: 'Arial', sans-serif;
+    font-size: 0.92rem;
+    color: #2c3e50;
+    line-height: 1.75;
+}
+.pdm-line-spacer { height: 0.5rem; }
+
+/* Page Body */
+.pdm-page-body {
+    flex: 1;
+    margin-bottom: 1rem;
+    padding: 0 0.25rem;
+}
+.pdm-para {
+    margin: 0 0 1rem;
+    text-align: justify;
+    font-family: 'Arial', sans-serif;
+    font-size: 0.92rem;
+    color: #2c3e50;
+    line-height: 1.75;
+}
+.pdm-para:first-child { text-indent: 0; }
+.pdm-para-spacer { height: 0.4rem; }
+
+/* Page Footer */
+.pdm-page-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(200,169,81,0.35);
+    padding-top: 0.6rem;
+    margin-top: 0.5rem;
+    font-size: 0.68rem;
+    color: #888;
+    font-family: 'Arial', sans-serif;
+    flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════════
+   PAGE 01 — COVER PAGE SPECIFIC STYLES
+   ══════════════════════════════════════════════════════ */
+.pdm-page-cover {
+    background: linear-gradient(160deg, #1b2a4a 0%, #0d1b35 65%, #162240 100%);
+    color: #e8edf4;
+    border: none;
+}
+.pdm-cover-logo-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 1.75rem;
+}
+.pdm-cover-logo-icon {
+    width: 62px; height: 62px;
+    background: linear-gradient(135deg, #c8a951, #e2c76e);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    color: #1b2a4a; flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(200,169,81,0.4);
+}
+.pdm-cover-uni-main {
+    font-size: 1.15rem; font-weight: 800; color: #c8a951; line-height: 1.3;
+}
+.pdm-cover-uni-sub {
+    font-size: 0.82rem; color: rgba(200,169,81,0.75); margin-top: 4px; font-style: italic;
+}
+.pdm-cover-divider {
+    height: 2px;
+    background: linear-gradient(90deg, #c8a951, rgba(200,169,81,0.15));
+    margin-bottom: 1.5rem;
+}
+.pdm-doc-type-label {
+    font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.16em; color: rgba(200,169,81,0.8); margin-bottom: 0.75rem;
+    font-family: 'Inter', sans-serif;
+}
+.pdm-category-badge-wrapper {
+    margin-bottom: 1.25rem;
+}
+.pdm-category-badge {
+    display: inline-block; padding: 4px 16px;
+    border-radius: 20px; font-size: 0.75rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    font-family: 'Inter', sans-serif;
+}
+.pdm-category-badge.software   { background: rgba(59,130,246,0.22); color: #93c5fd; border: 1px solid rgba(59,130,246,0.45); }
+.pdm-category-badge.yanshee    { background: rgba(236,72,153,0.2);  color: #f9a8d4; border: 1px solid rgba(236,72,153,0.4); }
+.pdm-category-badge.nao        { background: rgba(139,92,246,0.2);  color: #c4b5fd; border: 1px solid rgba(139,92,246,0.4); }
+.pdm-category-badge.integrated { background: rgba(245,158,11,0.2);  color: #fcd34d; border: 1px solid rgba(245,158,11,0.4); }
+
+.pdm-cover-title {
+    font-size: 2.2rem; font-weight: 800; color: #ffffff; line-height: 1.2;
+    margin: 0 0 1.75rem; font-family: 'Calibri', 'Segoe UI', sans-serif;
+}
+.pdm-cover-meta {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px; border-top: 1px solid rgba(200,169,81,0.25); padding-top: 1.5rem;
+    margin-bottom: 2rem;
+}
+.pdm-cover-meta-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px; padding: 0.75rem 1rem;
+}
+.pdm-cover-meta-icon { color: #c8a951; flex-shrink: 0; margin-top: 2px; }
+.pdm-cover-meta-label {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: rgba(200,169,81,0.7);
+    margin-bottom: 3px; font-family: 'Inter', sans-serif;
+}
+.pdm-cover-meta-value {
+    font-size: 0.9rem; font-weight: 600; color: #f1f5f9;
+    font-family: 'Inter', sans-serif; line-height: 1.3;
+}
+.pdm-cover-footer {
+    border-top-color: rgba(200,169,81,0.2);
+    color: rgba(200,169,81,0.7);
+}
+
+/* ══════════════════════════════════════════════════════
+   PAGE 02 — APPROVAL TABLE
+   ══════════════════════════════════════════════════════ */
+.pdm-approval-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Calibri', 'Arial', sans-serif;
+    font-size: 0.92rem;
+    margin: 1rem 0;
+}
+.pdm-approval-table th {
+    background: #1b2a4a;
+    color: #c8a951;
+    padding: 0.7rem 1.1rem;
+    text-align: left;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    font-family: 'Inter', sans-serif;
+}
+.pdm-approval-table td {
+    padding: 0.85rem 1.1rem;
+    border-bottom: 1px solid #e2e8f0;
+    color: #1e293b;
+}
+.pdm-approval-table tr:nth-child(even) td {
+    background: #f8fafc;
+}
+.pdm-sig-line {
+    display: inline-block;
+    border-bottom: 1px solid #64748b;
+    width: 160px;
+    height: 1px;
+    vertical-align: middle;
+}
+
+/* ── Approval Form Edit Grid ─────────────────────────── */
+.pdm-approval-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+@media (max-width: 640px) {
+    .pdm-approval-form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.pdm-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.pdm-form-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #1b2a4a;
+    font-family: 'Inter', sans-serif;
+}
+.pdm-form-input {
+    width: 100%;
+    padding: 0.55rem 0.85rem;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    font-family: 'Inter', sans-serif;
+    color: #1e293b;
+    background: #ffffff;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+.pdm-form-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+
+/* ══════════════════════════════════════════════════════
+   PAGE 06 — TABLE OF CONTENTS GRID
+   ══════════════════════════════════════════════════════ */
+.pdm-toc-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.pdm-toc-row {
+    display: flex;
+    align-items: baseline;
+    padding: 7px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+    font-family: 'Calibri', 'Arial', sans-serif;
+    font-size: 0.92rem;
+    color: #1e293b;
+}
+.pdm-toc-row:hover {
+    background: #f1f5f9;
+    transform: translateX(4px);
+    color: #1b2a4a;
+}
+.pdm-toc-num {
+    color: #1b2a4a;
+    font-weight: 800;
+    min-width: 32px;
+    font-size: 0.84rem;
+    font-family: 'Inter', sans-serif;
+}
+.pdm-toc-title {
+    font-weight: 600;
+}
+.pdm-toc-dots {
+    flex: 1;
+    border-bottom: 1px dotted #94a3b8;
+    margin: 0 10px 4px;
+}
+.pdm-toc-page {
+    color: #64748b;
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    min-width: 55px;
+    text-align: right;
+}
+
+/* ══════════════════════════════════════════════════════
+   INLINE EDITOR & TABLES
+   ══════════════════════════════════════════════════════ */
+.pdm-edit-area {
+    margin-top: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+.pdm-edit-textarea {
+    width: 100%;
+    min-height: 200px;
+    padding: 1rem;
+    background: #f8fafc;
+    border: 2px solid #c8a951;
+    border-radius: 8px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #0f172a;
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
+}
+.pdm-edit-textarea:focus { border-color: #1b2a4a; background: #ffffff; }
+.pdm-edit-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 0.85rem;
+}
+
+.pdm-save-err {
+    display: flex; align-items: center; gap: 5px;
+    color: #ef4444; font-size: 0.82rem; font-family: 'Inter', sans-serif;
+    margin-top: 0.4rem;
+}
+.pdm-save-confirm {
+    display: flex; align-items: center; gap: 6px;
+    color: #16a34a; font-size: 0.84rem; font-weight: 700;
+    font-family: 'Inter', sans-serif; margin-bottom: 0.75rem;
+}
+
+.pdm-table-wrapper {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 0 1.25rem;
+    overflow-x: auto;
+}
+.pdm-table-pre {
+    margin: 0;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: #1e293b;
+    white-space: pre;
+}
+
+/* ── Evaluator Bar ──────────────────────────────────── */
+.pdm-eval-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0.85rem 1.5rem;
+    background: #0f172a;
+    border-top: 2px solid #c8a951;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    z-index: 10;
+}
+.pdm-eval-left {
+    display: flex; align-items: center; gap: 8px;
+    color: #94a3b8; font-size: 0.84rem; font-family: 'Inter', sans-serif;
+}
+.pdm-eval-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pdm-eval-error {
+    display: flex; align-items: center; gap: 5px;
+    color: #f87171; font-size: 0.8rem; font-family: 'Inter', sans-serif;
+}
+.pdm-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 0.48rem 1.1rem; border-radius: 8px;
+    font-size: 0.84rem; font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer; border: none; transition: all 0.18s ease; white-space: nowrap;
+}
+.pdm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pdm-btn-approve {
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: #fff; box-shadow: 0 4px 14px rgba(22,163,74,0.3);
+}
+.pdm-btn-approve:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(22,163,74,0.5); }
+.pdm-btn-reject {
+    background: rgba(239,68,68,0.12);
+    border: 1.5px solid rgba(239,68,68,0.4) !important; color: #f87171;
+}
+.pdm-btn-reject:hover:not(:disabled) { background: rgba(239,68,68,0.22); }
+.pdm-btn-changes {
+    background: rgba(245,158,11,0.12);
+    border: 1.5px solid rgba(245,158,11,0.4) !important; color: #fbbf24;
+}
+.pdm-btn-changes:hover:not(:disabled) { background: rgba(245,158,11,0.22); }
+.pdm-btn-ghost {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.14) !important; color: #94a3b8;
+}
+.pdm-btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.14); color: #e2e8f0; }
+.pdm-feedback-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pdm-feedback-input {
+    flex: 1; min-width: 240px; padding: 0.45rem 0.85rem;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.14); border-radius: 8px;
+    color: #f1f5f9; font-size: 0.84rem; font-family: 'Inter', sans-serif; outline: none;
+}
+.pdm-feedback-input:focus { border-color: rgba(200,169,81,0.6); }
+.pdm-eval-success {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0.6rem 1.25rem; border-radius: 8px;
+    font-weight: 700; font-size: 0.9rem; font-family: 'Inter', sans-serif;
+    animation: pdmFadeIn 0.3s ease; width: 100%; justify-content: center;
+}
+.pdm-eval-success.approve { background: rgba(22,163,74,0.15); border: 1px solid rgba(22,163,74,0.3); color: #4ade80; }
+.pdm-eval-success.reject  { background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.3); color: #f87171; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* ══════════════════════════════════════════════════════
+   PRINT / PDF MEDIA STYLES
+   ══════════════════════════════════════════════════════ */
+@media print {
+    body > *:not(.pdm-overlay) { display: none !important; }
+
+    .pdm-overlay {
+        position: static !important;
+        background: none !important;
+        backdrop-filter: none !important;
+        display: block !important;
+        animation: none !important;
+    }
+    .pdm-modal {
+        width: 100% !important; max-width: 100% !important;
+        height: auto !important; box-shadow: none !important;
+        animation: none !important;
+        background: #fff !important;
+    }
+
+    .no-print,
+    .pdm-topbar,
+    .pdm-eval-bar,
+    .pdm-edit-btn,
+    .pdm-btn-guide,
+    .pdm-guidance-box,
+    .pdm-edit-area,
+    .pdm-save-confirm,
+    .pdm-save-err,
+    .pdm-section-badge { display: none !important; }
+
+    .pdm-body {
+        flex: none !important; overflow: visible !important;
+        background: #fff !important; padding: 0 !important;
+    }
+
+    .pdm-document-container {
+        max-width: 100% !important; margin: 0 !important;
+        display: block !important; gap: 0 !important;
+    }
+
+    .pdm-page-card {
+        max-width: 100% !important;
+        margin: 0 0 2rem 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        page-break-after: always !important;
+        page-break-inside: avoid !important;
+        padding: 2.5rem 3rem !important;
+    }
+
+    .pdm-page-cover {
+        background: #1b2a4a !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    * { animation: none !important; transition: none !important; }
+}
+
+/* ══════════════════════════════════════════════════════════
+   GROQ AI FILL — Shimmer Loading & Reveal Animations
+   ══════════════════════════════════════════════════════════ */
+
+/* ── AI Status Banner ──────────────────────────────────── */
+.pdm-ai-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.6rem 1.5rem;
+    background: linear-gradient(90deg, #312e81 0%, #1e1b4b 100%);
+    color: #a5b4fc;
+    font-size: 0.83rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    border-bottom: 1px solid rgba(99,102,241,0.3);
+    flex-shrink: 0;
+    animation: statusSlideDown 0.3s ease;
+}
+@keyframes statusSlideDown {
+    from { transform: translateY(-100%); opacity: 0; }
+    to   { transform: translateY(0);     opacity: 1; }
+}
+.pdm-ai-status-bar.pdm-ai-status-done {
+    background: linear-gradient(90deg, #14532d 0%, #052e16 100%);
+    color: #6ee7b7;
+    border-bottom-color: rgba(52,211,153,0.3);
+}
+
+/* ── Animated dots (thinking indicator) ───────────────── */
+.pdm-ai-status-dots {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+.pdm-ai-status-dots span {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #818cf8;
+    animation: dotPulse 1.4s ease-in-out infinite;
+}
+.pdm-ai-status-dots span:nth-child(2) { animation-delay: 0.2s; }
+.pdm-ai-status-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dotPulse {
+    0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
+    40%            { transform: scale(1.0); opacity: 1; }
+}
+
+/* ── Shimmer Page Skeleton ─────────────────────────────── */
+.pdm-page-shimmer {
+    position: relative;
+    overflow: hidden;
+    background: #fff;
+}
+.pdm-page-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        105deg,
+        transparent 40%,
+        rgba(99,102,241,0.08) 50%,
+        transparent 60%
+    );
+    background-size: 200% 100%;
+    animation: shimmerSweep 1.6s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+@keyframes shimmerSweep {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.pdm-shimmer-title-row {
+    padding: 1.4rem 2.2rem 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.pdm-shimmer-body {
+    padding: 1rem 2.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.pdm-shimmer-bar {
+    height: 14px;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #e8ecf4 30%, #d0d6e8 50%, #e8ecf4 70%);
+    background-size: 200% 100%;
+    animation: shimmerBar 1.6s ease-in-out infinite;
+}
+.pdm-shimmer-bar-title {
+    height: 22px;
+    width: 65%;
+    border-radius: 6px;
+}
+.pdm-shimmer-bar-sub {
+    height: 13px;
+    width: 42%;
+    opacity: 0.65;
+}
+@keyframes shimmerBar {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.pdm-shimmer-ai-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 2.2rem;
+    color: #6366f1;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    opacity: 0.8;
+}
+
+/* ── Page reveal transition (content appears after shimmer) */
+.pdm-page-revealing {
+    opacity: 0;
+    transform: translateY(12px);
+}
+.pdm-page-revealed {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+/* ── Custom Pages (Cover, Approval, TOC) Shimmer Effect During AI Generation ─ */
+.pdm-page-card.pdm-filling {
+    position: relative;
+    overflow: hidden;
+}
+.pdm-page-card.pdm-filling::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        105deg,
+        transparent 40%,
+        rgba(99,102,241,0.14) 50%,
+        transparent 60%
+    );
+    background-size: 200% 100%;
+    animation: shimmerSweep 1.6s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 10;
+}
+
+

@@ -78,7 +78,7 @@ if (php_sapi_name() !== 'cli') {
     header_remove("Server");
 
     // CORS — whitelist allowed origins
-    $allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:8000', 'http://localhost:8080', 'http://127.0.0.1:8000', 'http://localhost'];
+    $allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174', 'http://localhost:5175', 'http://127.0.0.1:5175', 'http://localhost:8000', 'http://localhost:8080', 'http://127.0.0.1:8000', 'http://localhost'];
     if (defined('ALLOWED_ORIGINS') && ALLOWED_ORIGINS) {
         $allowedOrigins = array_merge($allowedOrigins, array_map('trim', explode(',', ALLOWED_ORIGINS)));
     }

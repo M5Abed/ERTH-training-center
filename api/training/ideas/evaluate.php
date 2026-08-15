@@ -77,8 +77,19 @@ try {
         $db->exec("ALTER TABLE training_votes ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
     } catch (Exception $e) {}
 
+    // Ensure training_ideas has required columns
+    try {
+        $db->exec("ALTER TABLE training_ideas ADD COLUMN feedback TEXT DEFAULT NULL");
+    } catch (Exception $e) {}
+    try {
+        $db->exec("ALTER TABLE training_ideas ADD COLUMN reviewed_by INT DEFAULT NULL");
+    } catch (Exception $e) {}
+    try {
+        $db->exec("ALTER TABLE training_ideas ADD COLUMN reviewed_at DATETIME DEFAULT NULL");
+    } catch (Exception $e) {}
+
     // Fetch idea to know course_id, trainee_id & title
-    $stmt = $db->prepare("SELECT owner_id AS trainee_id, course_id, title FROM training_ideas WHERE id = ?");
+    $stmt = $db->prepare("SELECT owner_id AS trainee_id, course_id, COALESCE(title_en, title_ar, 'Project') AS title FROM training_ideas WHERE id = ?");
     $stmt->execute([$ideaId]);
     $idea = $stmt->fetch();
 

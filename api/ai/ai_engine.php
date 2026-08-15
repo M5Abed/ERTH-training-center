@@ -115,6 +115,23 @@ STRICT RULES:
         'maxTokens'    => 1200,
     ],
 
+    // 6.3b — Generate official 7-section proposal for custom idea (Case B)
+    'custom_proposal_7_sections' => [
+        'system'       => 'You are an expert academic project proposal writer for university engineering training programs. '
+            . 'Generate a comprehensive project proposal following the exact 7 official template sections. '
+            . 'CRITICAL REQUIREMENT: Output MUST be exclusively in the ENGLISH language. '
+            . 'Return a JSON object with exactly these fields: '
+            . 'title (string), tech_stack (comma-separated string), abstract (string, 150-250 words), '
+            . 'introduction_background (string, 2-3 paragraphs), problem_definition (string, 1-2 paragraphs), '
+            . 'objectives_scope (string with clear in-scope/out-of-scope details), '
+            . 'related_work (string comparing prior approaches), methodology (string describing technical approach and pipeline), '
+            . 'expected_system_design (string describing system architecture and data flow). '
+            . 'Output ONLY valid JSON, no markdown fences, no extra text.',
+        'userTemplate' => 'Project Concept: {keywords}. Context / Student Notes: {context}. Target Track: {domain}. Language: English only.',
+        'temperature'  => 0.7,
+        'maxTokens'    => 2500,
+    ],
+
     // 6.4 — Evaluate a project idea and return structured JSON scores
     'evaluate_idea' => [
         'system'       => 'You are a university project evaluation expert. '
@@ -198,6 +215,32 @@ STRICT RULES:
         'userTemplate' => 'Section: {section_title}\nSection Guidelines: {guidelines}\nRaw Student Input: {raw_input}',
         'temperature'  => 0.4,
         'maxTokens'    => 1500,
+    ],
+
+    // 6.10 — Complete 30-Page Template Fill — Batch A (13 sections: pages 03–16)
+    'fill_proposal_a' => [
+        'system'       => 'You are a senior AI professor writing an undergraduate field training project report at New Mansoura University. '
+            . 'CRITICAL: Output ONLY raw JSON — no markdown, no backticks, no explanation before or after. '
+            . 'The JSON object must have EXACTLY these 13 string keys tailored to the project (values are detailed academic paragraphs or formatted tables): '
+            . 'declaration, acknowledgment, abstract, figures_tables, abbreviations, introduction_background, '
+            . 'technical_background, objectives_scope, related_work, comparative_analysis, design_gap, problem_definition, requirements. '
+            . 'Start your response with { and end with }. No other characters outside the JSON object.',
+        'userTemplate' => "Project Title: {title}\nTrack: {domain}\nDescription: {description}\nTech Stack: {tech_stack}\nProblem: {problem_statement}\nExpected Output: {expected_output}\nCourse: {course_name}\n\nWrite all 13 sections now as a JSON object:",
+        'temperature'  => 0.45,
+        'maxTokens'    => 3500,
+    ],
+
+    // 6.11 — Complete 30-Page Template Fill — Batch B (14 sections: pages 17–30)
+    'fill_proposal_b' => [
+        'system'       => 'You are a senior AI professor writing an undergraduate field training project report at New Mansoura University. '
+            . 'CRITICAL: Output ONLY raw JSON — no markdown, no backticks, no explanation before or after. '
+            . 'The JSON object must have EXACTLY these 14 string keys tailored to the project (values are detailed academic paragraphs, test suites, or tables): '
+            . 'project_plan, methodology, platform_description, expected_system_design, algorithm_workflow, implementation, '
+            . 'programming, application_scenario, test_plan, results, discussion, conclusion, references, appendices. '
+            . 'Start your response with { and end with }. No other characters outside the JSON object.',
+        'userTemplate' => "Project Title: {title}\nTrack: {domain}\nDescription: {description}\nTech Stack: {tech_stack}\nProblem: {problem_statement}\nExpected Output: {expected_output}\nCourse: {course_name}\n\nWrite all 14 sections now as a JSON object:",
+        'temperature'  => 0.45,
+        'maxTokens'    => 3500,
     ],
 ];
 
@@ -286,7 +329,7 @@ function callAI(int $userId, string $taskType, array $payload): array
 
             // Parse JSON task types automatically
             $parsedResult = $rawResult;
-            if (in_array($taskType, ['proposal', 'evaluate_idea', 'quiz_generate', 'match_projects'], true)) {
+            if (in_array($taskType, ['proposal', 'custom_proposal_7_sections', 'evaluate_idea', 'quiz_generate', 'match_projects', 'fill_proposal_pages', 'fill_proposal_a', 'fill_proposal_b'], true)) {
                 $decoded = json_decode($rawResult, true);
                 if (json_last_error() === JSON_ERROR_NONE) {
                     $parsedResult = $decoded;

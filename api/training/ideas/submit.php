@@ -22,6 +22,7 @@ $description    = sanitizeString($data['description'] ?? '');
 $techStack      = sanitizeString($data['tech_stack'] ?? '');
 $problemStmt    = sanitizeString($data['problem_statement'] ?? '');
 $expectedOutput = sanitizeString($data['expected_output'] ?? '');
+$customProposal = $data['proposal_json'] ?? null;
 
 $rawTeammateIds = $data['teammate_ids'] ?? [];
 if (!is_array($rawTeammateIds)) {
@@ -44,12 +45,13 @@ if (!$courseId || !$title || !$description) {
 $db = db();
 
 // Verify course exists
-$cStmt = $db->prepare("SELECT id, name FROM training_courses WHERE id = ?");
+$cStmt = $db->prepare("SELECT id, name_en FROM training_courses WHERE id = ?");
 $cStmt->execute([$courseId]);
 $course = $cStmt->fetch();
 if (!$course) {
     respondError('Invalid or non-existent course selected');
 }
+$courseName = $course['name_en'] ?? 'Training Course';
 
 // Require submitter to be enrolled in the course (unless admin)
 $role = strtolower($user['role'] ?? '');
@@ -65,7 +67,7 @@ if (!$isAdmin) {
 
 // Check if submitter is already in another team as a member
 $mStmt = $db->prepare("
-    SELECT ti.id, ti.title, tim.role
+    SELECT ti.id, ti.title_en, tim.role
     FROM training_idea_members tim
     JOIN training_ideas ti ON tim.idea_id = ti.id
     WHERE tim.user_id = ? AND ti.course_id = ? AND tim.role = 'member'
@@ -73,13 +75,15 @@ $mStmt = $db->prepare("
 $mStmt->execute([$uid, $courseId]);
 $existingMemberRow = $mStmt->fetch();
 if ($existingMemberRow) {
-    respondError("You are already enrolled as a team member in another project ('" . ($existingMemberRow['title'] ?: 'Project') . "') for this course. You cannot submit a new project.");
+    respondError("You are already enrolled as a team member in another project ('" . ($existingMemberRow['title_en'] ?: 'Project') . "') for this course. You cannot submit a new project.");
 }
 
 // Check if submitter already owns an idea for this course
-$fStmt = $db->prepare("SELECT id FROM training_ideas WHERE owner_id = ? AND course_id = ?");
+$fStmt = $db->prepare("SELECT id, proposal_json FROM training_ideas WHERE owner_id = ? AND course_id = ?");
 $fStmt->execute([$uid, $courseId]);
-$existingIdeaId = (int) $fStmt->fetchColumn();
+$existingRow = $fStmt->fetch();
+$existingIdeaId = $existingRow ? (int) $existingRow['id'] : 0;
+$existingProposalJson = $existingRow['proposal_json'] ?? null;
 
 // Validate all selected teammates
 if (!empty($teammateIds)) {
@@ -103,18 +107,18 @@ if (!empty($teammateIds)) {
         }
 
         // 3. Teammate is not leader of another project in this course
-        $tOwnSql = "SELECT id, title FROM training_ideas WHERE owner_id = ? AND course_id = ?" . ($existingIdeaId ? " AND id != ?" : "");
+        $tOwnSql = "SELECT id, title_en FROM training_ideas WHERE owner_id = ? AND course_id = ?" . ($existingIdeaId ? " AND id != ?" : "");
         $tOwnParams = $existingIdeaId ? [$tId, $courseId, $existingIdeaId] : [$tId, $courseId];
         $tOwnStmt = $db->prepare($tOwnSql);
         $tOwnStmt->execute($tOwnParams);
         $tOwnRow = $tOwnStmt->fetch();
         if ($tOwnRow) {
-            respondError("Student '$tName' is already the leader of another project ('" . ($tOwnRow['title'] ?: 'Project') . "') for this course.");
+            respondError("Student '$tName' is already the leader of another project ('" . ($tOwnRow['title_en'] ?: 'Project') . "') for this course.");
         }
 
         // 4. Teammate is not a member of another project in this course
         $tMemSql = "
-            SELECT ti.id, ti.title 
+            SELECT ti.id, ti.title_en 
             FROM training_idea_members tim
             JOIN training_ideas ti ON tim.idea_id = ti.id
             WHERE tim.user_id = ? AND ti.course_id = ?" . ($existingIdeaId ? " AND ti.id != ?" : "");
@@ -123,9 +127,53 @@ if (!empty($teammateIds)) {
         $tMemStmt->execute($tMemParams);
         $tMemRow = $tMemStmt->fetch();
         if ($tMemRow) {
-            respondError("Student '$tName' is already a member of another project team ('" . ($tMemRow['title'] ?: 'Project') . "') for this course.");
+            respondError("Student '$tName' is already a member of another project team ('" . ($tMemRow['title_en'] ?: 'Project') . "') for this course.");
         }
     }
+}
+
+// ── Prepare structured proposal_json ──────────────────────────────────────────
+$finalProposalJson = null;
+if (!empty($customProposal) && is_array($customProposal)) {
+    $finalProposalJson = json_encode($customProposal, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+} elseif (!empty($existingProposalJson)) {
+    // Keep existing sections, update title/desc if needed
+    $decoded = json_decode($existingProposalJson, true);
+    if (is_array($decoded)) {
+        $decoded['project_title'] = $title;
+        $finalProposalJson = json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    }
+}
+
+if (!$finalProposalJson) {
+    // Generate standard 7-section structure for custom idea
+    $today = date('d / m / Y');
+    $sections = [
+        ['key' => 'abstract',                'title' => 'Abstract',                 'content' => $description, 'source' => 'user_input'],
+        ['key' => 'introduction_background', 'title' => 'Introduction & Background', 'content' => "This university training project focuses on $title within $courseName. It introduces modern, localized software and engineering methods to solve practical challenges.", 'source' => 'user_input'],
+        ['key' => 'problem_definition',      'title' => 'Problem Definition',      'content' => $problemStmt ?: "Manual and legacy operations lack automation and real-time efficiency. This project addresses these constraints through a purpose-built system.", 'source' => 'user_input'],
+        ['key' => 'objectives_scope',        'title' => 'Objectives & Scope',        'content' => "In scope: Design and implementation of core $title capabilities; verification with test datasets. Out of scope: proprietary hardware modifications.", 'source' => 'user_input'],
+        ['key' => 'related_work',            'title' => 'Related Work',            'content' => "Existing commercial alternatives either incur recurring cloud latency or require proprietary infrastructure. The proposed system provides a reliable, open-source pipeline.", 'source' => 'user_input'],
+        ['key' => 'methodology',             'title' => 'Proposed Methodology',     'content' => "The technical approach follows structured phases: requirements modeling, modular component engineering using " . ($techStack ?: 'modern frameworks') . ", and empirical testing.", 'source' => 'user_input'],
+        ['key' => 'expected_system_design',  'title' => 'Expected System Design',  'content' => "Input acquisition -> Processing and business logic modules -> Output display and data persistence.", 'source' => 'user_input'],
+    ];
+
+    $uName = $user['full_name'] ?: ($user['username'] ?: 'Student');
+    $struct = [
+        'source'        => 'custom_user',
+        'project_title' => $title,
+        'category'      => 'software',
+        'sections'      => $sections,
+        'team' => [
+            'leader'      => $uName,
+            'members'     => [],
+            'all_members' => [$uName],
+            'course'      => $courseName,
+            'date'        => $today,
+        ],
+        'generated_at'  => date('c'),
+    ];
+    $finalProposalJson = json_encode($struct, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 }
 
 // Perform atomic insert/update and team member synchronization
@@ -136,12 +184,14 @@ try {
         $ideaId = $existingIdeaId;
         $uStmt = $db->prepare("
             UPDATE training_ideas 
-            SET title = ?,
-                description = ?,
-                tech_stack = ?,
+            SET title_en          = ?,
+                description_en    = ?,
+                tech_stack        = ?,
                 problem_statement = ?,
-                expected_output = ?,
-                updated_at = NOW()
+                expected_output   = ?,
+                proposal_json     = ?,
+                status            = CASE WHEN status = 'approved' THEN status ELSE 'submitted' END,
+                updated_at        = NOW()
             WHERE id = ?
         ");
         $uStmt->execute([
@@ -150,14 +200,15 @@ try {
             $techStack ?: null,
             $problemStmt ?: null,
             $expectedOutput ?: null,
+            $finalProposalJson,
             $ideaId
         ]);
     } else {
         $iStmt = $db->prepare("
             INSERT INTO training_ideas 
-                (owner_id, course_id, title, description, tech_stack, problem_statement, expected_output, status)
+                (owner_id, course_id, title_en, description_en, tech_stack, problem_statement, expected_output, proposal_json, status)
             VALUES 
-                (?, ?, ?, ?, ?, ?, ?, 'draft')
+                (?, ?, ?, ?, ?, ?, ?, ?, 'submitted')
         ");
         $iStmt->execute([
             $uid,
@@ -166,7 +217,8 @@ try {
             $description,
             $techStack ?: null,
             $problemStmt ?: null,
-            $expectedOutput ?: null
+            $expectedOutput ?: null,
+            $finalProposalJson,
         ]);
         $ideaId = (int) $db->lastInsertId();
     }

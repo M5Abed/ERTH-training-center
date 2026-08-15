@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Search, Filter, CheckCircle2, XCircle, AlertCircle, Clock, FileText, Send, User, BookOpen, Loader2, Sparkles, Plus, Edit3, X, Vote, ThumbsUp, ThumbsDown, Users, Trash2, Paperclip, Upload, Download, ExternalLink, Code, UserCheck } from 'lucide-react';
+import { Search, Filter, CheckCircle2, XCircle, AlertCircle, Clock, FileText, Send, User, BookOpen, Loader2, Sparkles, Plus, Edit3, X, Vote, ThumbsUp, ThumbsDown, Users, Trash2, Paperclip, Upload, Download, ExternalLink, Code, UserCheck, Layers, Bot, Cpu, Zap } from 'lucide-react';
 import TeammateSelector from '../components/TeammateSelector';
 import MemberDetailModal from '../components/MemberDetailModal';
+import ProposalViewer from '../components/ProposalViewer';
+import ProposalDocModal from '../components/ProposalDocModal';
 import './TraineeProjects.css';
 
 export default function TraineeProjects() {
@@ -32,6 +34,19 @@ export default function TraineeProjects() {
     const [evalSuccess, setEvalSuccess] = useState('');
     const [deletingIdea, setDeletingIdea] = useState(false);
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
+    // 64-Project Catalog state (Zero AI Calls on Selection)
+    const [catalogProjects, setCatalogProjects] = useState([]);
+    const [loadingCatalog, setLoadingCatalog] = useState(false);
+    const [catalogCategory, setCatalogCategory] = useState('all');
+    const [catalogSearch, setCatalogSearch] = useState('');
+    const [submissionTab, setSubmissionTab] = useState('catalog'); // 'catalog' | 'custom'
+    const [selectedCatalogId, setSelectedCatalogId] = useState(null);
+    const [selectedProposalData, setSelectedProposalData] = useState(null);
+    const [selectingCatalog, setSelectingCatalog] = useState(false);
+    const [catalogError, setCatalogError] = useState('');
+    const [showProposalDoc, setShowProposalDoc] = useState(false);
+    const [createdIdeaId, setCreatedIdeaId] = useState(null);
 
     // Project Documents & Links state
     const [projectDocs, setProjectDocs] = useState([]);
@@ -67,6 +82,7 @@ export default function TraineeProjects() {
     useEffect(() => {
         fetchCourses();
         fetchProjects();
+        fetchCatalogProjects();
     }, [selectedCourse, selectedStatus]);
 
     const fetchCourses = async () => {
@@ -122,24 +138,65 @@ export default function TraineeProjects() {
         }
     };
 
+    const fetchCatalogProjects = async () => {
+        if (catalogProjects.length > 0) return;
+        setCatalogError('');
+        setLoadingCatalog(true);
+        try {
+            const res = await fetch('/api/training/ideas/catalog_list.php');
+            let data;
+            try { data = await res.json(); } catch { data = {}; }
+            if (res.ok && data.projects && data.projects.length > 0) {
+                setCatalogProjects(data.projects);
+            } else {
+                setCatalogError(data.error || `HTTP ${res.status}: Failed to load catalog`);
+                console.error('Catalog load failed:', data);
+            }
+        } catch (e) {
+            setCatalogError('Network error — cannot reach API');
+            console.error('Error fetching catalog projects:', e);
+        } finally {
+            setLoadingCatalog(false);
+        }
+    };
+
     const openSubmitModal = (idea = null) => {
         setError('');
+        setCatalogError('');
+        // Always fetch catalog (guard inside fetchCatalogProjects skips if already loaded)
+        fetchCatalogProjects();
+
         if (idea) {
             setEditingIdeaId(idea.id);
+            setCreatedIdeaId(idea.id);
             setSubmitCourseId(idea.course_id);
-            setSubmitTitleEn(idea.title || '');
-            setSubmitDescEn(idea.description || '');
+            setSubmitTitleEn(idea.title || idea.title_en || '');
+            setSubmitDescEn(idea.description || idea.description_en || '');
             setSubmitTechStack(idea.tech_stack || '');
             setSubmitProblemStmt(idea.problem_statement || '');
             setSubmitExpectedOutput(idea.expected_output || '');
+            setSubmissionTab(idea.catalog_project_id ? 'catalog' : 'custom');
+            setSelectedCatalogId(idea.catalog_project_id || null);
 
             // Populate teammates from idea team_members (excluding leader/current user)
             const rawMembers = idea.team_members || [];
             const currentUserId = user?.id;
             const teammates = rawMembers.filter(m => (m.user_id || m.id) !== currentUserId && m.role !== 'leader');
             setSubmitTeammates(teammates);
+
+            // Fetch existing proposal JSON if present
+            fetch(`/api/training/ideas/proposal_get.php?idea_id=${idea.id}`)
+                .then(r => r.json())
+                .then(d => {
+                    if (d.proposal) setSelectedProposalData(d.proposal);
+                })
+                .catch(() => {});
         } else {
             setEditingIdeaId(null);
+            setCreatedIdeaId(null);
+            setSelectedCatalogId(null);
+            setSelectedProposalData(null);
+            setSubmissionTab('catalog');
             const defaultList = isEvaluator ? (allActiveCourses.length > 0 ? allActiveCourses : courses) : courses;
             setSubmitCourseId(defaultList.length > 0 ? defaultList[0].id : '');
             setSubmitTitleEn('');
@@ -153,6 +210,45 @@ export default function TraineeProjects() {
         fetchActiveCourses();
     };
 
+    // Instant Catalog Selection Handler (ZERO AI CALLS)
+    const handleSelectCatalogIdea = async (catProject) => {
+        if (!submitCourseId) {
+            setError(lang === 'ar' ? 'يرجى اختيار الدورة التدريبية أولاً من الأعلى' : 'Please select a course first from above');
+            return;
+        }
+        setSelectingCatalog(true);
+        setError('');
+        try {
+            const res = await fetch('/api/training/ideas/catalog_select.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    catalog_project_id: catProject.id,
+                    course_id: submitCourseId,
+                    training_idea_id: editingIdeaId || createdIdeaId || undefined
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setSelectedCatalogId(catProject.id);
+                setSelectedProposalData(data.proposal);
+                setCreatedIdeaId(data.idea_id);
+                setSubmitTitleEn(catProject.title);
+                setSubmitDescEn(data.proposal?.sections?.[0]?.content || catProject.title);
+                setSubmitTechStack(catProject.skills || '');
+                fetchProjects();
+                // Open the full ERTH-template document viewer
+                setShowProposalDoc(true);
+            } else {
+                setError(data.error || 'Failed to select catalog idea');
+            }
+        } catch (e) {
+            setError('Error connecting to catalog service');
+        } finally {
+            setSelectingCatalog(false);
+        }
+    };
+
     const handleGenerateAiProposal = async () => {
         if (!aiKeyword.trim()) return;
         setGeneratingAi(true);
@@ -160,7 +256,10 @@ export default function TraineeProjects() {
             const res = await fetch('/api/training/ideas/ai_generate.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ keywords: aiKeyword })
+                body: JSON.stringify({ 
+                    keywords: aiKeyword,
+                    full_sections: true
+                })
             });
             const data = await res.json();
             if (res.ok && data.proposal) {
@@ -169,6 +268,9 @@ export default function TraineeProjects() {
                 setSubmitProblemStmt(data.proposal.problem_statement || '');
                 setSubmitTechStack(data.proposal.tech_stack || '');
                 setSubmitExpectedOutput(data.proposal.expected_output || '');
+                if (data.proposal.sections) {
+                    setSelectedProposalData(data.proposal);
+                }
             }
         } catch (e) {
             console.error(e);
@@ -520,6 +622,20 @@ export default function TraineeProjects() {
 
     return (
         <div className="trainee-projects-page">
+            {/* ── NMU Template Proposal Document Modal ─────────────────── */}
+            {showProposalDoc && selectedProposalData && (
+                <ProposalDocModal
+                    proposal={selectedProposalData}
+                    ideaId={createdIdeaId}
+                    isEvaluator={isEvaluator}
+                    lang={lang}
+                    onClose={() => setShowProposalDoc(false)}
+                    onEvaluated={(status) => {
+                        setShowProposalDoc(false);
+                        fetchProjects();
+                    }}
+                />
+            )}
             <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h1>{isEvaluator 
@@ -719,6 +835,38 @@ export default function TraineeProjects() {
                                             </button>
                                         </>
                                     )}
+                                    {project.catalog_project_id && (
+                                        <button
+                                            className="btn btn-sm"
+                                            style={{
+                                                background: 'linear-gradient(135deg, rgba(27,42,74,0.9), rgba(13,27,53,0.9))',
+                                                border: '1px solid rgba(200,169,81,0.4)',
+                                                color: '#c8a951',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '5px',
+                                                padding: '0.35rem 0.75rem',
+                                                borderRadius: '6px',
+                                                fontWeight: 700,
+                                                fontSize: '0.78rem',
+                                                cursor: 'pointer',
+                                            }}
+                                            onClick={async () => {
+                                                try {
+                                                    const r = await fetch(`/api/training/ideas/proposal_get.php?idea_id=${project.id}`);
+                                                    const d = await r.json();
+                                                    if (d.proposal) {
+                                                        setSelectedProposalData(d.proposal);
+                                                        setCreatedIdeaId(project.id);
+                                                        setShowProposalDoc(true);
+                                                    }
+                                                } catch {}
+                                            }}
+                                        >
+                                            <FileText size={13} />
+                                            {lang === 'ar' ? 'عرض المقترح' : 'View Proposal'}
+                                        </button>
+                                    )}
                                     <button 
                                         className="btn btn-outline btn-sm" 
                                         onClick={() => {
@@ -777,219 +925,432 @@ export default function TraineeProjects() {
                             </button>
                         </div>
 
-                        {error && <div className="alert alert-error">{error}</div>}
+                        {error && <div className="alert alert-error" style={{ margin: '1rem 1.5rem 0 1.5rem' }}>{error}</div>}
 
-                        {!isEvaluator && courses.length === 0 && (
-                            <div className="alert alert-warning" style={{ background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.4)', color: '#fbbf24', padding: '0.85rem 1rem', borderRadius: '10px', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <AlertCircle size={18} style={{ flexShrink: 0 }} />
-                                <span>
-                                    {lang === 'ar' 
-                                        ? 'أنت غير مسجل في أي دورة تدريبية حالياً. يجب الالتحاق بدورة تدريبية أولاً لتقديم فكرة مشروع.'
-                                        : 'You are not enrolled in any training course yet. You must be enrolled in a course to submit a project proposal.'}
+                        {/* Submission Mode Tabs */}
+                        <div className="catalog-mode-tabs" style={{ margin: '0.75rem 1.5rem 1rem 1.5rem' }}>
+                            <button 
+                                type="button"
+                                className={`catalog-mode-tab ${submissionTab === 'catalog' ? 'active' : ''}`}
+                                onClick={() => setSubmissionTab('catalog')}
+                            >
+                                <BookOpen size={16} />
+                                <span>{lang === 'ar' ? 'اختيار من دليل المشاريع (64 فكرة معتمدة)' : 'Choose from 64 Official Projects Catalog'}</span>
+                                <span className="catalog-instant-badge" style={{ padding: '1px 6px', fontSize: '0.7rem' }}>
+                                    <Zap size={11} /> {lang === 'ar' ? 'فوري' : 'Instant'}
                                 </span>
+                            </button>
+                            <button 
+                                type="button"
+                                className={`catalog-mode-tab ${submissionTab === 'custom' ? 'active' : ''}`}
+                                onClick={() => setSubmissionTab('custom')}
+                            >
+                                <Edit3 size={16} />
+                                <span>{lang === 'ar' ? 'اقتراح فكرة مشروع مخصصة' : 'Custom Project Proposal'}</span>
+                            </button>
+                        </div>
+
+                        {/* TAB 1: 64 OFFICIAL PROJECTS CATALOG */}
+                        {submissionTab === 'catalog' && (
+                            <div className="modal-body-content fancy-modal-body catalog-view-body" style={{ padding: '0.75rem 1.5rem 1rem 1.5rem', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                {/* Compact Control Bar: Course + Info */}
+                                <div className="catalog-control-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', background: '#f8fafc', padding: '0.65rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '0.75rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '260px' }}>
+                                        <BookOpen size={16} className="text-primary" />
+                                        <label style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: '#1e293b', whiteSpace: 'nowrap' }}>
+                                            {lang === 'ar' ? 'الدورة المستهدفة:' : 'Target Course:'}
+                                        </label>
+                                        <select 
+                                            required 
+                                            value={submitCourseId} 
+                                            onChange={e => setSubmitCourseId(e.target.value)}
+                                            disabled={!isEvaluator && courses.length === 0}
+                                            className="catalog-course-select"
+                                            style={{ flex: 1, maxWidth: '320px', padding: '0.35rem 0.65rem', fontSize: '0.85rem' }}
+                                        >
+                                            <option value="">{lang === 'ar' ? '-- اختر الدورة التدريبية --' : '-- Select Training Course --'}</option>
+                                            {(isEvaluator ? (allActiveCourses.length > 0 ? allActiveCourses : courses) : courses).map(c => (
+                                                <option key={c.id} value={c.id}>
+                                                    {c.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="catalog-instant-badge" style={{ padding: '3px 10px', fontSize: '0.75rem' }}>
+                                        <Zap size={13} />
+                                        <span>{lang === 'ar' ? 'توليد فوري بدون انتظار للذكاء الاصطناعي' : 'Zero AI wait — instant proposal'}</span>
+                                    </div>
+                                </div>
+
+                                {/* Filter Bar: Categories + Search */}
+                                <div className="catalog-filter-bar" style={{ marginBottom: '0.75rem' }}>
+                                    <div className="catalog-category-pills">
+                                        {[
+                                            { key: 'all',        labelEn: 'All (64)',            labelAr: 'الكل (64)' },
+                                            { key: 'software',   labelEn: 'Software / AI (24)',  labelAr: 'برمجيات وذكاء اصطناعي (24)' },
+                                            { key: 'yanshee',    labelEn: 'Yanshee Robots (15)', labelAr: 'روبوت يانشي (15)' },
+                                            { key: 'nao',        labelEn: 'NAO Robots (15)',     labelAr: 'روبوت ناو (15)' },
+                                            { key: 'integrated', labelEn: 'Integrated (10)',     labelAr: 'مشاريع مدمجة (10)' },
+                                        ].map(tab => (
+                                            <button
+                                                key={tab.key}
+                                                type="button"
+                                                className={`catalog-category-pill ${catalogCategory === tab.key ? 'active' : ''}`}
+                                                onClick={() => setCatalogCategory(tab.key)}
+                                            >
+                                                {lang === 'ar' ? tab.labelAr : tab.labelEn}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="catalog-search-box">
+                                        <Search size={15} />
+                                        <input 
+                                            type="text"
+                                            placeholder={lang === 'ar' ? 'بحث في دليل المشاريع الـ 64...' : 'Search 64 projects catalog...'}
+                                            value={catalogSearch}
+                                            onChange={e => setCatalogSearch(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* 64 Projects Grid (Software / AI first by default) */}
+                                {loadingCatalog ? (
+                                    <div style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+                                        <Loader2 className="spin" size={28} style={{ color: '#3b82f6' }} />
+                                        <p style={{ marginTop: '0.75rem', color: '#94a3b8', fontSize: '0.9rem' }}>Loading 64 official project ideas...</p>
+                                    </div>
+                                ) : catalogError ? (
+                                    <div style={{ textAlign: 'center', padding: '2.5rem 1.5rem', background: 'rgba(239,68,68,0.05)', borderRadius: '12px', border: '1px solid rgba(239,68,68,0.15)' }}>
+                                        <AlertCircle size={28} style={{ color: '#ef4444', marginBottom: '0.5rem' }} />
+                                        <p style={{ color: '#ef4444', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem' }}>Failed to load project catalog</p>
+                                        <p style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '1rem' }}>{catalogError}</p>
+                                        <button 
+                                            type="button" 
+                                            className="btn btn-secondary"
+                                            onClick={() => { setCatalogError(''); setCatalogProjects([]); fetchCatalogProjects(); }}
+                                        >
+                                            Retry
+                                        </button>
+                                    </div>
+                                ) : catalogProjects.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '2.5rem 1.5rem' }}>
+                                        <Loader2 className="spin" size={24} style={{ color: '#3b82f6' }} />
+                                    </div>
+                                ) : (
+                                    <div className="catalog-grid-64">
+                                        {(() => {
+                                            const filtered = catalogProjects.filter(p => {
+                                                if (catalogCategory !== 'all' && p.category !== catalogCategory) return false;
+                                                if (catalogSearch.trim()) {
+                                                    const q = catalogSearch.toLowerCase();
+                                                    return (p.title || '').toLowerCase().includes(q) ||
+                                                           (p.skills || '').toLowerCase().includes(q) ||
+                                                           (p.category || '').toLowerCase().includes(q);
+                                                }
+                                                return true;
+                                            });
+
+                                            if (filtered.length === 0) {
+                                                return (
+                                                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2.5rem 1rem', background: '#f8fafc', borderRadius: '12px', border: '1.5px dashed #cbd5e1' }}>
+                                                        <p style={{ color: '#64748b', fontSize: '0.92rem', margin: 0 }}>
+                                                            {lang === 'ar' ? 'لا توجد أفكار مشاريع مطابقة لبحثك في هذا القسم' : 'No project ideas matched your search criteria in this category.'}
+                                                        </p>
+                                                    </div>
+                                                );
+                                            }
+
+                                            return filtered.map(p => {
+                                                const isSelected = selectedCatalogId === p.id;
+                                                return (
+                                                    <div 
+                                                        key={p.id}
+                                                        className={`catalog-item-card ${isSelected ? 'selected' : ''}`}
+                                                        onClick={() => handleSelectCatalogIdea(p)}
+                                                    >
+                                                        <div>
+                                                            <div className="catalog-item-top">
+                                                                <span className="catalog-item-id">#{p.id}</span>
+                                                                <span className={`category-tag ${p.category}`}>{p.category}</span>
+                                                            </div>
+                                                            <h4>{p.title}</h4>
+                                                            <p className="catalog-item-skills">
+                                                                <strong>{p.level}</strong> • {p.skills}
+                                                            </p>
+                                                        </div>
+
+                                                        <button 
+                                                            type="button" 
+                                                            className="btn-select-catalog-item"
+                                                            disabled={selectingCatalog}
+                                                        >
+                                                            {isSelected ? (
+                                                                <>
+                                                                    <CheckCircle2 size={14} style={{ color: '#22c55e' }} />
+                                                                    <span>{lang === 'ar' ? 'تم اختيار الفكرة' : 'Selected Idea'}</span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Zap size={14} />
+                                                                    <span>{lang === 'ar' ? 'اختيار وتوليد المقترح فوراً' : 'Select & View Proposal'}</span>
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                );
+                                            });
+                                        })()}
+                                    </div>
+                                )}
+
+                                {/* If Proposal is selected -> Render ProposalViewer with reveal animation */}
+                                {selectedProposalData && (
+                                    <div style={{ marginTop: '1.25rem' }}>
+                                        <div className="form-section-card" style={{ marginBottom: '1.25rem' }}>
+                                            <div className="form-section-title">
+                                                <Users size={16} />
+                                                <span>{lang === 'ar' ? 'تحديد فريق العمل للمشروع' : 'Assign Team Members'}</span>
+                                            </div>
+                                            <TeammateSelector 
+                                                courseId={submitCourseId}
+                                                selectedTeammates={submitTeammates}
+                                                onTeammatesChange={setSubmitTeammates}
+                                                currentIdeaId={createdIdeaId || editingIdeaId}
+                                                disabled={submittingIdea}
+                                            />
+                                        </div>
+
+                                        <ProposalViewer 
+                                            initialProposal={selectedProposalData}
+                                            ideaId={createdIdeaId}
+                                            documentLabel="proposal"
+                                            canEdit={true}
+                                            lang={lang}
+                                            onProposalUpdated={setSelectedProposalData}
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="modal-actions fancy-modal-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginTop: '1.5rem' }}>
+                                    <div>
+                                        {editingIdeaId && (
+                                            <button 
+                                                type="button" 
+                                                className="btn" 
+                                                onClick={(e) => handleDeleteIdea(e, editingIdeaId)}
+                                                disabled={deletingIdea}
+                                                style={{ borderColor: 'rgba(239, 68, 68, 0.5)', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 1rem', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+                                            >
+                                                {deletingIdea ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
+                                                <span>{lang === 'ar' ? 'حذف الفكرة' : 'Delete Idea'}</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <button type="button" className="btn btn-ghost" onClick={() => setShowSubmitModal(false)}>
+                                            {lang === 'ar' ? 'إغلاق' : 'Close'}
+                                        </button>
+                                        {selectedProposalData && (
+                                            <button 
+                                                type="button" 
+                                                className="btn btn-submit-glowing"
+                                                onClick={async () => {
+                                                    await handleSubmitIdea({ preventDefault: () => {} });
+                                                }}
+                                                disabled={submittingIdea}
+                                            >
+                                                {submittingIdea ? <Loader2 className="spin" size={18} /> : <CheckCircle2 size={18} />}
+                                                <span>{lang === 'ar' ? 'اعتماد وحفظ المقترح' : 'Confirm & Save Proposal'}</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         )}
 
-                        <form onSubmit={handleSubmitIdea} className="modal-body-content fancy-modal-body">
-                            {/* Course & Basic Info Section */}
-                            <div className="form-section-card">
-                                <div className="form-section-title">
-                                    <BookOpen size={16} />
-                                    <span>{lang === 'ar' ? 'بيانات الدورة التدريبية والعنوان' : 'Course Selection & Project Title'}</span>
-                                </div>
-                                <div className="form-grid-2">
-                                    <div className="form-group">
-                                        <label>{lang === 'ar' ? 'اختر الدورة التدريبية *' : 'Select Training Course *'}</label>
-                                        <div className="input-with-icon">
-                                            <BookOpen size={16} className="field-icon" />
-                                            <select 
-                                                required 
-                                                value={submitCourseId} 
-                                                onChange={e => setSubmitCourseId(e.target.value)}
-                                                disabled={!isEvaluator && courses.length === 0}
-                                            >
-                                                <option value="">{lang === 'ar' ? '-- اختر الدورة --' : '-- Select Course --'}</option>
-                                                {(isEvaluator ? (allActiveCourses.length > 0 ? allActiveCourses : courses) : courses).map(c => (
-                                                    <option key={c.id} value={c.id}>
-                                                        {c.name}
-                                                    </option>
-                                                ))}
-                                            </select>
+                        {/* TAB 2: CUSTOM PROJECT PROPOSAL (Case B) */}
+                        {submissionTab === 'custom' && (
+                            <form onSubmit={handleSubmitIdea} className="modal-body-content fancy-modal-body">
+                                {/* Course & Basic Info Section */}
+                                <div className="form-section-card">
+                                    <div className="form-section-title">
+                                        <BookOpen size={16} />
+                                        <span>{lang === 'ar' ? 'بيانات الدورة التدريبية والعنوان' : 'Course Selection & Project Title'}</span>
+                                    </div>
+                                    <div className="form-grid-2">
+                                        <div className="form-group">
+                                            <label>{lang === 'ar' ? 'اختر الدورة التدريبية *' : 'Select Training Course *'}</label>
+                                            <div className="input-with-icon">
+                                                <BookOpen size={16} className="field-icon" />
+                                                <select 
+                                                    required 
+                                                    value={submitCourseId} 
+                                                    onChange={e => setSubmitCourseId(e.target.value)}
+                                                    disabled={!isEvaluator && courses.length === 0}
+                                                >
+                                                    <option value="">{lang === 'ar' ? '-- اختر الدورة --' : '-- Select Course --'}</option>
+                                                    {(isEvaluator ? (allActiveCourses.length > 0 ? allActiveCourses : courses) : courses).map(c => (
+                                                        <option key={c.id} value={c.id}>
+                                                            {c.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                         </div>
+
+                                        <div className="form-group">
+                                            <label>{lang === 'ar' ? 'عنوان المشروع *' : 'Project Title *'}</label>
+                                            <div className="input-with-icon">
+                                                <FileText size={16} className="field-icon" />
+                                                <input 
+                                                    type="text" 
+                                                    required 
+                                                    value={submitTitleEn} 
+                                                    onChange={e => setSubmitTitleEn(e.target.value)} 
+                                                    placeholder={lang === 'ar' ? 'مثال: نظام إدارة الحضور الذكي' : 'e.g. Smart Student Attendance System'}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* AI Magic Generator Banner (Case B) */}
+                                <div className="ai-generator-card">
+                                    <div className="ai-card-header">
+                                        <div className="ai-title-row">
+                                            <Sparkles size={18} className="ai-sparkle" />
+                                            <h4>{lang === 'ar' ? 'مساعد الذكاء الاصطناعي للمشاريع المخصصة (Case B)' : 'AI Generator for Custom Ideas (Case B)'}</h4>
+                                            <span className="ai-badge">{lang === 'ar' ? 'مساعد ذكي' : 'AI Powered'}</span>
+                                        </div>
+                                        <p className="ai-subtitle">
+                                            {lang === 'ar' ? 'أدخل فكرة مشروعك الأصلية وسيقوم الذكاء الاصطناعي ببناء الأقسام الـ 7 للمقترح تلقائياً وفق القالب الرسمي' : 'Enter your custom project concept to generate the 7 official proposal sections.'}
+                                        </p>
+                                    </div>
+                                    <div className="ai-input-row">
+                                        <input 
+                                            type="text" 
+                                            placeholder={lang === 'ar' ? 'مثال: نظام ذكي لكشف تسرب المياه في المصانع' : 'e.g. AI-driven acoustic water leakage detector'}
+                                            value={aiKeyword}
+                                            onChange={e => setAiKeyword(e.target.value)}
+                                        />
+                                        <button 
+                                            type="button" 
+                                            className="btn btn-ai-generate" 
+                                            onClick={handleGenerateAiProposal} 
+                                            disabled={generatingAi || !aiKeyword.trim()}
+                                        >
+                                            {generatingAi ? <Loader2 className="spin" size={16} /> : <Sparkles size={16} />}
+                                            <span>{lang === 'ar' ? 'توليد الأقسام الـ 7' : 'Generate 7 Sections'}</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Project Specs Section */}
+                                <div className="form-section-card">
+                                    <div className="form-section-title">
+                                        <Send size={16} />
+                                        <span>{lang === 'ar' ? 'الوصف والتفاصيل التقنية' : 'Description & Technical Details'}</span>
                                     </div>
 
                                     <div className="form-group">
-                                        <label>{lang === 'ar' ? 'عنوان المشروع *' : 'Project Title *'}</label>
-                                        <div className="input-with-icon">
-                                            <FileText size={16} className="field-icon" />
-                                            <input 
-                                                type="text" 
-                                                required 
-                                                value={submitTitleEn} 
-                                                onChange={e => setSubmitTitleEn(e.target.value)} 
-                                                placeholder={lang === 'ar' ? 'مثال: نظام إدارة الحضور الذكي' : 'e.g. Smart Student Attendance System'}
+                                        <label>{lang === 'ar' ? 'وصف المشروع والتفاصيل الأساسية *' : 'Project Description *'}</label>
+                                        <textarea 
+                                            rows="3" 
+                                            required 
+                                            value={submitDescEn} 
+                                            onChange={e => setSubmitDescEn(e.target.value)} 
+                                            placeholder={lang === 'ar' ? 'اشرح فكرة المشروع، الأهداف الرئيسية، ورؤية الحل...' : 'Explain the project idea, main goals, and solution vision...'}
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label>{lang === 'ar' ? 'التقنيات المستخدمة (Tech Stack)' : 'Target Tech Stack'}</label>
+                                        <input 
+                                            type="text" 
+                                            value={submitTechStack} 
+                                            onChange={e => setSubmitTechStack(e.target.value)} 
+                                            placeholder="e.g. React, Node.js, Python, PostgreSQL, TailwindCSS" 
+                                        />
+                                    </div>
+
+                                    <div className="form-grid-2">
+                                        <div className="form-group">
+                                            <label>{lang === 'ar' ? 'المشكلة التي يحلها المشروع' : 'Problem Statement'}</label>
+                                            <textarea 
+                                                rows="3" 
+                                                value={submitProblemStmt} 
+                                                onChange={e => setSubmitProblemStmt(e.target.value)} 
+                                                placeholder={lang === 'ar' ? 'ما هي التحديات والمشاكل التي يعالجها مشروعك؟' : 'What specific problems does this project solve?'}
+                                            />
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label>{lang === 'ar' ? 'المخرجات المتوقعة للتسليم' : 'Expected Deliverables'}</label>
+                                            <textarea 
+                                                rows="3" 
+                                                value={submitExpectedOutput} 
+                                                onChange={e => setSubmitExpectedOutput(e.target.value)} 
+                                                placeholder={lang === 'ar' ? 'ما هي مخرجات التطبيق أو النظام النهائي المتوقع تسليمه؟' : 'What final system deliverables or applications will be produced?'}
                                             />
                                         </div>
                                     </div>
-                                </div>
-                            </div>
 
-                            {/* AI Magic Generator Banner */}
-                            <div className="ai-generator-card">
-                                <div className="ai-card-header">
-                                    <div className="ai-title-row">
-                                        <Sparkles size={18} className="ai-sparkle" />
-                                        <h4>{lang === 'ar' ? 'مساعد توليد المقترحات بالذكاء الاصطناعي' : 'AI Idea Proposal Generator'}</h4>
-                                        <span className="ai-badge">{lang === 'ar' ? 'مساعد ذكي' : 'AI Powered'}</span>
-                                    </div>
-                                    <p className="ai-subtitle">
-                                        {lang === 'ar' ? 'أدخل فكرة مبسطة أو اختر أحد المقترحات الجاهزة لتوليد المقترح بالكامل تلقائياً' : 'Enter keywords or click a sample topic to generate a complete project proposal.'}
-                                    </p>
-                                </div>
-                                <div className="ai-input-row">
-                                    <input 
-                                        type="text" 
-                                        placeholder={lang === 'ar' ? 'مثال: نظام إدارة الزراعة الذكية باستخدام الذكاء الاصطناعي' : 'e.g. AI-Powered Smart Agriculture System'}
-                                        value={aiKeyword}
-                                        onChange={e => setAiKeyword(e.target.value)}
+                                    {/* Teammate Selector Component */}
+                                    <TeammateSelector 
+                                        courseId={submitCourseId}
+                                        selectedTeammates={submitTeammates}
+                                        onTeammatesChange={setSubmitTeammates}
+                                        currentIdeaId={editingIdeaId}
+                                        disabled={submittingIdea}
                                     />
-                                    <button 
-                                        type="button"
-                                        className="btn btn-ai-generate" 
-                                        onClick={handleGenerateAiProposal} 
-                                        disabled={generatingAi || !aiKeyword.trim()}
-                                    >
-                                        {generatingAi ? <Loader2 className="spin" size={16} /> : <Sparkles size={16} />}
-                                        <span>{lang === 'ar' ? 'توليد تلقائي' : 'Generate Proposal'}</span>
-                                    </button>
                                 </div>
 
-                                {/* Quick suggestion pills */}
-                                <div className="ai-sample-pills">
-                                    <span className="pill-label">{lang === 'ar' ? 'مقترحات سريعة:' : 'Quick Topics:'}</span>
-                                    {[
-                                        { ar: '⚡ نظام حضور ذكي', en: 'Smart Attendance System' },
-                                        { ar: '🤖 شات بوت الدعم الأكاديمي', en: 'Academic Support AI Chatbot' },
-                                        { ar: '📊 لوحة تحليلات الطاقة', en: 'Energy Analytics Dashboard' },
-                                        { ar: '📱 تطبيق الفعاليات الجامعية', en: 'University Events Mobile App' }
-                                    ].map((pill, idx) => (
-                                        <button 
-                                            key={idx}
-                                            type="button" 
-                                            className="ai-pill-btn"
-                                            onClick={() => {
-                                                setAiKeyword(lang === 'ar' ? pill.ar : pill.en);
-                                            }}
-                                        >
-                                            {lang === 'ar' ? pill.ar : pill.en}
+                                {selectedProposalData && (
+                                    <ProposalViewer 
+                                        initialProposal={selectedProposalData}
+                                        ideaId={createdIdeaId || editingIdeaId}
+                                        documentLabel="proposal"
+                                        canEdit={true}
+                                        lang={lang}
+                                        onProposalUpdated={setSelectedProposalData}
+                                    />
+                                )}
+
+                                <div className="modal-actions fancy-modal-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                    <div>
+                                        {editingIdeaId && (
+                                            <button 
+                                                type="button" 
+                                                className="btn" 
+                                                onClick={(e) => handleDeleteIdea(e, editingIdeaId)}
+                                                disabled={deletingIdea}
+                                                style={{ borderColor: 'rgba(239, 68, 68, 0.5)', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', gap: '6px', padding: '0.5rem 1rem', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+                                            >
+                                                {deletingIdea ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
+                                                <span>{lang === 'ar' ? 'حذف الفكرة' : 'Delete Idea'}</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <button type="button" className="btn btn-ghost" onClick={() => setShowSubmitModal(false)}>
+                                            {lang === 'ar' ? 'إلغاء' : 'Cancel'}
                                         </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Project Specs Section */}
-                            <div className="form-section-card">
-                                <div className="form-section-title">
-                                    <Send size={16} />
-                                    <span>{lang === 'ar' ? 'الوصف والتفاصيل التقنية' : 'Description & Technical Details'}</span>
-                                </div>
-
-                                <div className="form-group">
-                                    <label>{lang === 'ar' ? 'وصف المشروع والتفاصيل الأساسية *' : 'Project Description *'}</label>
-                                    <textarea 
-                                        rows="3" 
-                                        required 
-                                        value={submitDescEn} 
-                                        onChange={e => setSubmitDescEn(e.target.value)}
-                                        placeholder={lang === 'ar' ? 'اشرح فكرة المشروع، الأهداف الرئيسية، ورؤية الحل...' : 'Explain the project idea, main goals, and solution vision...'}
-                                    />
-                                </div>
-
-                                <div className="form-group">
-                                    <label>{lang === 'ar' ? 'التقنيات المستخدمة (Tech Stack)' : 'Target Tech Stack'}</label>
-                                    <input 
-                                        type="text" 
-                                        value={submitTechStack} 
-                                        onChange={e => setSubmitTechStack(e.target.value)} 
-                                        placeholder="e.g. React, Node.js, Python, PostgreSQL, TailwindCSS" 
-                                    />
-                                </div>
-
-                                <div className="form-grid-2">
-                                    <div className="form-group">
-                                        <label>{lang === 'ar' ? 'المشكلة التي يحلها المشروع' : 'Problem Statement'}</label>
-                                        <textarea 
-                                            rows="3" 
-                                            value={submitProblemStmt} 
-                                            onChange={e => setSubmitProblemStmt(e.target.value)} 
-                                            placeholder={lang === 'ar' ? 'ما هي التحديات والمشاكل التي يعالجها مشروعك؟' : 'What specific problems does this project solve?'}
-                                        />
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label>{lang === 'ar' ? 'المخرجات المتوقعة للتسليم' : 'Expected Deliverables'}</label>
-                                        <textarea 
-                                            rows="3" 
-                                            value={submitExpectedOutput} 
-                                            onChange={e => setSubmitExpectedOutput(e.target.value)} 
-                                            placeholder={lang === 'ar' ? 'ما هي مخرجات التطبيق أو النظام النهائي المتوقع تسليمه؟' : 'What final system deliverables or applications will be produced?'}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Teammate Selector Component */}
-                                <TeammateSelector 
-                                    courseId={submitCourseId}
-                                    selectedTeammates={submitTeammates}
-                                    onTeammatesChange={setSubmitTeammates}
-                                    currentIdeaId={editingIdeaId}
-                                    disabled={submittingIdea}
-                                />
-                            </div>
-
-                            <div className="modal-actions fancy-modal-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                <div>
-                                    {editingIdeaId && (
-                                        <button 
-                                            type="button" 
-                                            className="btn" 
-                                            onClick={(e) => handleDeleteIdea(e, editingIdeaId)}
-                                            disabled={deletingIdea}
-                                            style={{
-                                                borderColor: 'rgba(239, 68, 68, 0.5)',
-                                                color: '#ef4444',
-                                                background: 'rgba(239, 68, 68, 0.1)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px',
-                                                padding: '0.5rem 1rem',
-                                                borderRadius: '8px',
-                                                fontWeight: 600,
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            {deletingIdea ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}
-                                            <span>{lang === 'ar' ? 'حذف الفكرة' : 'Delete Idea'}</span>
+                                        <button type="submit" className="btn btn-submit-glowing" disabled={submittingIdea || (!isEvaluator && courses.length === 0)}>
+                                            {submittingIdea ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
+                                            <span>{submittingIdea 
+                                                ? (lang === 'ar' ? 'جاري الحفظ...' : 'Saving...') 
+                                                : (editingIdeaId
+                                                    ? (lang === 'ar' ? 'حفظ التعديلات' : 'Save Changes')
+                                                    : (lang === 'ar' ? 'إرسال الفكرة للمراجعة' : 'Submit Idea for Review')
+                                                  )
+                                            }</span>
                                         </button>
-                                    )}
+                                    </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '10px' }}>
-                                    <button type="button" className="btn btn-ghost" onClick={() => setShowSubmitModal(false)}>
-                                        {lang === 'ar' ? 'إلغاء' : 'Cancel'}
-                                    </button>
-                                    <button type="submit" className="btn btn-submit-glowing" disabled={submittingIdea || (!isEvaluator && courses.length === 0)}>
-                                        {submittingIdea ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
-                                        <span>{submittingIdea 
-                                            ? (lang === 'ar' ? 'جاري الحفظ...' : 'Saving...') 
-                                            : (editingIdeaId
-                                                ? (lang === 'ar' ? 'حفظ التعديلات' : 'Save Changes')
-                                                : (lang === 'ar' ? 'إرسال الفكرة للمراجعة' : 'Submit Idea for Review')
-                                              )
-                                        }</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
+                            </form>
+                        )}
                     </div>
                 </div>
             )}
@@ -1108,6 +1469,14 @@ export default function TraineeProjects() {
                                     </div>
                                 </div>
                             )}
+
+                            {/* Official 7-Section Proposal / Documentation Viewer */}
+                            <ProposalViewer 
+                                ideaId={activeProject.id}
+                                documentLabel={isEvaluator ? 'documentation' : 'proposal'}
+                                canEdit={activeProject.trainee_id === user?.id || activeProject.owner_id === user?.id || isEvaluator}
+                                lang={lang}
+                            />
 
                             {/* Project Deliverables, Documents & Links Section (Only shown when project is approved/completed or for trainers) */}
                             {(activeProject.status === 'approved' || activeProject.status === 'completed' || isEvaluator) && (

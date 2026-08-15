@@ -1389,7 +1389,7 @@ void loop() {
                                         <p className="idea-body">{idea.description}</p>
 
                                         <div className="idea-actions">
-                                            {(!idea.status || idea.status === 'pending') && (
+                                            {(!idea.status || idea.status === 'submitted' || idea.status === 'under_review' || idea.status === 'draft' || idea.status === 'pending') && (
                                                 <>
                                                     <button className="btn btn-success btn-sm" onClick={() => handleEvaluateIdea(idea.id, 'approved', 'Great proposal!')}>
                                                         <CheckCircle size={14} /> {lang === 'ar' ? 'قبول' : 'Approve'}

@@ -24,7 +24,7 @@ try {
     $db = db();
 
     // Fetch idea
-    $stmt = $db->prepare("SELECT id, owner_id, course_id, title, status, reviewed_by FROM training_ideas WHERE id = ?");
+    $stmt = $db->prepare("SELECT id, owner_id, course_id, COALESCE(title_en, title_ar, 'Project') AS title, status, reviewed_by FROM training_ideas WHERE id = ?");
     $stmt->execute([$ideaId]);
     $idea = $stmt->fetch();
 
@@ -50,8 +50,8 @@ try {
         if ($reviewerId) {
             try {
                 $nStmt = $db->prepare("
-                    INSERT INTO notifications (user_id, type, title, title, message_en, message_ar)
-                    VALUES (?, 'project_completed', 'Project Completed', 'تم إكمال المشروع', ?, ?)
+                    INSERT INTO notifications (user_id, type, message_en, message_ar)
+                    VALUES (?, 'project_completed', ?, ?)
                 ");
                 $msgEn = "Trainee has marked project '{$idea['title']}' as completed.";
                 $msgAr = "قام المتدرب بتحديد المشروع '{$idea['title']}' كـ مكتمل.";
