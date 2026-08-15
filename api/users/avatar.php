@@ -11,16 +11,27 @@ if (empty($_FILES['avatar'])) {
 }
 $file = $_FILES['avatar'];
 
+$finfo = finfo_open(FILEINFO_MIME_TYPE);
+$detectedMime = finfo_file($finfo, $file['tmp_name']);
+finfo_close($finfo);
+
 $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-if (!in_array($file['type'], $allowed)) {
-    respondError('Invalid file type. Use JPEG, PNG, GIF or WebP.');
+if (!in_array($detectedMime, $allowed, true)) {
+    respondError('Invalid file format. Only JPEG, PNG, GIF, and WebP images are allowed.');
 }
+
+// Extra security check: verify image dimensions
+$imageInfo = @getimagesize($file['tmp_name']);
+if ($imageInfo === false) {
+    respondError('Uploaded file is not a valid image.');
+}
+
 if ($file['size'] > 2 * 1024 * 1024) {
     respondError('File too large (max 2MB)');
 }
 
 // Read the file and encode to Base64
-$type = $file['type'];
+$type = $detectedMime;
 $data = file_get_contents($file['tmp_name']);
 $base64 = 'data:' . $type . ';base64,' . base64_encode($data);
 

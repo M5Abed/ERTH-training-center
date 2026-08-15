@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Search, Filter, CheckCircle2, XCircle, AlertCircle, Clock, FileText, Send, User, BookOpen, Loader2, Sparkles, Plus, Edit3, X, Vote, ThumbsUp, ThumbsDown, Users, Trash2, Paperclip, Upload, Download, ExternalLink, Code, UserCheck } from 'lucide-react';
+import TeammateSelector from '../components/TeammateSelector';
+import MemberDetailModal from '../components/MemberDetailModal';
 import './TraineeProjects.css';
 
 export default function TraineeProjects() {
@@ -59,6 +61,8 @@ export default function TraineeProjects() {
     const [aiKeyword, setAiKeyword] = useState('');
     const [generatingAi, setGeneratingAi] = useState(false);
     const [submittingIdea, setSubmittingIdea] = useState(false);
+    const [submitTeammates, setSubmitTeammates] = useState([]);
+    const [viewingMember, setViewingMember] = useState(null);
 
     useEffect(() => {
         fetchCourses();
@@ -128,6 +132,12 @@ export default function TraineeProjects() {
             setSubmitTechStack(idea.tech_stack || '');
             setSubmitProblemStmt(idea.problem_statement || '');
             setSubmitExpectedOutput(idea.expected_output || '');
+
+            // Populate teammates from idea team_members (excluding leader/current user)
+            const rawMembers = idea.team_members || [];
+            const currentUserId = user?.id;
+            const teammates = rawMembers.filter(m => (m.user_id || m.id) !== currentUserId && m.role !== 'leader');
+            setSubmitTeammates(teammates);
         } else {
             setEditingIdeaId(null);
             const defaultList = isEvaluator ? (allActiveCourses.length > 0 ? allActiveCourses : courses) : courses;
@@ -137,6 +147,7 @@ export default function TraineeProjects() {
             setSubmitTechStack('');
             setSubmitProblemStmt('');
             setSubmitExpectedOutput('');
+            setSubmitTeammates([]);
         }
         setShowSubmitModal(true);
         fetchActiveCourses();
@@ -184,7 +195,8 @@ export default function TraineeProjects() {
                     description: submitDescEn,
                     tech_stack: submitTechStack,
                     problem_statement: submitProblemStmt,
-                    expected_output: submitExpectedOutput
+                    expected_output: submitExpectedOutput,
+                    teammate_ids: submitTeammates.map(t => t.id || t.user_id)
                 })
             });
             const data = await res.json();
@@ -627,6 +639,43 @@ export default function TraineeProjects() {
                                     </div>
                                 )}
 
+                                {/* Team Members summary on Project Card */}
+                                {project.team_members && project.team_members.length > 1 && (
+                                    <div className="card-team-roster" style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                                        <Users size={13} style={{ color: 'var(--text-muted)' }} />
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                            {lang === 'ar' ? 'فريق العمل:' : 'Team:'}
+                                        </span>
+                                        {project.team_members.map(m => (
+                                            <button 
+                                                key={m.user_id || m.id}
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setViewingMember(m);
+                                                }}
+                                                title={lang === 'ar' ? `انقر لعرض بيانات ${m.full_name || m.username}` : `Click to view profile of ${m.full_name || m.username}`}
+                                                style={{
+                                                    fontSize: '0.72rem',
+                                                    padding: '0.12rem 0.5rem',
+                                                    borderRadius: '4px',
+                                                    border: m.role === 'leader' ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(59, 130, 246, 0.3)',
+                                                    background: m.role === 'leader' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(59, 130, 246, 0.08)',
+                                                    color: m.role === 'leader' ? '#d97706' : '#2563eb',
+                                                    fontWeight: 600,
+                                                    cursor: 'pointer',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '3px',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                            >
+                                                {m.role === 'leader' ? '👑 ' : ''}{m.full_name || m.username}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
                                 {project.vote_summary && project.vote_summary.total_votes > 0 && (
                                     <div className="card-voting-summary">
                                         <span className="vote-pill vote-approve"><ThumbsUp size={12} /> {project.vote_summary.approve_count}</span>
@@ -887,6 +936,15 @@ export default function TraineeProjects() {
                                         />
                                     </div>
                                 </div>
+
+                                {/* Teammate Selector Component */}
+                                <TeammateSelector 
+                                    courseId={submitCourseId}
+                                    selectedTeammates={submitTeammates}
+                                    onTeammatesChange={setSubmitTeammates}
+                                    currentIdeaId={editingIdeaId}
+                                    disabled={submittingIdea}
+                                />
                             </div>
 
                             <div className="modal-actions fancy-modal-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
@@ -967,6 +1025,59 @@ export default function TraineeProjects() {
                                     {activeProject.reviewer_name || activeProject.effective_trainer_name || (lang === 'ar' ? 'مدرب الدورة' : 'Course Trainer')}
                                 </p>
                             </div>
+
+                            {/* Full Team Roster in Details Modal */}
+                            {activeProject.team_members && activeProject.team_members.length > 0 && (
+                                <div className="detail-section" style={{ marginBottom: '1.25rem' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: 'var(--text-main)' }}>
+                                        <Users size={16} className="text-primary" /> {lang === 'ar' ? 'أعضاء فريق المشروع (انقر لعرض البيانات)' : 'Project Team Members (Click to view details)'}
+                                    </label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px', marginTop: '0.5rem' }}>
+                                        {activeProject.team_members.map(m => (
+                                            <div 
+                                                key={m.user_id || m.id}
+                                                onClick={() => setViewingMember(m)}
+                                                title={lang === 'ar' ? `انقر لعرض بيانات ${m.full_name || m.username}` : `Click to view profile of ${m.full_name || m.username}`}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    padding: '0.55rem 0.8rem',
+                                                    borderRadius: '8px',
+                                                    border: m.role === 'leader' ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(59, 130, 246, 0.25)',
+                                                    background: m.role === 'leader' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(59, 130, 246, 0.05)',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                                onMouseEnter={e => {
+                                                    e.currentTarget.style.transform = 'translateY(-2px)';
+                                                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                                                }}
+                                                onMouseLeave={e => {
+                                                    e.currentTarget.style.transform = 'none';
+                                                    e.currentTarget.style.boxShadow = 'none';
+                                                }}
+                                            >
+                                                <span style={{ fontSize: '1.1rem' }}>{m.role === 'leader' ? '👑' : '👤'}</span>
+                                                <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                                                        <strong style={{ fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                            {m.full_name || m.username}
+                                                        </strong>
+                                                        <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', color: m.role === 'leader' ? '#d97706' : '#2563eb' }}>
+                                                            {m.role === 'leader' ? (lang === 'ar' ? 'القائد' : 'Leader') : (lang === 'ar' ? 'عضو' : 'Member')}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'flex', gap: '6px' }}>
+                                                        {m.student_id && <span>{m.student_id}</span>}
+                                                        {m.email && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.email}</span>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="detail-section">
                                 <label>{lang === 'ar' ? 'وصف الفكرة / المشروع' : 'Description / Proposal'}</label>
@@ -1548,6 +1659,14 @@ export default function TraineeProjects() {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {/* Member Details Modal */}
+            {viewingMember && (
+                <MemberDetailModal 
+                    member={viewingMember} 
+                    onClose={() => setViewingMember(null)} 
+                />
             )}
         </div>
     );

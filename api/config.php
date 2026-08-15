@@ -65,15 +65,17 @@ if (!defined('AI_DAILY_USER_TOKEN_LIMIT')) {
 
 // Security headers & CORS / Session (Only if not running in CLI mode)
 if (php_sapi_name() !== 'cli') {
-    // Security headers
+    // Strict Security Headers
+    header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://api.groq.com; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none';");
     header("X-Content-Type-Options: nosniff");
-    header("X-Frame-Options: SAMEORIGIN");
+    header("X-Frame-Options: DENY");
     header("Referrer-Policy: strict-origin-when-cross-origin");
-    header("Strict-Transport-Security: max-age=31536000; includeSubDomains");  // HSTS
+    header("Strict-Transport-Security: max-age=31536000; includeSubDomains; preload");
     header("Permissions-Policy: camera=(), microphone=(), geolocation=()");
     header("X-Permitted-Cross-Domain-Policies: none");
     header("Cache-Control: no-store, no-cache, must-revalidate");  // Prevent caching of API responses
     header_remove("X-Powered-By");  // Hide PHP version
+    header_remove("Server");
 
     // CORS — whitelist allowed origins
     $allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:8000', 'http://localhost:8080', 'http://127.0.0.1:8000', 'http://localhost'];
@@ -213,6 +215,28 @@ function _autoMigrate(): void
               INDEX idx_tc_code (cert_code)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ");
+
+        // 5. Ensure training_idea_members table exists
+        db()->exec("
+            CREATE TABLE IF NOT EXISTS training_idea_members (
+              id            INT AUTO_INCREMENT PRIMARY KEY,
+              idea_id       INT NOT NULL,
+              user_id       INT NOT NULL,
+              role          ENUM('leader', 'member') DEFAULT 'member',
+              created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE INDEX idx_tim_idea_user (idea_id, user_id),
+              INDEX idx_tim_idea (idea_id),
+              INDEX idx_tim_user (user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
+
+        // Sync existing idea owners as project leaders if missing
+        db()->exec("
+            INSERT IGNORE INTO training_idea_members (idea_id, user_id, role)
+            SELECT id, owner_id, 'leader' 
+            FROM training_ideas 
+            WHERE owner_id IS NOT NULL AND owner_id > 0;
+        ");
     } catch (\Exception $e) {
         // silently skip if user lacks CREATE privileges
         error_log("Auto-migration failed: " . $e->getMessage());
@@ -298,6 +322,28 @@ function requireTrainee(): array
     return requireRole(['trainee', 'admin']);
 }
 
+/**
+ * Verify that a trainer has access to a course (or user is admin).
+ * Responds with 403 Forbidden if not assigned.
+ */
+function verifyCourseAccess(int $courseId, array $user): void
+{
+    $role = strtolower($user['role'] ?? '');
+    $isAdmin = (bool) (!empty($user['is_admin']) || $role === 'admin');
+    if ($isAdmin) {
+        return;
+    }
+    if ($role !== 'trainer') {
+        respondError('Forbidden: Trainer or Admin access required', 403);
+    }
+    $uid = (int) $user['id'];
+    $stmt = db()->prepare("SELECT 1 FROM trainer_assignments WHERE trainer_id = ? AND course_id = ?");
+    $stmt->execute([$uid, $courseId]);
+    if (!$stmt->fetch()) {
+        respondError('Forbidden: You are not assigned as a trainer to this course', 403);
+    }
+}
+
 function body(): array
 {
     $raw = file_get_contents('php://input');
@@ -312,7 +358,9 @@ function body(): array
         'availability',
         'required_skills',
         'preferred_skills',
-        'preferred_project_type'
+        'preferred_project_type',
+        'teammate_ids',
+        'team_members'
     ];
     foreach ($data as $key => $value) {
         if (is_array($value) && !in_array($key, $allowedArrayFields, true)) {
@@ -409,13 +457,17 @@ function sanitizeUserResponse(array $user, bool $isSelf = false): array
  */
 function rateLimit(string $action, int $maxAttempts = 30, int $windowSec = 60): void
 {
-    $key = '_rl_' . $action;
-    if (!isset($_SESSION[$key])) {
-        $_SESSION[$key] = ['count' => 0, 'start' => time()];
-    }
-    $rl = &$_SESSION[$key];
+    $rawIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+    $ip = trim(explode(',', $rawIp)[0]);
+    $ipHash = md5($ip);
 
-    // Reset window if expired
+    // 1. Session-based check
+    $sessionKey = '_rl_' . $action;
+    if (!isset($_SESSION[$sessionKey])) {
+        $_SESSION[$sessionKey] = ['count' => 0, 'start' => time()];
+    }
+    $rl = &$_SESSION[$sessionKey];
+
     if (time() - $rl['start'] > $windowSec) {
         $rl = ['count' => 0, 'start' => time()];
     }
@@ -426,6 +478,37 @@ function rateLimit(string $action, int $maxAttempts = 30, int $windowSec = 60): 
         $wait = $windowSec - (time() - $rl['start']);
         $unit = $wait > 60 ? ceil($wait / 60) . ' minutes' : $wait . ' seconds';
         respondError("Rate limit exceeded. Try again in $unit.", 429);
+    }
+
+    // 2. IP-based persistent check (protects against session-clearing bypasses)
+    try {
+        $db = db();
+        $rateIdentifier = $action . '_' . $ipHash;
+        $stmt = $db->prepare("SELECT attempts, first_attempt FROM otp_rate_limits WHERE identifier = ? AND action = ?");
+        $stmt->execute([$rateIdentifier, $action]);
+        $row = $stmt->fetch();
+        $now = time();
+
+        if ($row) {
+            $firstAttempt = strtotime($row['first_attempt']);
+            if ($now - $firstAttempt < $windowSec) {
+                if ($row['attempts'] >= $maxAttempts) {
+                    $wait = $windowSec - ($now - $firstAttempt);
+                    $unit = $wait > 60 ? ceil($wait / 60) . ' minutes' : $wait . ' seconds';
+                    respondError("Rate limit exceeded for this network. Try again in $unit.", 429);
+                }
+                $uStmt = $db->prepare("UPDATE otp_rate_limits SET attempts = attempts + 1 WHERE identifier = ? AND action = ?");
+                $uStmt->execute([$rateIdentifier, $action]);
+            } else {
+                $uStmt = $db->prepare("UPDATE otp_rate_limits SET attempts = 1, first_attempt = NOW() WHERE identifier = ? AND action = ?");
+                $uStmt->execute([$rateIdentifier, $action]);
+            }
+        } else {
+            $iStmt = $db->prepare("INSERT INTO otp_rate_limits (identifier, action, attempts, first_attempt) VALUES (?, ?, 1, NOW())");
+            $iStmt->execute([$rateIdentifier, $action]);
+        }
+    } catch (\Throwable $e) {
+        // Fallback to session check if database rate limit table is unavailable
     }
 }
 

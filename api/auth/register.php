@@ -84,8 +84,9 @@ if (!preg_match($domainPattern, $email)) {
 }
 
 // Password strength requirements
-if (strlen($password) < 8) {
-    respondError('Password must be at least 8 characters');
+$strengthError = validatePasswordStrength($password);
+if ($strengthError) {
+    respondError($strengthError);
 }
 
 // Sanitize name (prevent XSS in emails/views)

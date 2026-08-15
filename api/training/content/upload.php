@@ -38,11 +38,37 @@ $allowedExts = [
     'word'  => ['doc', 'docx'],
     'video' => ['mp4', 'mov', 'webm', 'mkv']
 ];
+$db = db();
+$topicRow = $db->prepare("SELECT tt.course_id, tt.title FROM training_topics tt WHERE tt.id = ?");
+$topicRow->execute([$topicId]);
+$topic = $topicRow->fetch();
+if (!$topic) {
+    respondError('Topic not found', 404);
+}
+
+// Enforce Object-Level Authorization for Trainer
+verifyCourseAccess((int)$topic['course_id'], $user);
+
 $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
 $validExts = $allowedExts[$type] ?? ['pdf', 'doc', 'docx', 'mp4'];
 
 if (!in_array($ext, $validExts, true)) {
     respondError("Invalid file type .$ext for category $type");
+}
+
+// Server-side real MIME type verification
+$finfo = finfo_open(FILEINFO_MIME_TYPE);
+$detectedMime = finfo_file($finfo, $file['tmp_name']);
+finfo_close($finfo);
+
+$allowedMimes = [
+    'pdf'   => ['application/pdf'],
+    'word'  => ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip', 'application/octet-stream'],
+    'video' => ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-matroska']
+];
+$categoryMimes = $allowedMimes[$type] ?? [];
+if ($categoryMimes && !in_array($detectedMime, $categoryMimes, true)) {
+    respondError("Uploaded file contents do not match the expected $type format.");
 }
 
 // Create uploads directory: /uploads/training/{topic_id}/
@@ -51,7 +77,7 @@ if (!is_dir($uploadDir)) {
     mkdir($uploadDir, 0755, true);
 }
 
-$filename = uniqid('material_', true) . '.' . $ext;
+$filename = 'material_' . bin2hex(random_bytes(12)) . '.' . $ext;
 $targetPath = $uploadDir . $filename;
 
 if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
@@ -61,26 +87,19 @@ if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
 // Public URL path
 $publicUrl = '/uploads/training/' . $topicId . '/' . $filename;
 
-$db = db();
 $stmt = $db->prepare("
-    INSERT INTO topic_content (topic_id, uploaded_by, type, title, title, url, file_size)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO topic_content (topic_id, uploaded_by, type, title, url, file_size)
+    VALUES (?, ?, ?, ?, ?, ?)
 ");
 $stmt->execute([
     $topicId,
     $user['id'],
     $type,
     $titleEn ?: $file['name'],
-    $titleAr ?: null,
     $publicUrl,
     $file['size']
 ]);
 $contentId = (int)$db->lastInsertId();
-
-// Notify enrolled trainees of new material
-$topicRow = $db->prepare("SELECT tt.course_id, tt.title FROM training_topics tt WHERE tt.id = ?");
-$topicRow->execute([$topicId]);
-$topic = $topicRow->fetch();
 if ($topic) {
     $enrolledStmt = $db->prepare("SELECT trainee_id FROM trainee_enrollments WHERE course_id = ?");
     $enrolledStmt->execute([$topic['course_id']]);

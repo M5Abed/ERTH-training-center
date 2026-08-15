@@ -1,12 +1,13 @@
 <?php
-/**
- * api/dev/changes.php — File-watcher endpoint for dev-reload.js
- * Returns a hash of all recent file modification times so the
- * browser client can detect changes and auto-reload.
- *
- * DEVELOPMENT ONLY — not exposed in production (no auth needed;
- * it reveals no sensitive data, just a hash).
- */
+require_once __DIR__ . '/../config.php';
+
+if (php_sapi_name() !== 'cli') {
+    $isDev = (defined('APP_ENV') && APP_ENV === 'development') || (getenv('APP_ENV') === 'development');
+    if (!$isDev) {
+        requireAdmin();
+    }
+}
+
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
 

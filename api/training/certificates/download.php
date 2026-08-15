@@ -51,26 +51,6 @@ if (!$cert && $courseId && $traineeId) {
     $cert = $stmt->fetch();
 }
 
-if (!$cert && $courseId && $traineeId) {
-    $chk = $db->prepare("
-        SELECT COALESCE(u.full_name, u.username) AS trainee_name,
-               c.name AS course_title
-        FROM users u, training_courses c
-        WHERE u.id = ? AND c.id = ?
-    ");
-    $chk->execute([$traineeId, $courseId]);
-    $info = $chk->fetch();
-    if ($info) {
-        $cert = [
-            'cert_code'       => 'NMU-VERIFY-PREVIEW',
-            'issued_at'       => date('Y-m-d H:i:s'),
-            'trainee_name' => $info['trainee_name'],
-            'course_title' => $info['course_title'],
-            'issuer_name'     => 'Prof. Khaled Fouad'
-        ];
-    }
-}
-
 if (!$cert) {
     respondError('Certificate not found or not yet issued', 404);
 }
@@ -237,36 +217,21 @@ if (file_exists($qrTempFile)) {
     $pdf->Cell(30, 5, 'SCAN TO VERIFY', 0, 1, 'C');
 }
 
-// 10. Trainer / Supervisor Signature
-$pdf->SetDrawColor(80, 80, 80);
-$pdf->SetLineWidth(0.3);
-$pdf->Line(75, 156, 135, 156);
-
-$pdf->SetFont('Helvetica', 'B', 12);
-$pdf->SetTextColor(107, 21, 23);
-$pdf->SetXY(75, 160);
-$pdf->Cell(60, 6, $cert['issuer_name'] ?: 'Course Supervisor', 0, 1, 'C');
-
-$pdf->SetFont('Helvetica', '', 10);
-$pdf->SetTextColor(100, 100, 100);
-$pdf->SetXY(75, 167);
-$pdf->Cell(60, 5, 'Trainer / Supervisor', 0, 1, 'C');
-
-// 11. Bottom Center Date Section
+// 10. Bottom Center Date Section (Centered on Page)
 $pdf->SetFont('Helvetica', 'B', 8.5);
 $pdf->SetTextColor(184, 134, 11);
-$pdf->SetXY(145, 156);
+$pdf->SetXY(118.5, 156);
 $pdf->Cell(60, 5, 'DATE OF ISSUANCE', 0, 1, 'C');
 
 $pdf->SetFont('Times', 'B', 13);
 $pdf->SetTextColor(107, 21, 23);
-$pdf->SetXY(145, 163);
+$pdf->SetXY(118.5, 163);
 $pdf->Cell(60, 6, $issuedAt, 0, 1, 'C');
 
 // Gold baseline under date
 $pdf->SetDrawColor(212, 175, 55);
 $pdf->SetLineWidth(0.4);
-$pdf->Line(155, 171, 195, 171);
+$pdf->Line(128.5, 171, 168.5, 171);
 
 // 12. Bottom Right Signature Block
 $pdf->SetDrawColor(80, 80, 80);

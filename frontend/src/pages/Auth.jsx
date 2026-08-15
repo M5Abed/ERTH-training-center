@@ -442,10 +442,10 @@ export default function Auth() {
                         New Mansoura University
                     </div>
                     <h2>
-                        {lang === 'ar' ? 'ÙƒÙˆÙ‘Ù† Ù Ø±ÙŠÙ‚Ùƒ' : 'Find your'}<br />
-                        <span className="gradient-text">{lang === 'ar' ? 'Ø§Ù„Ù…Ø«Ø§Ù„ÙŠ Ø¨Ø°ÙƒØ§Ø¡.' : 'perfect team.'}</span>
+                        Find your<br />
+                        <span className="gradient-text">perfect team.</span>
                     </h2>
-                    <p>{lang === 'ar' ? 'ERTH Training Center ÙŠØ­Ù„Ù„ Ù…Ù‡Ø§Ø±Ø§ØªÙƒ ÙˆØ£Ø³Ù„ÙˆØ¨ Ø¹Ù…Ù„Ùƒ Ù„ØªÙˆØµÙŠÙ„Ùƒ Ø¨Ø£ÙØ¶Ù„ Ø§Ù„Ø²Ù…Ù„Ø§Ø¡ Ù„Ù…Ø´Ø§Ø±ÙŠØ¹Ùƒ Ø§Ù„Ø£ÙƒØ§Ø¯ÙŠÙ…ÙŠØ© Ø¹Ø¨Ø± Ø¬Ù…Ø¹ Ù…Ø§Ù†Ø³ÙˆØ±Ø© Ø§Ù„Ø¬Ø¯ÙŠØ¯Ø©.' : 'ERTH Training Center matches students by skill, work style, and availability â€” so you spend less time searching and more time building.'}</p>
+                    <p>ERTH Training Center matches students by skill, work style, and availability — so you spend less time searching and more time building.</p>
                     <div className="auth-features">
                         <div className="auth-feature-item">
                             <Brain size={18} className="auth-feature-icon" />

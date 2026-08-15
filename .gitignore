@@ -10,9 +10,21 @@ vendor/
 .env.development.local
 .env.test.local
 .env.production.local
+otp.txt
+*.pem
+*.key
+*.cert
+
+# Database & Scratch Dumps
+db_dump/
+scratch/
+*.sql
+*.docx.backup
+certificate_output.pdf
 
 # User Uploads
 uploads/
+uploads/*
 
 # Build output
 dist/

@@ -51,18 +51,26 @@ RewriteRule ^$ /dist/index.html [L]
     Deny from all
 </Files>
 
-# ── Block access to dev files ──────────────────────────────
+# ── Block access to dev, dump, and scratch files ───────────
 RewriteRule ^frontend/ - [F,L]
 RewriteRule ^node_modules/ - [F,L]
 RewriteRule ^vendor/ - [F,L]
+RewriteRule ^db_dump/ - [F,L]
+RewriteRule ^scratch/ - [F,L]
+RewriteRule ^test_.*\.php - [F,L]
+RewriteRule ^update_pass\.php - [F,L]
+RewriteRule ^api/test.*\.php - [F,L]
+RewriteRule ^api/describe\.php - [F,L]
+RewriteRule ^api/dev/ - [F,L]
 
 # ── Security Headers ──────────────────────────────────────
 <IfModule mod_headers.c>
+    Header set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://api.groq.com; frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none';"
     Header set X-Content-Type-Options "nosniff"
-    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-Frame-Options "DENY"
     Header set Referrer-Policy "strict-origin-when-cross-origin"
     Header set X-XSS-Protection "1; mode=block"
-    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" env=HTTPS
     Header set Permissions-Policy "camera=(), microphone=(), geolocation=()"
     Header set X-Permitted-Cross-Domain-Policies "none"
     Header unset X-Powered-By
@@ -84,14 +92,16 @@ RewriteRule ^vendor/ - [F,L]
     php_value opcache.validate_timestamps 1
 </IfModule>
 
-# ── Block access to SQL/migration files ───────────────────
-<FilesMatch "\.(sql|log|bak|old|tmp)$">
+# ── Block access to SQL/migration/log files ─────────────────
+<FilesMatch "\.(sql|log|bak|old|tmp|txt|md|docx\.backup)$">
     Order Allow,Deny
     Deny from all
 </FilesMatch>
 
 RewriteRule ^api/migrations/ - [F,L]
 RewriteRule ^api/migrate\.php - [F,L]
+RewriteRule ^api/run_migration\.php - [F,L]
+RewriteRule ^api/seed_.*\.php - [F,L]
 RewriteRule ^api/auth/otp_helpers\.php - [F,L]
 RewriteRule ^api/auth/mail_config\.php - [F,L]
 

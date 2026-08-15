@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getActivityFeed } from '../services/api';
 import {
@@ -10,7 +9,6 @@ import {
 import './Dashboard.css';
 
 export default function Dashboard() {
-    const { lang } = useI18n();
     const { user, profile } = useAuth();
     const [feed, setFeed]       = useState([]);
     const [stats, setStats]     = useState(null);
@@ -38,7 +36,7 @@ export default function Dashboard() {
         load();
     }, [user]);
 
-    const displayName = profile?.full_name || profile?.full_name || user?.email?.split('@')[0] || '';
+    const displayName = profile?.full_name || user?.full_name || user?.email?.split('@')[0] || 'User';
 
     return (
         <div className="dashboard-page container">
@@ -50,18 +48,23 @@ export default function Dashboard() {
                     </div>
                     <div>
                         <h1>
-                            {lang === 'ar' ? 'مرحباً بعودتك' : 'Welcome back'}, <strong>{displayName}</strong>
+                            Welcome back, <strong>{displayName}</strong>
+                            {isAdmin ? (
+                                <span className="dash-role-badge admin">ADMINISTRATOR</span>
+                            ) : isTrainer ? (
+                                <span className="dash-role-badge trainer">INSTRUCTOR / TRAINER</span>
+                            ) : (
+                                <span className="dash-role-badge trainee">STUDENT / TRAINEE</span>
+                            )}
                         </h1>
                         <p>
-                            {lang === 'ar'
-                                ? 'نظام إدارة التدريب الميداني الجامعي — جامعة المنصورة الجديدة'
-                                : 'New Mansoura University Field Training Management System'}
+                            New Mansoura University Field Training Management System
                         </p>
                     </div>
                 </div>
                 <Link to="/courses" className="dash-banner-btn">
                     <BookOpen size={18} />
-                    {lang === 'ar' ? 'تصفح الدورات التدريبية' : 'Browse Courses'}
+                    Browse Courses
                 </Link>
             </div>
 
@@ -73,7 +76,7 @@ export default function Dashboard() {
                     </div>
                     <div className="dash-stat-info">
                         <span className="dash-stat-num">{stats?.totalCourses ?? '—'}</span>
-                        <span className="dash-stat-label">{lang === 'ar' ? 'الدورات النشطة' : 'Active Courses'}</span>
+                        <span className="dash-stat-label">Active Courses</span>
                     </div>
                 </div>
 
@@ -83,7 +86,7 @@ export default function Dashboard() {
                     </div>
                     <div className="dash-stat-info">
                         <span className="dash-stat-num">{stats?.totalTrainees ?? '—'}</span>
-                        <span className="dash-stat-label">{lang === 'ar' ? 'المتدربون المقيدون' : 'Enrolled Trainees'}</span>
+                        <span className="dash-stat-label">Enrolled Trainees</span>
                     </div>
                 </div>
 
@@ -93,7 +96,7 @@ export default function Dashboard() {
                     </div>
                     <div className="dash-stat-info">
                         <span className="dash-stat-num">{stats?.totalIdeas ?? '—'}</span>
-                        <span className="dash-stat-label">{lang === 'ar' ? 'أفكار المشاريع' : 'Submitted Ideas'}</span>
+                        <span className="dash-stat-label">Submitted Ideas</span>
                     </div>
                 </div>
 
@@ -103,7 +106,7 @@ export default function Dashboard() {
                     </div>
                     <div className="dash-stat-info">
                         <span className="dash-stat-num">{stats?.totalDocs ?? '—'}</span>
-                        <span className="dash-stat-label">{lang === 'ar' ? 'الوثائق والتقارير' : 'Documents Uploaded'}</span>
+                        <span className="dash-stat-label">Documents Uploaded</span>
                     </div>
                 </div>
             </div>
@@ -113,9 +116,9 @@ export default function Dashboard() {
                 {/* Left: Courses Overview */}
                 <div className="dash-card dash-feed-card">
                     <div className="dash-card-header">
-                        <h2><BookOpen size={18} /> {lang === 'ar' ? 'ملخص الدورات التدريبية' : 'Training Courses Overview'}</h2>
+                        <h2><BookOpen size={18} /> Training Courses Overview</h2>
                         <Link to="/courses" className="btn btn-ghost btn-sm">
-                            {lang === 'ar' ? 'عرض الكل' : 'View All'} <ArrowRight size={14} />
+                            View All <ArrowRight size={14} />
                         </Link>
                     </div>
 
@@ -131,7 +134,7 @@ export default function Dashboard() {
                                             {c.name}
                                         </p>
                                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                            {c.trainee_count} {lang === 'ar' ? 'متدرب' : 'trainees'} • {c.idea_count} {lang === 'ar' ? 'فكرة' : 'ideas'} • {c.doc_count} {lang === 'ar' ? 'وثيقة' : 'docs'}
+                                            {c.trainee_count} trainees • {c.idea_count} ideas • {c.doc_count} docs
                                         </span>
                                     </div>
                                     <Link to={`/courses/${c.id}`} className="btn btn-ghost btn-sm">
@@ -143,9 +146,9 @@ export default function Dashboard() {
                     ) : (
                         <div className="dash-empty">
                             <BookOpen size={36} strokeWidth={1} />
-                            <p>{lang === 'ar' ? 'لا توجد دورات نشطة حالياً.' : 'No active training courses yet.'}</p>
+                            <p>No active training courses yet.</p>
                             <Link to="/courses" className="dash-empty-btn">
-                                {lang === 'ar' ? 'انتقل للدورات' : 'Go to Courses'} <ArrowRight size={14} />
+                                Go to Courses <ArrowRight size={14} />
                             </Link>
                         </div>
                     )}
@@ -155,39 +158,39 @@ export default function Dashboard() {
                 <div className="dash-right-col">
                     <div className="dash-card dash-actions-card">
                         <div className="dash-card-header">
-                            <h2><Zap size={18} /> {lang === 'ar' ? 'إجراءات سريعة' : 'Quick Navigation'}</h2>
+                            <h2><Zap size={18} /> Quick Navigation</h2>
                         </div>
                         <div className="dash-quick-actions">
                             <Link to="/courses" className="dash-action-btn dash-action-btn--primary">
-                                <BookOpen size={18} /> {lang === 'ar' ? 'الدورات التدريبية' : 'Training Courses'}
+                                <BookOpen size={18} /> Training Courses
                             </Link>
 
                             <Link to="/submitted-projects" className="dash-action-btn">
-                                <FileText size={18} /> {isTrainer ? (lang === 'ar' ? 'مشاريع المتدربين' : 'Trainee Projects') : (lang === 'ar' ? 'مشاريعي وأفكاري' : 'My Projects & Ideas')}
+                                <FileText size={18} /> {isTrainer ? 'Trainee Projects' : 'My Projects & Ideas'}
                             </Link>
 
                             <Link to="/leaderboard" className="dash-action-btn">
-                                <Trophy size={18} /> {lang === 'ar' ? 'لوحة المتصدرين' : 'Idea Leaderboard'}
+                                <Trophy size={18} /> Idea Leaderboard
                             </Link>
 
                             <Link to="/docs-archive" className="dash-action-btn">
-                                <FolderOpen size={18} /> {lang === 'ar' ? 'أرشيف الوثائق' : 'Documents Archive'}
+                                <FolderOpen size={18} /> Documents Archive
                             </Link>
 
                             {isTrainer && (
                                 <>
                                     <Link to="/trainees" className="dash-action-btn">
-                                        <Users size={18} /> {lang === 'ar' ? 'إدارة المتدربين' : 'Trainees Management'}
+                                        <Users size={18} /> Trainees Management
                                     </Link>
                                     <Link to="/approvals" className="dash-action-btn">
-                                        <CheckCircle2 size={18} /> {lang === 'ar' ? 'طلبات التسجيل' : 'Registrations'}
+                                        <CheckCircle2 size={18} /> Registration Requests
                                     </Link>
                                 </>
                             )}
 
                             {isAdmin && (
                                 <Link to="/admin" className="dash-action-btn" style={{ borderColor: 'var(--accent)' }}>
-                                    <Shield size={18} /> {lang === 'ar' ? 'لوحة المسؤول' : 'Admin Panel'}
+                                    <Shield size={18} /> Admin Panel
                                 </Link>
                             )}
                         </div>

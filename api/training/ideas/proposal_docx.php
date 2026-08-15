@@ -26,8 +26,14 @@ if ($isEval) {
     $stmt = $db->prepare('SELECT i.*, u.full_name AS owner_name FROM training_ideas i LEFT JOIN users u ON u.id = i.owner_id WHERE i.id = ?');
     $stmt->execute([$ideaId]);
 } else {
-    $stmt = $db->prepare('SELECT i.*, u.full_name AS owner_name FROM training_ideas i LEFT JOIN users u ON u.id = i.owner_id WHERE i.id = ? AND i.owner_id = ?');
-    $stmt->execute([$ideaId, $uid]);
+    $stmt = $db->prepare('
+        SELECT i.*, u.full_name AS owner_name 
+        FROM training_ideas i 
+        LEFT JOIN users u ON u.id = i.owner_id 
+        WHERE i.id = ? 
+          AND (i.owner_id = ? OR EXISTS (SELECT 1 FROM training_idea_members tim WHERE tim.idea_id = i.id AND tim.user_id = ?))
+    ');
+    $stmt->execute([$ideaId, $uid, $uid]);
 }
 $idea = $stmt->fetch();
 if (!$idea) respondError('Idea not found or access denied', 404);

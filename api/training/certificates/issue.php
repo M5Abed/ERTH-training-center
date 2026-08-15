@@ -39,16 +39,21 @@ CREATE TABLE IF NOT EXISTS training_certificates (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ");
 
+$db = db();
+
+// Ensure trainer is assigned to this course (or admin)
+verifyCourseAccess($courseId, $issuer);
+
 // 1. Fetch Trainee details
 $tStmt = $db->prepare("SELECT id, full_name, student_id, email FROM users WHERE id = ?");
 $tStmt->execute([$traineeId]);
 $trainee = $tStmt->fetch();
 if (!$trainee) {
-    respondError('Trainee not found', 44);
+    respondError('Trainee not found', 404);
 }
 
 // 2. Fetch Course details
-$cStmt = $db->prepare("SELECT id, name, name FROM training_courses WHERE id = ?");
+$cStmt = $db->prepare("SELECT id, name FROM training_courses WHERE id = ?");
 $cStmt->execute([$courseId]);
 $course = $cStmt->fetch();
 if (!$course) {

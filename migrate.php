@@ -1,5 +1,10 @@
 <?php
-require "api/config.php";
+if (php_sapi_name() !== 'cli') {
+    require "api/config.php";
+    requireRole('admin');
+} else {
+    require "api/config.php";
+}
 $db = db();
 $queries = [
     "ALTER TABLE users CHANGE full_name_en full_name VARCHAR(255) NULL;",

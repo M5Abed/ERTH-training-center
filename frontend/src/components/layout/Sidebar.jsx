@@ -59,59 +59,53 @@ export default function Sidebar({ open, onClose }) {
     navItems.push({
         to: '/dashboard',
         icon: <Activity size={20} />,
-        label: lang === 'ar' ? 'لوحة التحكم' : 'Dashboard'
+        label: 'Dashboard'
     });
 
     // Courses available to all
     navItems.push({
         to: '/courses',
         icon: <FolderKanban size={20} />,
-        label: lang === 'ar' ? 'الدورات التدريبية' : 'Training Courses'
+        label: 'Training Courses'
     });
 
-    // Submitted Projects / Ideas available to all (My Projects for trainees, Trainee Projects for trainers/admins)
+    // Submitted Projects / Ideas available to all
     navItems.push({
         to: '/submitted-projects',
         icon: <FileText size={20} />,
-        label: (isAdmin || isTrainer)
-            ? (lang === 'ar' ? 'مشاريع المتدربين' : 'Trainee Projects')
-            : (lang === 'ar' ? 'مشاريعي وأفكاري' : 'My Projects & Ideas')
+        label: (isAdmin || isTrainer) ? 'Trainee Projects' : 'My Projects & Ideas'
     });
 
     // Leaderboard
     navItems.push({
         to: '/leaderboard',
         icon: <Trophy size={20} />,
-        label: lang === 'ar' ? 'لوحة المتصدرين' : 'Leaderboard'
+        label: 'Idea Leaderboard'
     });
 
     // Documents Archive
     navItems.push({
         to: '/docs-archive',
         icon: <FolderOpen size={20} />,
-        label: lang === 'ar' ? 'أرشيف الوثائق' : 'Documents Archive'
+        label: 'Documents Archive'
     });
 
-    // Items available to Admin & Trainer only
+    // Items available to Admin & Trainer
     if (isAdmin || isTrainer) {
         navItems.push({
             to: '/trainees',
             icon: <UserCheck size={20} />,
-            label: lang === 'ar' ? 'المتدربين' : 'Trainees'
+            label: 'Trainees Management'
         });
         navItems.push({
             to: '/approvals',
             icon: <CheckCircle2 size={20} />,
-            label: lang === 'ar' ? 'طلبات التسجيل' : 'Registration Requests'
+            label: 'Registration Requests'
         });
-    }
-
-    // Trainers management available to Admin
-    if (isAdmin) {
         navItems.push({
             to: '/trainers',
             icon: <Users size={20} />,
-            label: lang === 'ar' ? 'إدارة المدربين' : 'Trainers Management'
+            label: 'Trainers Management'
         });
     }
 

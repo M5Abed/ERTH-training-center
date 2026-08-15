@@ -6,16 +6,8 @@
  */
 require_once __DIR__ . '/../config.php';
 
-$uid = requireSession();
+$uid = requireAdmin();
 $data = body();
-
-// Verify caller is admin
-$adminCheck = db()->prepare("SELECT is_admin FROM users WHERE id = ?");
-$adminCheck->execute([$uid]);
-$caller = $adminCheck->fetch();
-if (!$caller || !$caller['is_admin']) {
-    respondError('Forbidden — admin only', 403);
-}
 
 $projectId = (int)($data['project_id'] ?? 0);
 if (!$projectId)

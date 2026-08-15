@@ -186,23 +186,11 @@ export default function CertificateModal({
                 <span className="date-value">{finalIssuedDate}</span>
               </div>
 
-              {/* Signatures Block Container */}
-              <div style={{ display: 'flex', gap: '3cqi', justifySelf: 'end' }}>
-                {/* Supervisor Block */}
-                {trainers && trainers.length > 0 && (
-                  <div className="cert-signature-block">
-                    <div className="signature-line"></div>
-                    <strong className="signatory-name">{trainers[0].full_name || trainers[0].name || trainers[0].username || 'Trainer'}</strong>
-                    <span className="signatory-title">Course Supervisor</span>
-                  </div>
-                )}
-                
-                {/* Dean Signature Block */}
-                <div className="cert-signature-block">
-                  <div className="signature-line"></div>
-                  <strong className="signatory-name">Prof. Khaled Fouad</strong>
-                  <span className="signatory-title">Dean of the Faculty</span>
-                </div>
+              {/* Right Dean Signature Block */}
+              <div className="cert-signature-block">
+                <div className="signature-line"></div>
+                <strong className="signatory-name">Prof. Khaled Fouad</strong>
+                <span className="signatory-title">Dean of the Faculty</span>
               </div>
             </div>
 

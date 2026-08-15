@@ -12,7 +12,6 @@ export default function AppLayout() {
     return (
         <div className="app-layout">
             <div className="bg-glow" />
-            <div className="lp-bg-wm" aria-hidden="true">ERTH</div>
             {/* Sidebar kept only for mobile slide-out */}
             <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
             <div className="app-main">
@@ -23,7 +22,7 @@ export default function AppLayout() {
                 <footer style={{ textAlign: 'center', padding: '1.5rem', fontSize: '0.85rem', color: 'var(--text-2)', borderTop: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
                         <span>
-                            {lang === 'ar' ? '\u062a\u0637\u0648\u064a\u0631' : 'Developed by'} <a href="https://erth.dev" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-1)', textDecoration: 'none', fontWeight: '600' }}>ERTH</a>
+                            Engineered &amp; Powered by <a href="https://erth.dev" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-1)', textDecoration: 'underline', fontWeight: '600' }}>ERTH</a>
                         </span>
                     </div>
                 </footer>

@@ -55,15 +55,6 @@ function createOtp(int $userId, string $email, string $purpose = 'email_verify')
     $maskedOtp = '******';
     $stmt->execute([$userId, $email, $maskedOtp, $otpHash, $purpose, $expiresAt]);
 
-    // Save plain text OTP to a local file in the project root for local testing
-    try {
-        $logFile = __DIR__ . '/../../otp.txt';
-        $logMessage = "[" . date('Y-m-d H:i:s') . "] Email: $email | OTP: $otp | Purpose: $purpose | User ID: $userId\n";
-        file_put_contents($logFile, $logMessage, FILE_APPEND);
-    } catch (\Exception $e) {
-        // Safe to ignore logging errors
-    }
-
     return $otp;
 }
 

@@ -39,6 +39,15 @@ try {
         respondError('Forbidden: You can only delete your own documents', 403);
     }
 
+    // Safely remove local file from disk if applicable
+    if (!empty($doc['file_url']) && str_starts_with($doc['file_url'], '/uploads/docs/')) {
+        $filePath = realpath(__DIR__ . '/../../../' . ltrim($doc['file_url'], '/'));
+        $uploadsBase = realpath(__DIR__ . '/../../../uploads/docs');
+        if ($filePath && $uploadsBase && str_starts_with($filePath, $uploadsBase) && file_exists($filePath)) {
+            @unlink($filePath);
+        }
+    }
+
     $del = $db->prepare("DELETE FROM trainee_documentation WHERE id = ?");
     $del->execute([$docId]);
 
@@ -47,5 +56,6 @@ try {
         'message' => 'Document deleted successfully'
     ]);
 } catch (Throwable $e) {
-    respondError('Server error: ' . $e->getMessage(), 500);
+    error_log('Error deleting trainee doc: ' . $e->getMessage());
+    respondError('Server error while deleting document', 500);
 }

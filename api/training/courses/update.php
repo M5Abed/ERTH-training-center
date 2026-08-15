@@ -45,6 +45,9 @@ if (!$stmt->fetch()) {
     respondError('Course not found', 404);
 }
 
+// Verify trainer assignment / admin permissions
+verifyCourseAccess($courseId, $user);
+
 // Update the course
 $updateStmt = $db->prepare("
     UPDATE training_courses 

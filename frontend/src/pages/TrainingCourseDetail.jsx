@@ -11,6 +11,8 @@ import {
 import AddStudentModal from '../components/AddStudentModal';
 import CertificateModal from '../components/CertificateModal';
 import EngMagyMascot from '../components/mascot/EngMagyMascot';
+import TeammateSelector from '../components/TeammateSelector';
+import MemberDetailModal from '../components/MemberDetailModal';
 import './TrainingCourseDetail.css';
 
 export default function TrainingCourseDetail({ courseIdOverride }) {
@@ -190,6 +192,9 @@ void loop() {
     const [aiKeyword, setAiKeyword] = useState('');
     const [generatingAi, setGeneratingAi] = useState(false);
     const [submittingIdea, setSubmittingIdea] = useState(false);
+    const [selectedTeammates, setSelectedTeammates] = useState([]);
+    const [viewingMember, setViewingMember] = useState(null);
+    const [ideaSubmitError, setIdeaSubmitError] = useState('');
 
     // Trainer Evaluation Form state
     const [evalScore, setEvalScore] = useState(85);
@@ -313,6 +318,14 @@ void loop() {
                         setTechStack(data.idea.tech_stack || '');
                         setProblemStmt(data.idea.problem_statement || '');
                         setExpectedOutput(data.idea.expected_output || '');
+                        
+                        // Populate teammates from server response (excluding current user / leader)
+                        const rawMembers = data.idea.team_members || [];
+                        const currentUserId = user?.id;
+                        const teammates = rawMembers.filter(m => (m.user_id || m.id) !== currentUserId && m.role !== 'leader');
+                        setSelectedTeammates(teammates);
+                    } else {
+                        setSelectedTeammates([]);
                     }
                 } else {
                     setAllIdeas(data.ideas || []);
@@ -566,6 +579,7 @@ void loop() {
     const handleSubmitIdea = async (e) => {
         e.preventDefault();
         setSubmittingIdea(true);
+        setIdeaSubmitError('');
         try {
             const res = await fetch('/api/training/ideas/submit.php', {
                 method: 'POST',
@@ -576,11 +590,23 @@ void loop() {
                     description: ideaDescEn,
                     tech_stack: techStack,
                     problem_statement: problemStmt,
-                    expected_output: expectedOutput
+                    expected_output: expectedOutput,
+                    teammate_ids: selectedTeammates.map(t => t.id || t.user_id)
                 })
             });
-            if (res.ok) fetchIdeas();
-        } catch (e) { console.error(e); }
+            const data = await res.json();
+            if (res.ok && data.success) {
+                fetchIdeas();
+                alert(lang === 'ar' ? 'تم حفظ وإرسال فكرة المشروع وفريق العمل بنجاح' : 'Project idea and team members saved successfully');
+            } else {
+                const msg = data.error || (lang === 'ar' ? 'حدث خطأ أثناء حفظ الفكرة' : 'Failed to save project idea');
+                setIdeaSubmitError(msg);
+                alert(msg);
+            }
+        } catch (e) { 
+            console.error(e); 
+            setIdeaSubmitError('Network error');
+        }
         finally { setSubmittingIdea(false); }
     };
 
@@ -1246,38 +1272,68 @@ void loop() {
                                 </div>
                             </div>
 
+                            {ideaSubmitError && (
+                                <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
+                                    {ideaSubmitError}
+                                </div>
+                            )}
+
+                            {myIdea && !myIdea.is_team_leader && (
+                                <div className="alert alert-info" style={{ background: 'rgba(59, 130, 246, 0.12)', border: '1px solid rgba(59, 130, 246, 0.3)', color: '#3b82f6', padding: '0.85rem 1.25rem', borderRadius: '10px', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <Users size={20} />
+                                    <span>
+                                        {lang === 'ar' 
+                                            ? `أنت مسجل في هذا المشروع كـ (عضو فريق). قائد المشروع: ${myIdea.trainee_name || myIdea.owner_name || 'قائد الفريق'}` 
+                                            : `You are enrolled in this project as a (Team Member). Team Leader: ${myIdea.trainee_name || myIdea.owner_name || 'Team Leader'}`}
+                                    </span>
+                                </div>
+                            )}
+
                             <form onSubmit={handleSubmitIdea} className="form-section-card">
                                 <div className="form-group">
                                     <label>{lang === 'ar' ? 'عنوان المشروع (بالإنجليزي) *' : 'Project Title  *'}</label>
                                     <div className="input-with-icon">
                                         <FileText size={16} className="field-icon" />
-                                        <input type="text" required value={ideaTitleEn} onChange={e => setIdeaTitleEn(e.target.value)} placeholder={lang === 'ar' ? 'عنوان المشروع...' : 'e.g. Smart Attendance System'} />
+                                        <input type="text" required value={ideaTitleEn} onChange={e => setIdeaTitleEn(e.target.value)} placeholder={lang === 'ar' ? 'عنوان المشروع...' : 'e.g. Smart Attendance System'} readOnly={myIdea && !myIdea.is_team_leader} />
                                     </div>
                                 </div>
                                 <div className="form-group">
                                     <label>{lang === 'ar' ? 'وصف المشروع *' : 'Project Description *'}</label>
-                                    <textarea rows="4" required value={ideaDescEn} onChange={e => setIdeaDescEn(e.target.value)} placeholder={lang === 'ar' ? 'شرح فكرة المشروع وأهدافه...' : 'Describe the project idea and goals...'} />
+                                    <textarea rows="4" required value={ideaDescEn} onChange={e => setIdeaDescEn(e.target.value)} placeholder={lang === 'ar' ? 'شرح فكرة المشروع وأهدافه...' : 'Describe the project idea and goals...'} readOnly={myIdea && !myIdea.is_team_leader} />
                                 </div>
                                 <div className="form-group">
                                     <label>{lang === 'ar' ? 'التقنيات المستهدفة (Tech Stack)' : 'Target Tech Stack'}</label>
                                     <div className="input-with-icon">
                                         <Code size={16} className="field-icon" />
-                                        <input type="text" value={techStack} onChange={e => setTechStack(e.target.value)} placeholder="React, PHP, MySQL, Docker..." />
+                                        <input type="text" value={techStack} onChange={e => setTechStack(e.target.value)} placeholder="React, PHP, MySQL, Docker..." readOnly={myIdea && !myIdea.is_team_leader} />
                                     </div>
                                 </div>
                                 <div className="form-grid-2">
                                     <div className="form-group">
                                         <label>{lang === 'ar' ? 'المشكلة المعالجة' : 'Problem Statement'}</label>
-                                        <textarea rows="3" value={problemStmt} onChange={e => setProblemStmt(e.target.value)} placeholder={lang === 'ar' ? 'ما هي المشكلة المعالجة؟' : 'What problem does this solve?'} />
+                                        <textarea rows="3" value={problemStmt} onChange={e => setProblemStmt(e.target.value)} placeholder={lang === 'ar' ? 'ما هي المشكلة المعالجة؟' : 'What problem does this solve?'} readOnly={myIdea && !myIdea.is_team_leader} />
                                     </div>
                                     <div className="form-group">
                                         <label>{lang === 'ar' ? 'المخرجات المتوقعة' : 'Expected Deliverables'}</label>
-                                        <textarea rows="3" value={expectedOutput} onChange={e => setExpectedOutput(e.target.value)} placeholder={lang === 'ar' ? 'المخرجات النهائية للتسليم...' : 'Expected final outputs...'} />
+                                        <textarea rows="3" value={expectedOutput} onChange={e => setExpectedOutput(e.target.value)} placeholder={lang === 'ar' ? 'المخرجات النهائية للتسليم...' : 'Expected final outputs...'} readOnly={myIdea && !myIdea.is_team_leader} />
                                     </div>
                                 </div>
-                                <button type="submit" className="btn btn-primary btn-lg" style={{ marginTop: '0.5rem', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '8px' }} disabled={submittingIdea}>
-                                    {submittingIdea ? <Loader2 className="spin" size={18} /> : <><Send size={18} /> {lang === 'ar' ? 'حفظ وإرسال الفكرة' : 'Save & Submit Idea'}</>}
-                                </button>
+
+                                {/* Teammate Selector Component */}
+                                <TeammateSelector 
+                                    courseId={courseId}
+                                    selectedTeammates={selectedTeammates}
+                                    onTeammatesChange={setSelectedTeammates}
+                                    currentIdeaId={myIdea?.id}
+                                    disabled={submittingIdea}
+                                    readOnly={myIdea && !myIdea.is_team_leader}
+                                />
+
+                                {(!myIdea || myIdea.is_team_leader) && (
+                                    <button type="submit" className="btn btn-primary btn-lg" style={{ marginTop: '0.5rem', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '8px' }} disabled={submittingIdea}>
+                                        {submittingIdea ? <Loader2 className="spin" size={18} /> : <><Send size={18} /> {lang === 'ar' ? 'حفظ وإرسال الفكرة' : 'Save & Submit Idea'}</>}
+                                    </button>
+                                )}
                             </form>
                         </div>
                     ) : (
@@ -1296,6 +1352,40 @@ void loop() {
                                             <span className={`status-badge status-${idea.status}`}>{idea.status}</span>
                                         </div>
                                         <p className="idea-author">Submitted by: <strong>{idea.trainee_name}</strong> ({idea.trainee_email})</p>
+                                        
+                                        {/* Team Roster display for trainers */}
+                                        {idea.team_members && idea.team_members.length > 0 && (
+                                            <div className="idea-team-members-chips" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '0.5rem 0', alignItems: 'center' }}>
+                                                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                                                    {lang === 'ar' ? 'فريق العمل:' : 'Team:'}
+                                                </span>
+                                                {idea.team_members.map(m => (
+                                                    <button 
+                                                        key={m.user_id || m.id}
+                                                        type="button"
+                                                        onClick={() => setViewingMember(m)}
+                                                        title={lang === 'ar' ? `انقر لعرض بيانات ${m.full_name || m.username}` : `Click to view profile of ${m.full_name || m.username}`}
+                                                        style={{
+                                                            fontSize: '0.74rem',
+                                                            fontWeight: 600,
+                                                            padding: '0.15rem 0.55rem',
+                                                            borderRadius: '6px',
+                                                            background: m.role === 'leader' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.1)',
+                                                            color: m.role === 'leader' ? '#d97706' : '#2563eb',
+                                                            border: m.role === 'leader' ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid rgba(59, 130, 246, 0.25)',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.15s ease'
+                                                        }}
+                                                    >
+                                                        {m.role === 'leader' ? '👑' : '👤'} {m.full_name || m.username} {m.student_id ? `(${m.student_id})` : ''}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+
                                         <p className="idea-body">{idea.description}</p>
 
                                         <div className="idea-actions">
@@ -1894,6 +1984,14 @@ void loop() {
 
             {/* EXCLUSIVE ROBOTICS MASCOT ASSISTANT */}
             <EngMagyMascot forceShow={isRoboticsCourse} courseTrack={course?.track || ''} />
+
+            {/* Member Details Modal */}
+            {viewingMember && (
+                <MemberDetailModal 
+                    member={viewingMember} 
+                    onClose={() => setViewingMember(null)} 
+                />
+            )}
         </div>
     );
 }

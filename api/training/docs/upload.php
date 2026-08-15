@@ -130,25 +130,50 @@ try {
         }
 
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        $validExts = ['pdf', 'doc', 'docx', 'zip', 'rar', '7z', 'pptx', 'ppt', 'txt', 'png', 'jpg', 'jpeg'];
+        $validExts = ['pdf', 'doc', 'docx', 'zip', 'rar', '7z', 'pptx', 'ppt', 'txt', 'png', 'jpg', 'jpeg', 'webp'];
         if (!in_array($ext, $validExts, true)) {
             respondError('Invalid file type. Allowed: PDF, Word, ZIP, RAR, PowerPoint, Images, Text.');
         }
 
-        $uploadDir = __DIR__ . '/../../../uploads/docs/' . $uid . '/';
-        if (!is_dir($uploadDir)) {
-            @mkdir($uploadDir, 0777, true);
+        // Server-side real MIME verification
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $detectedMime = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+
+        $allowedMimes = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/zip',
+            'application/x-zip-compressed',
+            'application/x-rar-compressed',
+            'application/x-7z-compressed',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'text/plain',
+            'image/png',
+            'image/jpeg',
+            'image/webp',
+            'application/octet-stream'
+        ];
+        if (!in_array($detectedMime, $allowedMimes, true)) {
+            respondError('Invalid file content format.');
         }
 
-        $uniqueName = uniqid('doc_' . $docType . '_', true) . '.' . $ext;
+        $uploadDir = __DIR__ . '/../../../uploads/docs/' . $uid . '/';
+        if (!is_dir($uploadDir)) {
+            @mkdir($uploadDir, 0755, true);
+        }
+
+        $uniqueName = 'doc_' . preg_replace('/[^a-zA-Z0-9]/', '', $docType) . '_' . bin2hex(random_bytes(12)) . '.' . $ext;
         $targetPath = $uploadDir . $uniqueName;
 
         if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
-            respondError('Failed to save document on server. Please check folder permissions.', 500);
+            respondError('Failed to save document on server.', 500);
         }
 
         $fileUrl = '/uploads/docs/' . $uid . '/' . $uniqueName;
-        $fileName = $file['name'];
+        $fileName = htmlspecialchars(basename($file['name']), ENT_QUOTES, 'UTF-8');
         $fileSize = (int) $file['size'];
     } else {
         respondError('Either a file upload or a valid URL link is required');
@@ -186,5 +211,6 @@ try {
         ]
     ], 201);
 } catch (Throwable $e) {
-    respondError('Server error: ' . $e->getMessage(), 500);
+    error_log('Error uploading trainee doc: ' . $e->getMessage());
+    respondError('Server error while processing document upload', 500);
 }

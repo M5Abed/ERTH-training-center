@@ -50,7 +50,7 @@ $stmt->execute([$identifier, $identifier]);
 $user = $stmt->fetch();
 
 if (!$user || !password_verify($pass, $user['password_hash'])) {
-    error_log("LOGIN FAILED. Identifier received: " . $identifier . " | Password length: " . strlen($pass) . " | Pass: " . $pass);
+    error_log("Login failed for identifier: " . substr($identifier, 0, 3) . '***');
     respondError('Invalid email or password', 401);
 }
 

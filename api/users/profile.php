@@ -27,7 +27,6 @@ if ($method === 'GET') {
     $user = $stmt->fetch();
 
     if (!$user) { respondError('User not found', 404); }
-    unset($user['password_hash']);
 
     // Decode JSON fields
     $user['user_skills']      = json_decode($user['user_skills'] ?? 'null', true) ?? [];
@@ -35,9 +34,12 @@ if ($method === 'GET') {
     $user['enrolled_courses'] = json_decode($user['enrolled_courses'] ?? 'null', true) ?? [];
     $user['availability']     = json_decode($user['availability'] ?? 'null', true);
 
-    // Redact sensitive data for non-self requests
-    if ($uid !== (int)$user['id']) {
-        unset($user['email'], $user['student_id']);
+    $isSelf = ($uid === (int)$user['id']);
+    $user = sanitizeUserResponse($user, $isSelf);
+
+    // Redact sensitive contact data for non-self requests
+    if (!$isSelf) {
+        unset($user['student_id']);
     }
 
     respond($user);

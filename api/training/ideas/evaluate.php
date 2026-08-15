@@ -77,14 +77,17 @@ try {
         $db->exec("ALTER TABLE training_votes ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
     } catch (Exception $e) {}
 
-    // Fetch idea to know trainee_id & title
-    $stmt = $db->prepare("SELECT owner_id AS trainee_id, title FROM training_ideas WHERE id = ?");
+    // Fetch idea to know course_id, trainee_id & title
+    $stmt = $db->prepare("SELECT owner_id AS trainee_id, course_id, title FROM training_ideas WHERE id = ?");
     $stmt->execute([$ideaId]);
     $idea = $stmt->fetch();
 
     if (!$idea) {
         respondError('Idea not found', 404);
     }
+
+    // Verify trainer is assigned to this course (or admin)
+    verifyCourseAccess((int)$idea['course_id'], $reviewer);
 
     // Update idea status & feedback
     $upd = $db->prepare("

@@ -27,7 +27,7 @@ try {
     $db = db();
 
     // Verify idea exists & check authorization
-    $stmt = $db->prepare("SELECT id, owner_id FROM training_ideas WHERE id = ?");
+    $stmt = $db->prepare("SELECT id, owner_id, course_id FROM training_ideas WHERE id = ?");
     $stmt->execute([$ideaId]);
     $idea = $stmt->fetch();
 
@@ -36,10 +36,22 @@ try {
     }
 
     $ideaOwnerId = (int)($idea['owner_id'] ?? 0);
-    $isOwner = ($uid > 0 && $uid === $ideaOwnerId);
+    $courseId = (int)($idea['course_id'] ?? 0);
 
-    if (!$isOwner && !$isAdmin && !$isTrainer) {
-        respondError('Unauthorized: You can only delete your own project ideas', 403);
+    if (!$isAdmin) {
+        if ($isTrainer) {
+            verifyCourseAccess($courseId, $user);
+        } else {
+            // Trainee: must be owner or leader in training_idea_members
+            $isOwner = ($uid > 0 && $uid === $ideaOwnerId);
+            if (!$isOwner) {
+                $mCheck = $db->prepare("SELECT 1 FROM training_idea_members WHERE idea_id = ? AND user_id = ? AND role = 'leader'");
+                $mCheck->execute([$ideaId, $uid]);
+                if (!$mCheck->fetch()) {
+                    respondError('Forbidden: Only the project owner or team leader can delete this project idea', 403);
+                }
+            }
+        }
     }
 
     // Delete associated votes if table exists
@@ -52,6 +64,13 @@ try {
     // Delete associated documents if table exists
     try {
         $db->prepare("DELETE FROM training_documents WHERE idea_id = ?")->execute([$ideaId]);
+    } catch (Throwable $e) {
+        // Table might not exist yet
+    }
+
+    // Delete associated team members
+    try {
+        $db->prepare("DELETE FROM training_idea_members WHERE idea_id = ?")->execute([$ideaId]);
     } catch (Throwable $e) {
         // Table might not exist yet
     }

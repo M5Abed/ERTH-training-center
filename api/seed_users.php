@@ -1,5 +1,10 @@
 <?php
-require_once __DIR__ . '/config.php';
+if (php_sapi_name() !== 'cli') {
+    require_once __DIR__ . '/config.php';
+    requireRole('admin');
+} else {
+    require_once __DIR__ . '/config.php';
+}
 
 $db = db();
 
@@ -64,5 +69,15 @@ $stmt->execute([$traineePass]);
 
 // Clear rate limits
 $db->query("DELETE FROM otp_rate_limits");
+
+// Ensure trainer is assigned to active courses and NOT in trainee_enrollments
+$trainerId = $db->query("SELECT id FROM users WHERE email='trainer@nmu.edu.eg'")->fetchColumn();
+if ($trainerId) {
+    $db->query("DELETE FROM trainee_enrollments WHERE trainee_id = {$trainerId}");
+    $courses = $db->query("SELECT id FROM training_courses")->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($courses as $cId) {
+        $db->query("INSERT IGNORE INTO trainer_assignments (trainer_id, course_id) VALUES ({$trainerId}, {$cId})");
+    }
+}
 
 echo "ACCOUNTS_SEEDED_SUCCESSFULLY\n";

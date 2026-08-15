@@ -1,7 +1,7 @@
 <?php
 // =========================================================
 // NMU TRAINING — List All Trainee Submitted Projects / Ideas
-// Access: Trainee (sees own ideas), Trainer / Admin (sees all submitted ideas)
+// Access: Trainee (sees own & team ideas), Trainer / Admin (sees all submitted ideas)
 // =========================================================
 
 require_once __DIR__ . '/../../config.php';
@@ -24,8 +24,9 @@ $params = [];
 $whereClauses = [];
 
 if ($role === 'trainee' && !$isAdmin) {
-    // Trainee views their own submitted ideas
-    $whereClauses[] = "ti.owner_id = ?";
+    // Trainee views ideas where they are owner or a team member
+    $whereClauses[] = "(ti.owner_id = ? OR EXISTS (SELECT 1 FROM training_idea_members tim WHERE tim.idea_id = ti.id AND tim.user_id = ?))";
+    $params[] = $uid;
     $params[] = $uid;
 }
 
@@ -47,7 +48,6 @@ $sql = "
            u.email AS trainee_email, 
            u.student_id,
            tc.name AS course_name,
-           tc.name AS course_name,
            rev.full_name AS reviewer_name,
            rev.email AS reviewer_email
     FROM training_ideas ti
@@ -57,6 +57,80 @@ $sql = "
     $whereSql
     ORDER BY ti.updated_at DESC
 ";
+
+function attachTeamMembers($db, array &$ideas, int $currentUserId) {
+    if (empty($ideas)) return;
+
+    $ideaIds = array_column($ideas, 'id');
+    $inClause = implode(',', array_fill(0, count($ideaIds), '?'));
+
+    $membersByIdea = [];
+    try {
+        $mStmt = $db->prepare("
+            SELECT tim.idea_id, tim.user_id, tim.role, 
+                   u.full_name, u.student_id, u.email, u.avatar_url, u.username,
+                   u.major, u.academic_year, u.department
+            FROM training_idea_members tim
+            JOIN users u ON tim.user_id = u.id
+            WHERE tim.idea_id IN ($inClause)
+            ORDER BY CASE WHEN tim.role = 'leader' THEN 0 ELSE 1 END, u.full_name ASC
+        ");
+        $mStmt->execute($ideaIds);
+        $allMembers = $mStmt->fetchAll();
+
+        foreach ($allMembers as $m) {
+            $membersByIdea[$m['idea_id']][] = [
+                'user_id' => (int) $m['user_id'],
+                'id' => (int) $m['user_id'],
+                'role' => $m['role'],
+                'full_name' => $m['full_name'] ?: $m['username'] ?: $m['email'],
+                'student_id' => $m['student_id'],
+                'email' => $m['email'],
+                'avatar_url' => $m['avatar_url'],
+                'username' => $m['username'],
+                'major' => $m['major'],
+                'academic_year' => $m['academic_year'],
+                'department' => $m['department']
+            ];
+        }
+    } catch (Exception $e) {
+        error_log('Error attaching team members: ' . $e->getMessage());
+    }
+
+    foreach ($ideas as &$idea) {
+        $id = $idea['id'];
+        $members = $membersByIdea[$id] ?? [];
+
+        // Fallback for legacy records missing member rows
+        if (empty($members) && !empty($idea['owner_id'])) {
+            $members[] = [
+                'user_id' => (int) $idea['owner_id'],
+                'id' => (int) $idea['owner_id'],
+                'role' => 'leader',
+                'full_name' => $idea['trainee_name'] ?? 'Team Leader',
+                'student_id' => $idea['student_id'] ?? null,
+                'email' => $idea['trainee_email'] ?? null,
+                'avatar_url' => null,
+                'username' => null
+            ];
+        }
+
+        $myRole = null;
+        foreach ($members as $mem) {
+            if ($mem['user_id'] === $currentUserId) {
+                $myRole = $mem['role'];
+                break;
+            }
+        }
+        if (!$myRole && (int) ($idea['owner_id'] ?? 0) === $currentUserId) {
+            $myRole = 'leader';
+        }
+
+        $idea['team_members'] = $members;
+        $idea['my_team_role'] = $myRole;
+        $idea['is_team_leader'] = ($myRole === 'leader' || (int) ($idea['owner_id'] ?? 0) === $currentUserId);
+    }
+}
 
 function attachVotesAndTrainers($db, array &$ideas, int $currentUserId) {
     if (empty($ideas)) return;
@@ -155,6 +229,7 @@ $stmt->execute($params);
 $ideas = $stmt->fetchAll();
 
 attachVotesAndTrainers($db, $ideas, $uid);
+attachTeamMembers($db, $ideas, $uid);
 
 respond([
     'success' => true,

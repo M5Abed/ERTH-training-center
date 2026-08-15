@@ -8,7 +8,12 @@
 //   docker exec -it erth_training_php php /var/www/html/api/seed_ai_keys.php
 // =========================================================
 
-require_once __DIR__ . '/config.php';
+if (php_sapi_name() !== 'cli') {
+    require_once __DIR__ . '/config.php';
+    requireRole('admin');
+} else {
+    require_once __DIR__ . '/config.php';
+}
 
 $today = gmdate('Y-m-d');
 

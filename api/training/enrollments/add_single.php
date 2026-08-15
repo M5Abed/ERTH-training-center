@@ -6,7 +6,7 @@
 
 require_once __DIR__ . '/../../config.php';
 
-requireTrainer();
+$caller = requireTrainer();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respondError('Method not allowed', 405);
@@ -20,6 +20,9 @@ $traineeId = (int)($data['trainee_id'] ?? 0);
 if (!$courseId || (!$email && !$traineeId)) {
     respondError('Course ID and Trainee Email or ID are required');
 }
+
+// Enforce course assignment verification
+verifyCourseAccess($courseId, $caller);
 
 $db = db();
 

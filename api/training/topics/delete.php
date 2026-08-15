@@ -6,7 +6,7 @@
 
 require_once __DIR__ . '/../../config.php';
 
-requireTrainer();
+$user = requireTrainer();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respondError('Method not allowed', 405);
@@ -20,6 +20,15 @@ if (!$topicId) {
 }
 
 $db = db();
+$tStmt = $db->prepare("SELECT course_id FROM training_topics WHERE id = ?");
+$tStmt->execute([$topicId]);
+$topic = $tStmt->fetch();
+if (!$topic) {
+    respondError('Topic not found', 404);
+}
+
+verifyCourseAccess((int)$topic['course_id'], $user);
+
 $stmt = $db->prepare("DELETE FROM training_topics WHERE id = ?");
 $stmt->execute([$topicId]);
 

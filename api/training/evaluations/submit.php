@@ -34,6 +34,9 @@ if (!in_array($status, ['pass', 'fail', 'needs_revision'], true)) {
 
 $db = db();
 
+// Enforce Object-Level Authorization
+verifyCourseAccess($courseId, $evaluator);
+
 // Upsert evaluation record
 $stmt = $db->prepare("
     INSERT INTO training_evaluations

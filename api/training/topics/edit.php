@@ -25,16 +25,23 @@ if (!$topicId || !$titleEn) {
 }
 
 $db = db();
+$tStmt = $db->prepare("SELECT course_id FROM training_topics WHERE id = ?");
+$tStmt->execute([$topicId]);
+$topic = $tStmt->fetch();
+if (!$topic) {
+    respondError('Topic not found', 404);
+}
+
+verifyCourseAccess((int)$topic['course_id'], $user);
+
 $stmt = $db->prepare("
     UPDATE training_topics 
-    SET title = ?, title = ?, description = ?, description = ?, due_date = ?
+    SET title = ?, description = ?, due_date = ?
     WHERE id = ?
 ");
 $stmt->execute([
     $titleEn,
-    $titleAr ?: null,
     $descriptionEn ?: null,
-    $descriptionAr ?: null,
     $dueDate ?: null,
     $topicId
 ]);

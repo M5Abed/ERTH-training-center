@@ -97,19 +97,20 @@ STRICT RULES:
         'maxTokens'    => 200,
     ],
 
-    // 6.3 — Generate a full bilingual (EN + AR) project proposal
+    // 6.3 — Generate a full project proposal (STRICTLY English only)
     'proposal' => [
         'system'       => 'You are an expert academic project proposal writer for university training programs. '
             . 'Generate a full project proposal in JSON format based on the given keywords and domain. '
+            . 'CRITICAL REQUIREMENT: The proposal MUST be generated exclusively in the ENGLISH language. NEVER generate in Arabic or any language other than English under any circumstances. If the input keywords or domain are in Arabic or another language, translate and adapt the concepts entirely into professional English. '
             . 'The JSON must have exactly these fields: '
-            . 'title, title, description, description, problem_statement, tech_stack, expected_output. '
+            . 'title, description, problem_statement, tech_stack, expected_output. '
             . 'RULES: '
-            . '1) Keep descriptions realistic for a university training project. '
-            . '2) tech_stack should be a comma-separated string of technologies. '
-            . '3) expected_output should list 3-5 deliverables numbered. '
-            . '4) Arabic text must be proper Modern Standard Arabic. '
+            . '1) All fields (title, description, problem_statement, tech_stack, expected_output) MUST be 100% in English. '
+            . '2) Keep descriptions realistic and professional for a university training project. '
+            . '3) tech_stack should be a comma-separated string of technologies. '
+            . '4) expected_output should list 3-5 deliverables numbered in English. '
             . '5) Output ONLY valid JSON, no markdown fences, no extra text.',
-        'userTemplate' => 'Keywords: {keywords}. Domain: {domain}.',
+        'userTemplate' => 'Keywords: {keywords}. Domain: {domain}. Language requirement: English only.',
         'temperature'  => 0.7,
         'maxTokens'    => 1200,
     ],

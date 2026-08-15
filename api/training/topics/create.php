@@ -24,6 +24,9 @@ if (!$courseId || !$titleEn) {
     respondError('Course ID and English title are required');
 }
 
+// Verify trainer assignment / admin permissions
+verifyCourseAccess($courseId, $user);
+
 $db = db();
 
 // Get max order_index for this course
@@ -32,15 +35,13 @@ $ordStmt->execute([$courseId]);
 $nextOrder = (int)$ordStmt->fetchColumn();
 
 $stmt = $db->prepare("
-    INSERT INTO training_topics (course_id, title, title, description, description, due_date, order_index)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO training_topics (course_id, title, description, due_date, order_index)
+    VALUES (?, ?, ?, ?, ?)
 ");
 $stmt->execute([
     $courseId,
     $titleEn,
-    $titleAr ?: null,
     $descriptionEn ?: null,
-    $descriptionAr ?: null,
     $dueDate ?: null,
     $nextOrder
 ]);

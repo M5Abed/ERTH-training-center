@@ -190,13 +190,6 @@ export default function Topbar({ onMenuClick }) {
                 {/* Right Actions */}
                 <div className="topbar-actions">
 
-
-                    {/* Language */}
-                    <button className="topbar-btn topbar-lang-btn" onClick={() => setLang(lang === 'en' ? 'ar' : 'en')} title={lang === 'en' ? 'العربية' : 'English'}>
-                        <Languages size={16} />
-                        <span className="topbar-lang-label">{lang === 'en' ? 'AR' : 'EN'}</span>
-                    </button>
-
                     {/* Notifications */}
                     <div className="topbar-notif-wrap" ref={notifRef}>
                         <button className="topbar-btn notif-btn" onClick={handleBell}>

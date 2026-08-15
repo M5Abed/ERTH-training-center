@@ -5,7 +5,10 @@
 // =========================================================
 
 require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../vendor/autoload.php';
+$vendorAutoload = __DIR__ . '/../../../vendor/autoload.php';
+if (file_exists($vendorAutoload)) {
+    require_once $vendorAutoload;
+}
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
@@ -19,6 +22,9 @@ $courseId = (int)($_POST['course_id'] ?? 0);
 if (!$courseId || empty($_FILES['excel_file'])) {
     respondError('Course ID and Excel file upload are required');
 }
+
+// Verify trainer assignment to this course (or admin)
+verifyCourseAccess($courseId, $reviewer);
 
 $file = $_FILES['excel_file'];
 if ($file['error'] !== UPLOAD_ERR_OK) {

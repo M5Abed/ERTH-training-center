@@ -50,17 +50,15 @@ if ($aiResult['ok'] && is_array($aiResult['result'])) {
         $expectedOutputStr = trim($expectedOutputRaw);
     }
 
-    // Normalize keys — engine guarantees these fields but defensively default
+    // Normalize keys — strictly English fields
     respond([
         'success'  => true,
         'cached'   => $aiResult['cached'] ?? false,
         'proposal' => [
-            'title'          => $p['title']          ?? "Smart System for " . ucwords($keywords),
-            'title'          => $p['title']          ?? "نظام ذكي لـ " . $keywords,
-            'description'    => $p['description']    ?? '',
-            'description'    => $p['description']    ?? '',
+            'title'             => $p['title'] ?? ("Smart System for " . ucwords($keywords)),
+            'description'       => $p['description'] ?? '',
             'problem_statement' => $p['problem_statement'] ?? '',
-            'tech_stack'        => $p['tech_stack']        ?? 'React.js / Vite, PHP 8, MySQL 8.0',
+            'tech_stack'        => $p['tech_stack'] ?? 'React.js / Vite, PHP 8, MySQL 8.0',
             'expected_output'   => $expectedOutputStr,
         ],
     ]);
@@ -78,16 +76,14 @@ if (!$aiResult['ok']) {
     error_log('[ai_generate] AI call failed, using template fallback. Error: ' . ($aiResult['error'] ?? ''));
 }
 
-// Template fallback response
+// Template fallback response (STRICTLY English only)
 respond([
     'success'  => true,
     'cached'   => false,
-    'fallback' => true,   // frontend can show a subtle "generated locally" badge if desired
+    'fallback' => true,
     'proposal' => [
-        'title'          => "Smart System for " . ucwords($keywords),
-        'title'          => "نظام ذكي لـ " . $keywords,
-        'description'    => "This university summer training project focuses on building a full-stack web application tailored for $keywords. It includes user authentication, role-based access control, responsive dashboards, and automated report generation.",
-        'description'    => "يركز هذا المشروع التدريبي على بناء تطبيق ويب متكامل مخصص لـ $keywords. ويتضمن نظام توثيق للمستخدمين، وصلاحيات حسب الأدوار، ولوحات تحكم تفاعلية، وتوليد تقارير آلياً.",
+        'title'             => "Smart System for " . ucwords($keywords),
+        'description'       => "This university summer training project focuses on building a full-stack web application tailored for $keywords. It includes user authentication, role-based access control, responsive dashboards, and automated report generation.",
         'problem_statement' => "Current manual processes in $domain lack real-time visibility, automated tracking, and data integrity. Trainees will design a web solution for $keywords to optimize workflow efficiency.",
         'tech_stack'        => "React.js / Vite, PHP 8 (REST API), MySQL 8.0, HTML5/CSS3, Docker",
         'expected_output'   => "1. Fully functional Web Application\n2. Database Schema (ERD)\n3. Technical Documentation & User Guide\n4. Final Presentation Slides",
