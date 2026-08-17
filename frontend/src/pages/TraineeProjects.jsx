@@ -7,7 +7,7 @@ import {
     ThumbsUp, ThumbsDown, Users, Trash2, Paperclip, Upload, Download,
     ExternalLink, Code, UserCheck, Layers, Bot, Cpu, Zap, Crown,
     FolderOpen, Shield, Link as LinkIcon, Activity, UserPlus, Check,
-    Video, Globe, ArrowRight, Award, RefreshCw, AlertTriangle, HardDrive
+    Video, Globe, ArrowRight, Award, RefreshCw, AlertTriangle, HardDrive, Lock
 } from 'lucide-react';
 import TeammateSelector from '../components/TeammateSelector';
 import MemberDetailModal from '../components/MemberDetailModal';
@@ -222,12 +222,16 @@ export default function TraineeProjects() {
         }
     };
 
-    const fetchCatalogProjects = async (force = false) => {
-        if (!force && catalogProjects.length > 0) return;
+    const fetchCatalogProjects = async (force = false, courseIdParam = null) => {
+        const targetCourseId = courseIdParam !== null ? courseIdParam : (submitCourseId || selectedCourse || '');
+        if (!force && catalogProjects.length > 0 && !targetCourseId) return;
         setCatalogError('');
         setLoadingCatalog(true);
         try {
-            const res = await fetch('/api/training/ideas/catalog_list.php');
+            const url = targetCourseId 
+                ? `/api/training/ideas/catalog_list.php?course_id=${encodeURIComponent(targetCourseId)}`
+                : '/api/training/ideas/catalog_list.php';
+            const res = await fetch(url);
             let data;
             try { data = await res.json(); } catch { data = {}; }
             if (res.ok && data.projects && data.projects.length > 0) {
@@ -493,7 +497,8 @@ export default function TraineeProjects() {
     const openSubmitModal = (idea = null) => {
         setError('');
         setCatalogError('');
-        fetchCatalogProjects();
+        const initialCourse = idea?.course_id || submitCourseId || (courses.length > 0 ? courses[0].id : '');
+        fetchCatalogProjects(true, initialCourse);
 
         if (idea) {
             setEditingIdeaId(idea.id);
@@ -538,6 +543,12 @@ export default function TraineeProjects() {
     };
 
     const handleSelectCatalogIdea = async (catProject) => {
+        if (catProject.is_taken && !catProject.taken_by_me) {
+            setError(lang === 'ar'
+                ? 'هذا المشروع محجوز بالفعل. لا يمكن لفريقين اختيار نفس الفكرة.'
+                : 'This project has already been chosen. Two teams cannot choose the same idea.');
+            return;
+        }
         if (!submitCourseId) {
             setError(lang === 'ar' ? 'يرجى اختيار الدورة التدريبية أولاً من الأعلى' : 'Please select a course first from above');
             return;
@@ -929,7 +940,7 @@ export default function TraineeProjects() {
                                 </div>
 
                                 <div className="hero-banner-actions">
-                                    {isOwner && (activeProject.status === 'approved' || activeProject.status === 'submitted') && (
+                                    {(isOwner || isEvaluator) && (
                                         <button
                                             type="button"
                                             className="btn-hero-action btn-hero-delete"
@@ -942,6 +953,60 @@ export default function TraineeProjects() {
                                     )}
                                 </div>
                             </div>
+
+                            {/* ── Rejected Idea Action Notice ── */}
+                            {activeProject.status === 'rejected' && (
+                                <div style={{
+                                    margin: '1rem 0 1.25rem 0',
+                                    padding: '1.25rem 1.5rem',
+                                    borderRadius: '14px',
+                                    background: '#fef2f2',
+                                    border: '1.5px solid #fca5a5',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '0.85rem'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                        <AlertCircle size={24} style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }} />
+                                        <div style={{ flex: 1 }}>
+                                            <h4 style={{ margin: 0, color: '#991b1b', fontSize: '1.05rem', fontWeight: 800 }}>
+                                                {lang === 'ar' ? 'تم رفض فكرة المشروع' : 'Project Proposal Was Rejected'}
+                                            </h4>
+                                            {activeProject.feedback && (
+                                                <p style={{ margin: '6px 0 0 0', color: '#b91c1c', fontSize: '0.9rem', lineHeight: 1.5 }}>
+                                                    <strong>{lang === 'ar' ? 'ملاحظات المشرف:' : 'Supervisor Feedback:'}</strong> {activeProject.feedback}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <p style={{ margin: 0, fontSize: '0.86rem', color: '#7f1d1d' }}>
+                                        {lang === 'ar'
+                                            ? 'تم رفض هذه الفكرة، يمكنك الآن اختيار فكرة جديدة فوراً من دليل الـ 64 مشروعاً المعتمدة مع المقترح الكامل.'
+                                            : 'This proposal was rejected. You can now select a new project idea from the 64 official catalog templates.'
+                                        }
+                                    </p>
+                                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                                        <button
+                                            type="button"
+                                            className="btn btn-primary"
+                                            onClick={() => openSubmitModal()}
+                                            style={{
+                                                padding: '0.65rem 1.65rem',
+                                                fontSize: '0.92rem',
+                                                fontWeight: 700,
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                borderRadius: '8px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <Sparkles size={16} />
+                                            <span>{lang === 'ar' ? 'اختيار فكرة جديدة من الدليل (64 مشروعاً)' : 'Choose New Idea from Catalog'}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* ── 2. Navigation Tabs Bar ── */}
                             <div className="workspace-tabs-bar">
@@ -1685,6 +1750,16 @@ export default function TraineeProjects() {
                                             >
                                                 {lang === 'ar' ? 'مراجعة وتقييم' : 'Review & Evaluate'}
                                             </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleDeleteIdea(e, project.id)}
+                                                className="btn btn-sm btn-outline"
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#ef4444', borderColor: '#fca5a5', padding: '0.35rem 0.55rem' }}
+                                                title={lang === 'ar' ? 'حذف فكرة المشروع' : 'Delete Project Idea'}
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -1728,6 +1803,16 @@ export default function TraineeProjects() {
                                 >
                                     {downloadingDocxId === activeProject.id ? <Loader2 size={15} className="spin" /> : <Download size={15} />}
                                     <span>{downloadingDocxId === activeProject.id ? (lang === 'ar' ? 'جارٍ التحميل...' : 'Downloading...') : 'Word (.docx)'}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={(e) => handleDeleteIdea(e, activeProject.id)}
+                                    className="btn btn-sm btn-outline"
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#ef4444', borderColor: '#fca5a5' }}
+                                    title={lang === 'ar' ? 'حذف فكرة المشروع' : 'Delete Project Idea'}
+                                >
+                                    <Trash2 size={15} />
+                                    <span>{lang === 'ar' ? 'حذف' : 'Delete'}</span>
                                 </button>
                                 <button className="eval-modal-close-btn" onClick={() => setActiveProject(null)}>
                                     <X size={20} />
@@ -1956,7 +2041,11 @@ export default function TraineeProjects() {
                                         <select
                                             required
                                             value={submitCourseId}
-                                            onChange={e => setSubmitCourseId(e.target.value)}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setSubmitCourseId(val);
+                                                fetchCatalogProjects(true, val);
+                                            }}
                                             disabled={!isEvaluator && courses.length === 0}
                                             className="catalog-course-select"
                                             style={{ flex: 1, maxWidth: '320px', padding: '0.35rem 0.65rem', fontSize: '0.85rem' }}
@@ -2055,19 +2144,34 @@ export default function TraineeProjects() {
                                     return (
                                         <div className="catalog-grid-64">
                                             {filtered.map(p => {
-                                                const isSelected = selectedCatalogId === p.id;
+                                                const isTakenByOther = p.is_taken && !p.taken_by_me;
+                                                const isSelected = selectedCatalogId === p.id || p.taken_by_me;
                                                 return (
                                                     <div
                                                         key={p.id}
-                                                        className={`catalog-item-card ${isSelected ? 'selected' : ''}`}
-                                                        onClick={() => handleSelectCatalogIdea(p)}
+                                                        className={`catalog-item-card ${isSelected ? 'selected' : ''} ${isTakenByOther ? 'catalog-item-card--taken' : ''}`}
+                                                        onClick={!isTakenByOther && !selectingCatalog ? () => handleSelectCatalogIdea(p) : undefined}
                                                     >
                                                         <div>
                                                             <div className="catalog-item-top">
                                                                 <span className="catalog-item-id">#{p.id}</span>
-                                                                <span className={`category-tag ${p.category}`}>{p.category}</span>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    {isTakenByOther && (
+                                                                        <span className="catalog-taken-badge">
+                                                                            <Lock size={11} />
+                                                                            {lang === 'ar' ? 'محجوز لفريق آخر' : 'Taken'}
+                                                                        </span>
+                                                                    )}
+                                                                    {p.taken_by_me && (
+                                                                        <span className="catalog-taken-badge" style={{ background: 'rgba(34, 197, 94, 0.12)', color: '#16a34a' }}>
+                                                                            <CheckCircle2 size={11} />
+                                                                            {lang === 'ar' ? 'فريقك' : 'Your Team'}
+                                                                        </span>
+                                                                    )}
+                                                                    <span className={`category-tag ${p.category}`}>{p.category}</span>
+                                                                </div>
                                                             </div>
-                                                            <h4>{p.title}</h4>
+                                                            <h4 style={{ color: isTakenByOther ? '#64748b' : undefined }}>{p.title}</h4>
                                                             <p className="catalog-item-skills">
                                                                 <strong>{p.level}</strong>{p.skills ? ` • ${p.skills}` : ''}
                                                             </p>
@@ -2075,10 +2179,15 @@ export default function TraineeProjects() {
 
                                                         <button
                                                             type="button"
-                                                            className="btn-select-catalog-item"
-                                                            disabled={selectingCatalog}
+                                                            className={`btn-select-catalog-item ${isTakenByOther ? 'disabled' : ''}`}
+                                                            disabled={selectingCatalog || isTakenByOther}
                                                         >
-                                                            {isSelected ? (
+                                                            {isTakenByOther ? (
+                                                                <>
+                                                                    <Lock size={13} />
+                                                                    <span>{lang === 'ar' ? 'محجوز لفريق آخر' : 'Taken by Another Team'}</span>
+                                                                </>
+                                                            ) : isSelected ? (
                                                                 <>
                                                                     <CheckCircle2 size={14} style={{ color: '#22c55e' }} />
                                                                     <span>{lang === 'ar' ? 'تم اختيار الفكرة' : 'Selected Idea'}</span>
@@ -2211,14 +2320,27 @@ export default function TraineeProjects() {
                                     />
                                 </div>
 
-                                <div className="custom-form-actions">
-                                    <button type="button" className="btn btn-ghost" onClick={() => setShowSubmitModal(false)}>
-                                        {lang === 'ar' ? 'إلغاء' : 'Cancel'}
-                                    </button>
-                                    <button type="submit" className="btn btn-primary btn-submit-project" disabled={submittingIdea}>
-                                        {submittingIdea ? <Loader2 className="spin" size={16} /> : <CheckCircle2 size={16} />}
-                                        <span>{lang === 'ar' ? 'تقديم الفكرة واعتمادها' : 'Submit Project Proposal'}</span>
-                                    </button>
+                                <div className="custom-form-actions" style={{ display: 'flex', justifyContent: (editingIdeaId || createdIdeaId) ? 'space-between' : 'flex-end', alignItems: 'center' }}>
+                                    {(editingIdeaId || createdIdeaId) && (
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline"
+                                            onClick={(e) => handleDeleteIdea(e, editingIdeaId || createdIdeaId)}
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#ef4444', borderColor: '#fca5a5' }}
+                                        >
+                                            <Trash2 size={15} />
+                                            <span>{lang === 'ar' ? 'حذف المشروع' : 'Delete Project'}</span>
+                                        </button>
+                                    )}
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button type="button" className="btn btn-ghost" onClick={() => setShowSubmitModal(false)}>
+                                            {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                                        </button>
+                                        <button type="submit" className="btn btn-primary btn-submit-project" disabled={submittingIdea}>
+                                            {submittingIdea ? <Loader2 className="spin" size={16} /> : <CheckCircle2 size={16} />}
+                                            <span>{lang === 'ar' ? 'تقديم الفكرة واعتمادها' : 'Submit Project Proposal'}</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </form>
                         )}

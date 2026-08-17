@@ -154,11 +154,6 @@ export default function Topbar({ onMenuClick }) {
 
     if (isAdmin || isTrainer) {
         navItems.push({ to: '/trainees', icon: <Users size={16} />, label: lang === 'ar' ? 'المتدربين' : 'Trainees' });
-        navItems.push({
-            to: '/approvals',
-            icon: <CheckCircle2 size={16} />,
-            label: lang === 'ar' ? 'طلبات التسجيل' : 'Approvals'
-        });
     }
 
     if (isAdmin) {

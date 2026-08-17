@@ -33,10 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respondError('Method not allowed', 405);
 }
 
-// ── Rate Limiting ──
-rateLimit('register', 3, 3600);
-
-$data = body();
+// Self-registration disabled by policy — accounts must be added by Trainer or Admin
+respondError('Public registration is disabled. Accounts must be provisioned by a Trainer or Administrator.', 403);
 
 // =========================================================
 // INPUT VALIDATION

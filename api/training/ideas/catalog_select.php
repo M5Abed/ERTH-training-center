@@ -73,16 +73,33 @@ if ($trainingIdeaId) {
         }
     }
 
-    // Check if trainee is already a member in another team
+    // Check if trainee is already a member in another active team
     $memCheck = $db->prepare("
         SELECT ti.title FROM training_idea_members tim
         JOIN training_ideas ti ON tim.idea_id = ti.id
-        WHERE tim.user_id = ? AND tim.role = 'member'
+        WHERE tim.user_id = ? AND tim.role = 'member' AND ti.status != 'rejected'
     ");
     $memCheck->execute([$uid]);
     $alreadyMem = $memCheck->fetchColumn();
     if ($alreadyMem) {
         respondError("You are already enrolled as a team member in another project ('$alreadyMem').");
+    }
+
+    // Check if another team has already selected this catalog project in this course
+    $takenCheck = $db->prepare("
+        SELECT ti.id, ti.owner_id, u.full_name 
+        FROM training_ideas ti
+        JOIN users u ON u.id = ti.owner_id
+        WHERE ti.course_id = ? 
+          AND (ti.catalog_project_id = ? OR LOWER(TRIM(ti.title)) = LOWER(TRIM(?)))
+          AND ti.status != 'rejected'
+          AND ti.owner_id != ?
+    ");
+    $takenCheck->execute([$courseId, $catalogProjectId, $catProject['title'], $uid]);
+    $alreadyTaken = $takenCheck->fetch();
+
+    if ($alreadyTaken) {
+        respondError("This project idea has already been chosen. Two teams cannot have the same idea. Please choose a different project.", 409);
     }
 
     // Check if trainee already has an idea for this course
@@ -92,15 +109,36 @@ if ($trainingIdeaId) {
 
     if ($existingId) {
         $ideaId = $existingId;
+        // Update catalog_project_id, title, and reset to submitted
+        $updCatStmt = $db->prepare("
+            UPDATE training_ideas 
+            SET catalog_project_id = ?,
+                title = ?,
+                description = ?,
+                status = 'submitted',
+                feedback = NULL,
+                reviewed_by = NULL,
+                reviewed_at = NULL,
+                updated_at = NOW()
+            WHERE id = ? AND owner_id = ?
+        ");
+        $updCatStmt->execute([
+            $catalogProjectId,
+            $catProject['title'],
+            'Selected from the project catalog: ' . $catProject['title'],
+            $ideaId,
+            $uid
+        ]);
     } else {
         // Create new idea row in 'submitted' (under review) status
         $insStmt = $db->prepare("
-            INSERT INTO training_ideas (owner_id, course_id, title, description, status)
-            VALUES (?, ?, ?, ?, 'submitted')
+            INSERT INTO training_ideas (owner_id, course_id, catalog_project_id, title, description, status)
+            VALUES (?, ?, ?, ?, ?, 'submitted')
         ");
         $insStmt->execute([
             $uid,
             $courseId,
+            $catalogProjectId,
             $catProject['title'],
             'Selected from the project catalog: ' . $catProject['title'],
         ]);

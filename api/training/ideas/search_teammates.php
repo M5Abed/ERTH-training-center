@@ -73,7 +73,7 @@ $sql = "
             ti.title AS project_title
         FROM training_idea_members tim
         JOIN training_ideas ti ON tim.idea_id = ti.id
-        WHERE ti.course_id = ?
+        WHERE ti.course_id = ? AND ti.status != 'rejected'
         UNION
         SELECT 
             ti_owner.owner_id AS user_id,
@@ -81,7 +81,7 @@ $sql = "
             'leader' AS member_role,
             ti_owner.title AS project_title
         FROM training_ideas ti_owner
-        WHERE ti_owner.course_id = ?
+        WHERE ti_owner.course_id = ? AND ti_owner.status != 'rejected'
     ) AS active_team ON active_team.user_id = u.id
     WHERE $where
     ORDER BY 

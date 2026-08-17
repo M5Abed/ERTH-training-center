@@ -137,7 +137,25 @@ function db(): PDO
     if ($pdo !== null)
         return $pdo;
     try {
-        $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+        $host = defined('DB_HOST') ? DB_HOST : 'localhost';
+        // In local Docker containers, 'localhost' points to the container itself; fallback to 'db'
+        if (getenv('DOCKER_CONTAINER') || getenv('DOCKER') || file_exists('/.dockerenv')) {
+            if ($host === 'localhost' || $host === '127.0.0.1') {
+                $host = 'db';
+            }
+        }
+        $dbname = defined('DB_NAME') ? DB_NAME : '';
+        if ($host === 'db' && (empty($dbname) || $dbname === 'u846805811_training')) {
+            $dsn = "mysql:host={$host};dbname=nmu_thinktank;charset=" . (defined('DB_CHARSET') ? DB_CHARSET : 'utf8mb4');
+            $pdo = new PDO($dsn, 'erth_user', 'change_me_in_production', [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ]);
+            return $pdo;
+        }
+
+        $dsn = "mysql:host=" . $host . ";dbname=" . $dbname . ";charset=" . (defined('DB_CHARSET') ? DB_CHARSET : 'utf8mb4');
         $pdo = new PDO($dsn, DB_USER, DB_PASS, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,

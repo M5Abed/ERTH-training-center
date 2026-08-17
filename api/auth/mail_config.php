@@ -17,7 +17,14 @@
 //   Auth: Your Hostinger email + password
 // =========================================================
 
-require_once __DIR__ . '/../../vendor/autoload.php';
+// ── Safe Autoloading for PHPMailer ──
+if (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
+    require_once __DIR__ . '/../../vendor/autoload.php';
+} elseif (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+} elseif (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+}
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
@@ -33,11 +40,11 @@ function createMailer(): PHPMailer
 {
     // ── Load credentials from .env constants ──
     $smtpHost = defined('SMTP_HOST') ? SMTP_HOST : 'smtp.hostinger.com';
-    $smtpPort = defined('SMTP_PORT') ? (int)SMTP_PORT : 465;
+    $smtpPort = defined('SMTP_PORT') ? (int) SMTP_PORT : 465;
     $smtpUser = defined('SMTP_USER') ? SMTP_USER : '';
     $smtpPass = defined('SMTP_PASS') ? SMTP_PASS : '';
     $smtpFrom = defined('SMTP_FROM_EMAIL') ? SMTP_FROM_EMAIL : $smtpUser;
-    $smtpName = defined('SMTP_FROM_NAME') ? SMTP_FROM_NAME : 'THINK TANK';
+    $smtpName = defined('SMTP_FROM_NAME') ? SMTP_FROM_NAME : 'ERTH Training Center';
 
     if (empty($smtpUser) || empty($smtpPass)) {
         throw new Exception(
@@ -50,24 +57,23 @@ function createMailer(): PHPMailer
 
     // ── SMTP Configuration ──
     $mail->isSMTP();
-    $mail->Host       = $smtpHost;
-    $mail->SMTPAuth   = true;
-    $mail->Username   = $smtpUser;
-    $mail->Password   = $smtpPass;
+    $mail->Host = $smtpHost;
+    $mail->SMTPAuth = true;
+    $mail->Username = $smtpUser;
+    $mail->Password = $smtpPass;
     // Hostinger uses SSL on port 465 (not STARTTLS on 587)
     $smtpEncryption = ($smtpPort === 465)
         ? PHPMailer::ENCRYPTION_SMTPS
         : PHPMailer::ENCRYPTION_STARTTLS;
     $mail->SMTPSecure = $smtpEncryption;
-    $mail->Port       = $smtpPort;
-    $mail->CharSet    = 'UTF-8';
+    $mail->Port = $smtpPort;
+    $mail->CharSet = 'UTF-8';
 
     // ── Sender Info ──
     $mail->setFrom($smtpFrom, $smtpName);
     $mail->addReplyTo($smtpFrom, $smtpName);
 
-    // ── Anti-Spam Best Practices ──
-    // Set proper Message-ID to avoid spam filters
+    // ── Deliverability Best Practices ──
     $fromDomain = explode('@', $smtpFrom)[1] ?? 'erth.dev';
     $mail->MessageID = sprintf(
         '<%s@%s>',
@@ -75,15 +81,14 @@ function createMailer(): PHPMailer
         $fromDomain
     );
 
-    // Additional headers to reduce spam score
-    $mail->addCustomHeader('Precedence', 'bulk');
-    $mail->addCustomHeader('X-Mailer', 'ERTH-Matching/1.0');
+    // Transactional security headers
     $mail->addCustomHeader('X-Auto-Response-Suppress', 'OOF, AutoReply');
-    $mail->addCustomHeader('List-Unsubscribe', "<mailto:{$smtpFrom}?subject=unsubscribe>");
+    $mail->addCustomHeader('Auto-Submitted', 'auto-generated');
+    $mail->Priority = 1; // High priority for OTP verification
 
     // Timeout settings
-    $mail->Timeout    = 30;  // seconds
-    $mail->SMTPDebug  = SMTP::DEBUG_OFF; // Set to DEBUG_SERVER for debugging
+    $mail->Timeout = 15;  // seconds
+    $mail->SMTPDebug = SMTP::DEBUG_OFF;
 
     return $mail;
 }
@@ -95,22 +100,37 @@ function createMailer(): PHPMailer
  * @param string $recipientName  The recipient's display name
  * @param string $otpCode        The 6-digit OTP code
  * @return bool True if sent successfully
- * @throws Exception On send failure
  */
 function sendOtpEmail(string $recipientEmail, string $recipientName, string $otpCode): bool
 {
-    $mail = createMailer();
+    // Try PHPMailer if class is present
+    if (class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
+        try {
+            $mail = createMailer();
+            $mail->addAddress($recipientEmail, $recipientName);
+            $mail->isHTML(true);
+            $mail->Subject = "Your Verification Code: $otpCode";
+            $mail->Body = buildOtpEmailTemplate($otpCode, $recipientName);
+            $mail->AltBody = buildOtpEmailPlainText($otpCode, $recipientName);
+            return $mail->send();
+        } catch (\Throwable $e) {
+            error_log("PHPMailer exception for {$recipientEmail}: " . $e->getMessage());
+        }
+    }
 
-    // ── Recipient ──
-    $mail->addAddress($recipientEmail, $recipientName);
+    // Native PHP mail() fallback
+    $smtpFrom = defined('SMTP_FROM_EMAIL') ? SMTP_FROM_EMAIL : 'noreply@erth.dev';
+    $smtpName = defined('SMTP_FROM_NAME') ? SMTP_FROM_NAME : 'ERTH Training Center';
+    $headers = "MIME-Version: 1.0\r\n";
+    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+    $headers .= "From: {$smtpName} <{$smtpFrom}>\r\n";
+    $headers .= "Reply-To: {$smtpFrom}\r\n";
+    $headers .= "X-Mailer: PHP/" . phpversion();
 
-    // ── Email Content ──
-    $mail->isHTML(true);
-    $mail->Subject = "Your THINK TANK Verification Code: $otpCode";
-    $mail->Body    = buildOtpEmailTemplate($otpCode, $recipientName);
-    $mail->AltBody = buildOtpEmailPlainText($otpCode, $recipientName);
+    $subject = "Your Verification Code: $otpCode";
+    $body = buildOtpEmailTemplate($otpCode, $recipientName);
 
-    return $mail->send();
+    return @mail($recipientEmail, $subject, $body, $headers);
 }
 
 /**
@@ -199,7 +219,7 @@ function buildOtpEmailTemplate(string $otpCode, string $name): string
                                 color: #8b8baf;
                                 line-height: 1.5;
                             ">
-                                Hi <strong style="color: #c4c4e0;">{$name}</strong>, use the code below to complete your registration on <strong style="color: #667eea;">THINK TANK</strong>.
+                                Hi <strong style="color: #c4c4e0;">{$name}</strong>, use the code below to complete your registration on <strong style="color: #667eea;">NMU Traing Center</strong>.
                             </p>
                         </td>
                     </tr>
@@ -276,7 +296,7 @@ function buildOtpEmailTemplate(string $otpCode, string $name): string
                                 text-align: center;
                                 line-height: 1.6;
                             ">
-                                &copy; {$year} THINK TANK &middot; New Mansoura University<br>
+                                &copy; {$year} Training Center &middot; New Mansoura University<br>
                                 This is an automated message. Please do not reply.<br>
                                 <span style="font-size: 10px; color: #3a3a5a;">123 University Drive, New Mansoura</span>
                             </p>
@@ -301,7 +321,7 @@ HTML;
 function buildOtpEmailPlainText(string $otpCode, string $name): string
 {
     return <<<TEXT
-THINK TANK — Email Verification
+Training Center — Email Verification
 ====================================
 
 Hi {$name},
@@ -312,6 +332,6 @@ This code will expire in 10 minutes.
 
 If you didn't request this code, please ignore this email.
 
-— THINK TANK Team
+— ERTH Team
 TEXT;
 }

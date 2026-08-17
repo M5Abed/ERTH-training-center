@@ -72,7 +72,7 @@ $mStmt = $db->prepare("
     FROM training_idea_members tim
     JOIN training_ideas ti ON tim.idea_id = ti.id
     LEFT JOIN training_courses tc ON ti.course_id = tc.id
-    WHERE tim.user_id = ? AND tim.role = 'member'
+    WHERE tim.user_id = ? AND tim.role = 'member' AND ti.status != 'rejected'
 ");
 $mStmt->execute([$uid]);
 $existingMemberRow = $mStmt->fetch();
@@ -89,6 +89,9 @@ $existingProposalJson = $existingRow['proposal_json'] ?? null;
 
 // Validate all selected teammates
 if (!empty($teammateIds)) {
+    if (count($teammateIds) > 4) {
+        respondError("A team cannot exceed 5 members (1 leader + 4 teammates).");
+    }
     foreach ($teammateIds as $tId) {
         // 1. Teammate user existence
         $uStmt = $db->prepare("SELECT id, full_name, username, email, student_id FROM users WHERE id = ?");
@@ -108,8 +111,8 @@ if (!empty($teammateIds)) {
             }
         }
 
-        // 3. Teammate is not leader of another project
-        $tOwnSql = "SELECT id, title FROM training_ideas WHERE owner_id = ?" . ($existingIdeaId ? " AND id != ?" : "");
+        // 3. Teammate is not leader of another active project
+        $tOwnSql = "SELECT id, title FROM training_ideas WHERE owner_id = ? AND status != 'rejected'" . ($existingIdeaId ? " AND id != ?" : "");
         $tOwnParams = $existingIdeaId ? [$tId, $existingIdeaId] : [$tId];
         $tOwnStmt = $db->prepare($tOwnSql);
         $tOwnStmt->execute($tOwnParams);
@@ -118,12 +121,12 @@ if (!empty($teammateIds)) {
             respondError("Student '$tName' is already the leader of another project ('" . ($tOwnRow['title'] ?: 'Project') . "').");
         }
 
-        // 4. Teammate is not a member of another project
+        // 4. Teammate is not already a member of another active project
         $tMemSql = "
             SELECT ti.id, ti.title 
             FROM training_idea_members tim
             JOIN training_ideas ti ON tim.idea_id = ti.id
-            WHERE tim.user_id = ?" . ($existingIdeaId ? " AND ti.id != ?" : "");
+            WHERE tim.user_id = ? AND tim.role = 'member' AND ti.status != 'rejected'" . ($existingIdeaId ? " AND ti.id != ?" : "");
         $tMemParams = $existingIdeaId ? [$tId, $existingIdeaId] : [$tId];
         $tMemStmt = $db->prepare($tMemSql);
         $tMemStmt->execute($tMemParams);
@@ -192,7 +195,10 @@ try {
                 problem_statement = ?,
                 expected_output   = ?,
                 proposal_json     = ?,
-                status            = CASE WHEN status = 'approved' THEN status ELSE 'submitted' END,
+                status            = 'submitted',
+                feedback          = NULL,
+                reviewed_by       = NULL,
+                reviewed_at       = NULL,
                 updated_at        = NOW()
             WHERE id = ?
         ");

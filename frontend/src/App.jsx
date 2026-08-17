@@ -23,7 +23,6 @@ const PublicProfile = lazy(() => import('./pages/PublicProfile'))
 
 const TrainingCourses = lazy(() => import('./pages/TrainingCourses'))
 const TrainingCourseDetail = lazy(() => import('./pages/TrainingCourseDetail'))
-const TrainingApprovals = lazy(() => import('./pages/TrainingApprovals'))
 const TrainersManagement = lazy(() => import('./pages/TrainersManagement'))
 const TraineeProjects = lazy(() => import('./pages/TraineeProjects'))
 const IdeaLeaderboard = lazy(() => import('./pages/IdeaLeaderboard'))
@@ -95,8 +94,8 @@ export default function App() {
           <Route path="/docs-archive" element={<DocumentsArchive />} />
           <Route path="/trainees" element={<TrainerOrAdminRoute><TraineesManagement /></TrainerOrAdminRoute>} />
           <Route path="/trainees-management" element={<TrainerOrAdminRoute><TraineesManagement /></TrainerOrAdminRoute>} />
-          <Route path="/approvals" element={<TrainerOrAdminRoute><TrainingApprovals /></TrainerOrAdminRoute>} />
-          <Route path="/training-approvals" element={<TrainerOrAdminRoute><TrainingApprovals /></TrainerOrAdminRoute>} />
+          <Route path="/approvals" element={<Navigate to="/trainees" replace />} />
+          <Route path="/training-approvals" element={<Navigate to="/trainees" replace />} />
           <Route path="/trainers" element={<AdminRoute><TrainersManagement /></AdminRoute>} />
 
           {/* Legacy route redirects */}

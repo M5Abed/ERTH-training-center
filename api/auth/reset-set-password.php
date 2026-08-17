@@ -15,33 +15,41 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data = body();
 
-// Type validation
-if (!is_string($data['reset_token'] ?? null) || !is_string($data['password'] ?? null)) {
-    respondError('Invalid input format');
-}
+$newPw = (string) ($data['password'] ?? $data['new_password'] ?? '');
+$resetToken = (string) ($data['reset_token'] ?? $data['resetToken'] ?? '');
+$email = strtolower(trim((string) ($data['email'] ?? '')));
 
-$resetToken = sanitizeString($data['reset_token'] ?? '');
-$email      = strtolower(sanitizeString($data['email'] ?? ''));
-$newPw      = $data['password'] ?? '';
+if (empty($newPw)) {
+    respondError('Please enter a new password', 400);
+}
 
 // ── Validate reset token from session ──
 $sessionToken = $_SESSION['reset_token'] ?? '';
-$sessionUid   = $_SESSION['reset_token_uid'] ?? 0;
+$sessionUid = (int) ($_SESSION['reset_token_uid'] ?? 0);
 $sessionEmail = $_SESSION['reset_token_email'] ?? '';
-$sessionExp   = $_SESSION['reset_token_exp'] ?? 0;
+$sessionExp = (int) ($_SESSION['reset_token_exp'] ?? 0);
 
-if (!$resetToken || !hash_equals($sessionToken, $resetToken)) {
+// If token wasn't passed in body but session has a valid token, use session token
+if (!$resetToken && $sessionToken) {
+    $resetToken = $sessionToken;
+}
+
+if (!$resetToken || !$sessionToken || !hash_equals($sessionToken, $resetToken)) {
     respondError('Invalid or expired reset token. Please start over.', 403);
 }
 
-if (time() > $sessionExp) {
+if ($sessionExp && time() > $sessionExp) {
     // Clean up expired token
-    unset($_SESSION['reset_token'], $_SESSION['reset_token_uid'],
-          $_SESSION['reset_token_email'], $_SESSION['reset_token_exp']);
+    unset(
+        $_SESSION['reset_token'],
+        $_SESSION['reset_token_uid'],
+        $_SESSION['reset_token_email'],
+        $_SESSION['reset_token_exp']
+    );
     respondError('Reset token has expired. Please start over.', 403);
 }
 
-if ($email && $email !== $sessionEmail) {
+if ($email && $sessionEmail && $email !== $sessionEmail) {
     respondError('Email mismatch', 400);
 }
 
@@ -56,11 +64,15 @@ $hash = password_hash($newPw, PASSWORD_DEFAULT);
 db()->prepare("UPDATE users SET password_hash = ? WHERE id = ?")->execute([$hash, $sessionUid]);
 
 // ── Clean up session ──
-unset($_SESSION['reset_token'], $_SESSION['reset_token_uid'],
-      $_SESSION['reset_token_email'], $_SESSION['reset_token_exp']);
+unset(
+    $_SESSION['reset_token'],
+    $_SESSION['reset_token_uid'],
+    $_SESSION['reset_token_email'],
+    $_SESSION['reset_token_exp']
+);
 
 // Do NOT log the user in — force fresh login for security
 respond([
-    'ok'      => true,
+    'ok' => true,
     'message' => 'Password has been reset successfully. Please log in with your new password.',
 ]);

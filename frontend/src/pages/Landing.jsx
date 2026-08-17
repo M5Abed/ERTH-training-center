@@ -8,7 +8,6 @@ import {
     Code, Activity, Sparkles,
     Check, ArrowUpRight
 } from 'lucide-react';
-import StaffRegisterModal from '../components/StaffRegisterModal';
 import './Landing.css';
 
 /* ── Animated counter ── */
@@ -55,7 +54,6 @@ function useReveal(threshold = 0.08) {
 export default function Landing() {
     const { user } = useAuth();
     const [stats, setStats] = useState({});
-    const [showStaffModal, setShowStaffModal] = useState(false);
     const [scrolled, setScrolled] = useState(false);
 
     // Active track for the Hero Programs Showcase
@@ -104,12 +102,9 @@ export default function Landing() {
                     </nav>
                     <div className="lp-nav-end">
                         {!user ? (
-                            <>
-                                <Link to="/auth" className="lp-ghost">Sign In</Link>
-                                <Link to="/auth?tab=register" className="lp-cta-btn">
-                                    Enroll Now <ArrowRight size={14} />
-                                </Link>
-                            </>
+                            <Link to="/auth" className="lp-cta-btn">
+                                Sign In <ArrowRight size={14} />
+                            </Link>
                         ) : (
                             <Link to="/dashboard" className="lp-cta-btn">
                                 Dashboard <ArrowRight size={14} />
@@ -137,14 +132,9 @@ export default function Landing() {
 
                         <div className="lp-hero-actions">
                             {!user ? (
-                                <>
-                                    <Link to="/auth?tab=register" className="lp-cta-btn lp-cta-btn--lg">
-                                        Enroll in Next Cohort <ArrowUpRight size={18} />
-                                    </Link>
-                                    <Link to="/auth" className="lp-ghost lp-ghost--lg">
-                                        Sign In
-                                    </Link>
-                                </>
+                                <Link to="/auth" className="lp-cta-btn lp-cta-btn--lg">
+                                    Sign In to Platform <ArrowUpRight size={18} />
+                                </Link>
                             ) : (
                                 <Link to="/dashboard" className="lp-cta-btn lp-cta-btn--lg">
                                     Dashboard <ArrowUpRight size={18} />
@@ -155,13 +145,17 @@ export default function Landing() {
                         {/* Technical Spec Metrics */}
                         <div className="lp-spec-metrics">
                             <div className="lp-spec-item">
-                                <span className="lp-spec-val"><Counter to={stats.total_students || 340} />+</span>
+                                <span className="lp-spec-val">
+                                    <Counter to={stats.totalTrainees ?? stats.total_students ?? stats.totalUsers ?? 0} />+
+                                </span>
                                 <span className="lp-spec-lbl">TRAINEES ENROLLED</span>
                             </div>
                             <div className="lp-spec-divider" />
                             <div className="lp-spec-item">
-                                <span className="lp-spec-val"><Counter to={stats.total_projects || 128} /></span>
-                                <span className="lp-spec-lbl">CAPSTONES EVALUATED</span>
+                                <span className="lp-spec-val">
+                                    <Counter to={stats.totalProjects ?? stats.total_projects ?? 0} />
+                                </span>
+                                <span className="lp-spec-lbl">CAPSTONES &amp; PROJECTS</span>
                             </div>
                             <div className="lp-spec-divider" />
                             <div className="lp-spec-item">
@@ -334,14 +328,9 @@ export default function Landing() {
                     <p>Join ERTH Training Center to master robotics, AI, and software engineering with verified credentials.</p>
                     <div className="lp-cta-acts">
                         {!user ? (
-                            <>
-                                <Link to="/auth?tab=register" className="lp-cta-btn lp-cta-btn--lg">
-                                    Register Trainee Account <ArrowRight size={16} />
-                                </Link>
-                                <Link to="/auth" className="lp-ghost lp-ghost--lg">
-                                    Sign In
-                                </Link>
-                            </>
+                            <Link to="/auth" className="lp-cta-btn lp-cta-btn--lg">
+                                Sign In to Training Center <ArrowRight size={16} />
+                            </Link>
                         ) : (
                             <Link to="/courses" className="lp-cta-btn lp-cta-btn--lg">
                                 Go to Course Catalog <ArrowRight size={16} />
@@ -383,8 +372,6 @@ export default function Landing() {
                     </p>
                 </div>
             </footer>
-
-            {showStaffModal && <StaffRegisterModal onClose={() => setShowStaffModal(false)} />}
         </div>
     );
 }

@@ -42,22 +42,28 @@ if (!$rateCheck['allowed']) {
 }
 
 // ── Look up user ──
-$stmt = db()->prepare("SELECT id, email, full_name, email_verified FROM users WHERE email = ?");
+$stmt = db()->prepare("SELECT id, email, full_name FROM users WHERE email = ?");
 $stmt->execute([$email]);
 $user = $stmt->fetch();
 
 // Always respond with success to prevent email enumeration
-// But only actually send the OTP if the user exists and is verified
-if ($user && $user['email_verified']) {
+// But only actually send the OTP if the user exists
+if ($user) {
     try {
         $otpCode = createOtp((int)$user['id'], $user['email'], 'password_reset');
-        sendOtpEmail($user['email'], $user['full_name'] ?: 'User', $otpCode);
+
+        // Attempt sending email via configured SMTP
+        try {
+            sendOtpEmail($user['email'], $user['full_name'] ?: 'User', $otpCode);
+        } catch (\Throwable $mailEx) {
+            error_log("Password reset email delivery failed for {$email}: " . $mailEx->getMessage());
+        }
 
         // Store in session for the next step
         $_SESSION['reset_user_id'] = $user['id'];
         $_SESSION['reset_email']   = $user['email'];
-    } catch (\Exception $e) {
-        error_log("Password reset OTP failed for {$email}: " . $e->getMessage());
+    } catch (\Throwable $e) {
+        error_log("Password reset OTP creation failed for {$email}: " . $e->getMessage());
     }
 }
 

@@ -93,11 +93,6 @@ export default function Sidebar({ open, onClose }) {
             label: 'Trainees Management'
         });
         navItems.push({
-            to: '/approvals',
-            icon: <CheckCircle2 size={20} />,
-            label: 'Registration Requests'
-        });
-        navItems.push({
             to: '/trainers',
             icon: <Users size={20} />,
             label: 'Trainers Management'

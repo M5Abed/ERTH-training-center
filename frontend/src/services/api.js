@@ -443,19 +443,19 @@ export async function changePassword(currentPassword, newPassword) {
 export async function requestPasswordReset(email) {
     const { data, error } = await _api('auth/reset-password.php', { method: 'POST', body: { email } });
     if (error) return { data: null, error };
-    return { data, error: null };
+    return { ...data, data, error: null };
 }
 
 export async function verifyResetOtp(email, otp) {
     const { data, error } = await _api('auth/reset-verify.php', { method: 'POST', body: { email, otp } });
     if (error) return { data: null, error };
-    return { data, error: null };
+    return { ...data, reset_token: data?.reset_token, data, error: null };
 }
 
 export async function resetSetPassword(email, resetToken, password) {
     const { data, error } = await _api('auth/reset-set-password.php', { method: 'POST', body: { email, reset_token: resetToken, password } });
     if (error) return { data: null, error };
-    return { data, error: null };
+    return { ...data, data, error: null };
 }
 
 // Utilities

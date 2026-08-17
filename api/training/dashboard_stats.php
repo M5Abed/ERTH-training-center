@@ -3,7 +3,13 @@ require_once __DIR__ . '/../config.php';
 $uid = requireSession();
 $db = db();
 
-$totalTrainees   = (int)$db->query("SELECT COUNT(DISTINCT trainee_id) FROM trainee_enrollments")->fetchColumn();
+$totalTrainees = (int)$db->query("SELECT COUNT(*) FROM users WHERE role = 'trainee'")->fetchColumn();
+if ($totalTrainees === 0) {
+    $totalTrainees = (int)$db->query("SELECT COUNT(DISTINCT trainee_id) FROM trainee_enrollments")->fetchColumn();
+}
+if ($totalTrainees === 0) {
+    $totalTrainees = (int)$db->query("SELECT COUNT(*) FROM users WHERE (role IS NULL OR role = '' OR role = 'trainee') AND (is_admin = 0 OR is_admin IS NULL)")->fetchColumn();
+}
 $totalIdeas      = (int)$db->query("SELECT COUNT(*) FROM training_ideas WHERE status != 'draft'")->fetchColumn();
 $totalDocs       = (int)$db->query("SELECT COUNT(*) FROM training_documents")->fetchColumn();
 $totalCourses    = (int)$db->query("SELECT COUNT(*) FROM training_courses WHERE status='active'")->fetchColumn();

@@ -164,6 +164,27 @@
     color: var(--text-muted);
 }
 
+.tm-row-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.65rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface-1);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tm-row-edit-btn:hover {
+    background: var(--surface-2);
+    border-color: var(--primary, #8b0000);
+    color: var(--primary, #8b0000);
+}
+
 .tm-course-badge {
     display: inline-flex;
     align-items: center;
@@ -214,4 +235,146 @@
     .tm-header { flex-direction: column; }
     .tm-filter-card { flex-direction: column; align-items: stretch; }
     .tm-select-wrapper { border-left: none; border-top: 1px solid var(--border); padding-left: 0; padding-top: 0.5rem; }
+}
+
+/* ── Pagination Controls ── */
+.tm-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1.25rem 0.5rem 0.5rem;
+    margin-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+.tm-pagination-info {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.tm-pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.tm-per-page-select {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.tm-per-page-select select {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.tm-per-page-select select:focus {
+    border-color: var(--primary, #8b0000);
+}
+
+.tm-page-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.tm-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 0.6rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-1);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tm-nav-btn:hover:not(:disabled) {
+    background: var(--surface-2);
+    border-color: var(--border-medium, #cbd5e1);
+    color: var(--primary, #8b0000);
+}
+
+.tm-nav-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.tm-num-pages {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.tm-page-btn {
+    min-width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-1);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tm-page-btn:hover:not(.active) {
+    background: var(--surface-2);
+    border-color: var(--border-medium, #cbd5e1);
+}
+
+.tm-page-btn.active {
+    background: var(--primary, #8b0000);
+    color: #ffffff;
+    border-color: var(--primary, #8b0000);
+    box-shadow: 0 2px 6px rgba(139, 0, 0, 0.25);
+}
+
+.tm-ellipsis {
+    padding: 0 0.35rem;
+    color: var(--text-muted);
+    font-weight: 700;
+    user-select: none;
+}
+
+@media (max-width: 640px) {
+    .tm-pagination {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 0.75rem;
+    }
+    .tm-pagination-controls {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    .tm-btn-label {
+        display: none;
+    }
 }

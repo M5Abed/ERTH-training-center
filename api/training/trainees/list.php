@@ -16,7 +16,7 @@ $db       = db();
 $courseId = isset($_GET['course_id']) && $_GET['course_id'] !== '' ? (int)$_GET['course_id'] : null;
 $search   = sanitizeString($_GET['search'] ?? '');
 $page     = max(1, (int)($_GET['page'] ?? 1));
-$perPage  = 50;
+$perPage  = min(200, max(10, (int)($_GET['per_page'] ?? 50)));
 $offset   = ($page - 1) * $perPage;
 
 $where  = "WHERE 1=1";
