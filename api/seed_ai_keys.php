@@ -28,7 +28,7 @@ $keys = [
         'provider'     => 'groq',
         'key_label'    => 'Groq Key 1',
         'env_var_name' => 'GROQ_KEY_1',
-        'model'        => 'llama-3.1-8b-instant',
+        'model'        => 'groq/compound-mini',
         'api_url'      => 'https://api.groq.com/openai/v1/chat/completions',
         'priority'     => 10,
     ],
@@ -36,7 +36,7 @@ $keys = [
         'provider'     => 'groq',
         'key_label'    => 'Groq Key 2',
         'env_var_name' => 'GROQ_KEY_2',
-        'model'        => 'llama-3.1-8b-instant',
+        'model'        => 'groq/compound-mini',
         'api_url'      => 'https://api.groq.com/openai/v1/chat/completions',
         'priority'     => 11,
     ],
@@ -44,7 +44,7 @@ $keys = [
         'provider'     => 'groq',
         'key_label'    => 'Groq Key 3',
         'env_var_name' => 'GROQ_KEY_3',
-        'model'        => 'llama-3.1-8b-instant',
+        'model'        => 'groq/compound-mini',
         'api_url'      => 'https://api.groq.com/openai/v1/chat/completions',
         'priority'     => 12,
     ],
@@ -52,7 +52,7 @@ $keys = [
         'provider'     => 'groq',
         'key_label'    => 'Groq Key 4',
         'env_var_name' => 'GROQ_KEY_4',
-        'model'        => 'llama-3.1-8b-instant',
+        'model'        => 'groq/compound-mini',
         'api_url'      => 'https://api.groq.com/openai/v1/chat/completions',
         'priority'     => 13,
     ],
@@ -60,7 +60,7 @@ $keys = [
         'provider'     => 'groq',
         'key_label'    => 'Groq Key 5',
         'env_var_name' => 'GROQ_KEY_5',
-        'model'        => 'llama-3.1-8b-instant',
+        'model'        => 'groq/compound-mini',
         'api_url'      => 'https://api.groq.com/openai/v1/chat/completions',
         'priority'     => 14,
     ],
@@ -91,12 +91,16 @@ $skipped   = 0;
 $errors    = [];
 
 $stmt = db()->prepare(
-    'INSERT IGNORE INTO ai_provider_keys
+    'INSERT INTO ai_provider_keys
         (provider, key_label, env_var_name, model, api_url, priority,
          used_today_tokens, reset_date, is_active)
      VALUES
         (:provider, :key_label, :env_var_name, :model, :api_url, :priority,
-         0, :reset_date, :is_active)'
+         0, :reset_date, :is_active)
+     ON DUPLICATE KEY UPDATE
+        model = VALUES(model),
+        api_url = VALUES(api_url),
+        is_active = VALUES(is_active)'
 );
 
 foreach ($keys as $key) {
