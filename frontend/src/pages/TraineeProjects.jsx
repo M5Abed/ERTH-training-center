@@ -13,6 +13,7 @@ import TeammateSelector from '../components/TeammateSelector';
 import MemberDetailModal from '../components/MemberDetailModal';
 import ProposalViewer from '../components/ProposalViewer';
 import ProposalDocModal from '../components/ProposalDocModal';
+import { downloadProposalDocx } from '../services/api';
 import './TrainingCourseDetail.css';
 import './TraineeProjects.css';
 
@@ -90,6 +91,19 @@ export default function TraineeProjects() {
     const [docError, setDocError] = useState('');
     const [docSuccess, setDocSuccess] = useState('');
     const [completingProject, setCompletingProject] = useState(false);
+    const [downloadingDocxId, setDownloadingDocxId] = useState(null);
+
+    const handleDownloadProjectDocx = async (ideaId, title) => {
+        if (!ideaId) return;
+        setDownloadingDocxId(ideaId);
+        try {
+            await downloadProposalDocx(ideaId, title || 'Proposal');
+        } catch (err) {
+            alert(err.message || 'Error downloading Word document');
+        } finally {
+            setDownloadingDocxId(null);
+        }
+    };
 
     // Team management state inside "My Team" tab
     const [viewingMember, setViewingMember] = useState(null);
@@ -348,6 +362,10 @@ export default function TraineeProjects() {
             setDocError(lang === 'ar' ? 'يرجى اختيار ملف لرفعه' : 'Please select a file to upload');
             return;
         }
+        if (!docFileTitle.trim()) {
+            setDocError(lang === 'ar' ? 'يرجى إدخال عنوان أو مسمى للملف' : 'Please enter a title for the file');
+            return;
+        }
 
         setUploadingDoc(true);
         setDocError('');
@@ -358,9 +376,7 @@ export default function TraineeProjects() {
             formData.append('idea_id', activeProject.id);
             formData.append('course_id', activeProject.course_id || '');
             formData.append('file', docFile);
-            if (docFileTitle.trim()) {
-                formData.append('title', docFileTitle.trim());
-            }
+            formData.append('title', docFileTitle.trim());
 
             const res = await fetch('/api/training/docs/upload.php', {
                 method: 'POST',
@@ -1325,6 +1341,10 @@ export default function TraineeProjects() {
                                                             onChange={e => {
                                                                 if (e.target.files[0]) {
                                                                     setDocFile(e.target.files[0]);
+                                                                    if (!docFileTitle) {
+                                                                        const cleanName = e.target.files[0].name.replace(/\.[^/.]+$/, "");
+                                                                        setDocFileTitle(cleanName);
+                                                                    }
                                                                 }
                                                             }}
                                                         />
@@ -1346,15 +1366,16 @@ export default function TraineeProjects() {
                                                     <div style={{ display: 'flex', gap: '8px', marginTop: '0.75rem' }}>
                                                         <input
                                                             type="text"
+                                                            required
                                                             className="doc-title-input"
-                                                            placeholder={lang === 'ar' ? 'عنوان توضيحي للملف (اختياري)...' : 'File title / description (optional)...'}
+                                                            placeholder={lang === 'ar' ? 'عنوان أو مسمى الملف (مطلوب)...' : 'File title / description (required)...'}
                                                             value={docFileTitle}
                                                             onChange={e => setDocFileTitle(e.target.value)}
                                                         />
                                                         <button
                                                             type="submit"
                                                             className="btn btn-primary"
-                                                            disabled={uploadingDoc || !docFile}
+                                                            disabled={uploadingDoc || !docFile || !docFileTitle.trim()}
                                                             style={{ padding: '0.55rem 1.25rem', fontWeight: 700, flexShrink: 0 }}
                                                         >
                                                             {uploadingDoc ? <Loader2 size={16} className="spin" /> : <Upload size={16} />}
@@ -1467,7 +1488,7 @@ export default function TraineeProjects() {
                                                                 <div className="deliverable-info-col">
                                                                     <div className="deliverable-title-row">
                                                                         <strong className="deliverable-name">{d.file_name}</strong>
-                                                                        <span className={`deliverable-type-badge ${d.doc_type}`}>{d.doc_type}</span>
+                                                                        {isLink && <span className={`deliverable-type-badge ${d.doc_type}`}>{d.doc_type}</span>}
                                                                     </div>
                                                                     <div className="deliverable-meta-row">
                                                                         {d.file_size > 0 && <span><HardDrive size={13} /> {(d.file_size / (1024 * 1024)).toFixed(2)} MB</span>}
@@ -1649,14 +1670,16 @@ export default function TraineeProjects() {
                                             {new Date(project.updated_at || project.created_at).toLocaleDateString()}
                                         </span>
                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                            <a
-                                                href={`/api/training/ideas/proposal_docx.php?idea_id=${project.id}`}
-                                                download
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDownloadProjectDocx(project.id, project.title_en || project.title)}
+                                                disabled={downloadingDocxId === project.id}
                                                 className="btn btn-sm btn-outline-primary"
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: downloadingDocxId === project.id ? 'wait' : 'pointer' }}
                                             >
-                                                <Download size={14} />
-                                                <span>Word (.docx)</span>
-                                            </a>
+                                                {downloadingDocxId === project.id ? <Loader2 size={14} className="spin" /> : <Download size={14} />}
+                                                <span>{downloadingDocxId === project.id ? '...' : 'Word (.docx)'}</span>
+                                            </button>
 
                                             <button
                                                 className="btn btn-primary btn-sm"
@@ -1664,10 +1687,8 @@ export default function TraineeProjects() {
                                                     setActiveProject(project);
                                                     setFeedback(project.feedback || '');
                                                     setVoteNotes(project.vote_summary?.my_notes || '');
-                                                    setError('');
-                                                    setEvalSuccess('');
                                                     setEvalTab('proposal');
-                                                    fetchIdeaDocs(project.id);
+                                                    fetchProjectDocs(project.id);
                                                 }}
                                             >
                                                 {lang === 'ar' ? 'مراجعة وتقييم' : 'Review & Evaluate'}
@@ -1706,15 +1727,16 @@ export default function TraineeProjects() {
                                 </div>
                             </div>
                             <div className="eval-modal-header-right">
-                                <a
-                                    href={`/api/training/ideas/proposal_docx.php?idea_id=${activeProject.id}`}
-                                    download
+                                <button
+                                    type="button"
+                                    onClick={() => handleDownloadProjectDocx(activeProject.id, activeProject.title_en || activeProject.title)}
+                                    disabled={downloadingDocxId === activeProject.id}
                                     className="btn btn-sm btn-outline-primary"
-                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: downloadingDocxId === activeProject.id ? 'wait' : 'pointer' }}
                                 >
-                                    <Download size={15} />
-                                    <span>Word (.docx)</span>
-                                </a>
+                                    {downloadingDocxId === activeProject.id ? <Loader2 size={15} className="spin" /> : <Download size={15} />}
+                                    <span>{downloadingDocxId === activeProject.id ? (lang === 'ar' ? 'جارٍ التحميل...' : 'Downloading...') : 'Word (.docx)'}</span>
+                                </button>
                                 <button className="eval-modal-close-btn" onClick={() => setActiveProject(null)}>
                                     <X size={20} />
                                 </button>
@@ -1777,7 +1799,7 @@ export default function TraineeProjects() {
                                                                     {isLink ? <ExternalLink size={18} className="text-primary" /> : <FileText size={18} className="text-primary" />}
                                                                     <div>
                                                                         <strong className="eval-doc-name">{d.file_name}</strong>
-                                                                        <span className="source-tag">{d.doc_type}</span>
+                                                                        {isLink && <span className="source-tag">{d.doc_type}</span>}
                                                                     </div>
                                                                 </div>
                                                                 <a href={d.file_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline">

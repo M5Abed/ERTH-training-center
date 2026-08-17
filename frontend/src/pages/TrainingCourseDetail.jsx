@@ -14,6 +14,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import EngMagyMascot from '../components/mascot/EngMagyMascot';
 import TeammateSelector from '../components/TeammateSelector';
 import MemberDetailModal from '../components/MemberDetailModal';
+import { downloadProposalDocx } from '../services/api';
 import './TrainingCourseDetail.css';
 
 export default function TrainingCourseDetail({ courseIdOverride }) {
@@ -237,6 +238,19 @@ void loop() {
     const [selectedTeammates, setSelectedTeammates] = useState([]);
     const [viewingMember, setViewingMember] = useState(null);
     const [ideaSubmitError, setIdeaSubmitError] = useState('');
+    const [downloadingIdeaDocx, setDownloadingIdeaDocx] = useState(false);
+
+    const handleDownloadMyIdeaDocx = async () => {
+        if (!myIdea?.id) return;
+        setDownloadingIdeaDocx(true);
+        try {
+            await downloadProposalDocx(myIdea.id, myIdea.title_en || myIdea.title || 'Proposal');
+        } catch (err) {
+            alert(err.message || 'Error downloading Word document');
+        } finally {
+            setDownloadingIdeaDocx(false);
+        }
+    };
 
     // Trainer Evaluation Form state
     const [evalScore, setEvalScore] = useState(100);
@@ -1445,15 +1459,16 @@ void loop() {
                                             </div>
                                         </div>
                                         <div className="standout-actions">
-                                            <a
-                                                href={`/api/training/ideas/proposal_docx.php?idea_id=${myIdea.id}`}
-                                                download
+                                            <button
+                                                type="button"
+                                                onClick={handleDownloadMyIdeaDocx}
+                                                disabled={downloadingIdeaDocx}
                                                 className="btn btn-primary btn-sm"
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: downloadingIdeaDocx ? 'wait' : 'pointer' }}
                                             >
-                                                <Download size={15} />
-                                                <span>{lang === 'ar' ? 'تحميل ملف Word (.docx)' : 'Download Word (.docx)'}</span>
-                                            </a>
+                                                {downloadingIdeaDocx ? <Loader2 size={15} className="spin" /> : <Download size={15} />}
+                                                <span>{downloadingIdeaDocx ? (lang === 'ar' ? 'جارٍ التحميل...' : 'Downloading...') : (lang === 'ar' ? 'تحميل ملف Word (.docx)' : 'Download Word (.docx)')}</span>
+                                            </button>
                                             <Link
                                                 to="/submitted-projects"
                                                 className="btn btn-outline btn-sm"

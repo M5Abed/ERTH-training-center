@@ -18,10 +18,10 @@ try {
     $status   = trim(strtolower($data['status'] ?? 'under_review')); // approved, rejected, changes_requested, voting, under_review
     $feedback = sanitizeString($data['feedback'] ?? '');
 
-    $allowedStatuses = ['approved', 'rejected', 'changes_requested', 'voting', 'under_review', 'submitted'];
+    $allowedStatuses = ['approved', 'completed', 'rejected', 'changes_requested', 'voting', 'under_review', 'submitted'];
 
     if (!$ideaId || !in_array($status, $allowedStatuses, true)) {
-        respondError('Valid idea ID and status (approved, rejected, changes_requested, voting) are required');
+        respondError('Valid idea ID and status (approved, completed, rejected, changes_requested, voting) are required');
     }
 
     $db = db();

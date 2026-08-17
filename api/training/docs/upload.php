@@ -209,7 +209,12 @@ try {
         }
 
         $fileUrl  = '/uploads/docs/' . $uid . '/' . $uniqueName;
-        $fileName = htmlspecialchars(basename($file['name']), ENT_QUOTES, 'UTF-8');
+        $titleInput = trim($inputData['title'] ?? $inputData['file_title'] ?? '');
+        if (!empty($titleInput)) {
+            $fileName = htmlspecialchars($titleInput, ENT_QUOTES, 'UTF-8');
+        } else {
+            $fileName = htmlspecialchars(basename($file['name']), ENT_QUOTES, 'UTF-8');
+        }
         $fileSize = (int) $file['size'];
     } else {
         respondError('Either a file upload or a valid URL link is required');

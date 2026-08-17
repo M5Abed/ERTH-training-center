@@ -5,6 +5,7 @@ import {
     Sparkles, Clock, Shield, Pencil, Save,
     Info, CheckSquare, Layers, HelpCircle
 } from 'lucide-react';
+import { downloadProposalDocx } from '../services/api';
 import './ProposalDocModal.css';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -578,8 +579,21 @@ export default function ProposalDocModal({
     const [saveApprovalErr, setSaveApprovalErr] = useState('');
     // loadingKeys = set of section keys currently being filled (shimmer shown)
     const [loadingKeys, setLoadingKeys]     = useState(new Set());
+    const [downloadingDocx, setDownloadingDocx] = useState(false);
     const bodyRef = useRef(null);
     const autoFillTriggered = useRef(false);
+
+    const handleDownloadDocx = async () => {
+        if (!ideaId) return;
+        setDownloadingDocx(true);
+        try {
+            await downloadProposalDocx(ideaId, title || 'Proposal');
+        } catch (err) {
+            alert(err.message || 'Error downloading Word document');
+        } finally {
+            setDownloadingDocx(false);
+        }
+    };
 
     if (!proposal) return null;
 
@@ -788,9 +802,10 @@ export default function ProposalDocModal({
 
                         {/* Primary Action 1: Download Official .docx */}
                         {ideaId && (
-                            <a
-                                href={`/api/training/ideas/proposal_docx.php?idea_id=${ideaId}`}
-                                download
+                            <button
+                                type="button"
+                                onClick={handleDownloadDocx}
+                                disabled={downloadingDocx}
                                 className="pdm-btn-download pdm-btn-docx-primary"
                                 style={{
                                     background: 'linear-gradient(135deg, #c8a951 0%, #e2c875 100%)',
@@ -802,13 +817,14 @@ export default function ProposalDocModal({
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     gap: '6px',
+                                    cursor: downloadingDocx ? 'wait' : 'pointer',
                                     boxShadow: '0 2px 8px rgba(200, 169, 81, 0.35)'
                                 }}
                                 title="Download the official NMU Word document template (.docx)"
                             >
-                                <Download size={15} />
-                                <span>{lang === 'ar' ? 'تحميل ملف Word (.docx)' : 'Download Word (.docx)'}</span>
-                            </a>
+                                {downloadingDocx ? <Loader2 size={15} className="spin" /> : <Download size={15} />}
+                                <span>{downloadingDocx ? (lang === 'ar' ? 'جارٍ التحميل...' : 'Downloading...') : (lang === 'ar' ? 'تحميل ملف Word (.docx)' : 'Download Word (.docx)')}</span>
+                            </button>
                         )}
 
                         {/* Action 2: ERTH AI Fill (Only for custom ideas, NOT for 64 pre-approved catalog ideas) */}

@@ -484,3 +484,30 @@ export async function searchStaff(query) {
     if (error) return [];
     return data || [];
 }
+
+// Download Proposal DOCX helper
+export async function downloadProposalDocx(ideaId, customTitle = '') {
+    if (!ideaId) throw new Error('Missing ideaId');
+    const res = await fetch(`/api/training/ideas/proposal_docx.php?idea_id=${ideaId}`, {
+        credentials: 'include'
+    });
+    if (!res.ok) {
+        let err = 'Failed to download document';
+        try {
+            const j = await res.json();
+            if (j.error) err = j.error;
+        } catch (_) {}
+        throw new Error(err);
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    const safeTitle = (customTitle || 'Proposal').replace(/[^a-zA-Z0-9_\-]/g, '_');
+    a.download = `ERTH_${safeTitle}_Proposal.docx`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}

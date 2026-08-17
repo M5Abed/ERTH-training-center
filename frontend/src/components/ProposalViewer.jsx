@@ -5,6 +5,7 @@ import {
     Layers, Cpu, Layout, Code, ShieldAlert, ShieldCheck, Hammer, Activity,
     Bookmark, Paperclip, Copy, Check, Search, Filter
 } from 'lucide-react';
+import { downloadProposalDocx } from '../services/api';
 import './ProposalViewer.css';
 
 // Section icons & badges helper
@@ -49,6 +50,19 @@ export default function ProposalViewer({
     const [savingEdit, setSavingEdit] = useState(false);
     const [editError, setEditError] = useState('');
     const [editSuccess, setEditSuccess] = useState('');
+    const [downloadingDocx, setDownloadingDocx] = useState(false);
+
+    const handleDownload = async () => {
+        if (!ideaId) return;
+        setDownloadingDocx(true);
+        try {
+            await downloadProposalDocx(ideaId, title || 'Proposal');
+        } catch (err) {
+            alert(err.message || 'Error downloading Word proposal');
+        } finally {
+            setDownloadingDocx(false);
+        }
+    };
 
     useEffect(() => {
         if (initialProposal) {
@@ -205,14 +219,16 @@ export default function ProposalViewer({
 
                 <div className="proposal-header-actions">
                     {ideaId && (
-                        <a
-                            href={`/api/training/ideas/proposal_docx.php?idea_id=${ideaId}`}
-                            download
+                        <button
+                            type="button"
+                            onClick={handleDownload}
+                            disabled={downloadingDocx}
                             className="btn-docx-download"
+                            style={{ cursor: downloadingDocx ? 'wait' : 'pointer' }}
                         >
-                            <Download size={15} />
-                            <span>{lang === 'ar' ? 'تحميل التقرير الكامل (.docx)' : 'Download Full Proposal (.docx)'}</span>
-                        </a>
+                            {downloadingDocx ? <Loader2 size={15} className="spin" /> : <Download size={15} />}
+                            <span>{downloadingDocx ? (lang === 'ar' ? 'جارٍ التحميل...' : 'Downloading...') : (lang === 'ar' ? 'تحميل التقرير الكامل (.docx)' : 'Download Full Proposal (.docx)')}</span>
+                        </button>
                     )}
                 </div>
             </div>
