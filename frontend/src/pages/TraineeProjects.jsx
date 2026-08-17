@@ -1655,14 +1655,6 @@ export default function TraineeProjects() {
                                                 ))}
                                             </div>
                                         )}
-
-                                        {project.vote_summary && project.vote_summary.total_votes > 0 && (
-                                            <div className="card-voting-summary">
-                                                <span className="vote-pill vote-approve"><ThumbsUp size={12} /> {project.vote_summary.approve_count}</span>
-                                                <span className="vote-pill vote-reject"><ThumbsDown size={12} /> {project.vote_summary.reject_count}</span>
-                                                <span className="vote-pill vote-total"><Vote size={12} /> {project.vote_summary.total_votes}</span>
-                                            </div>
-                                        )}
                                     </div>
 
                                     <div className="project-card-footer">
