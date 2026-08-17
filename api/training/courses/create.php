@@ -29,45 +29,29 @@ if (!$name) {
 $db = db();
 
 try {
-    $cols = $db->query("SHOW COLUMNS FROM training_courses LIKE 'duration_hours'")->fetchAll();
-    if (empty($cols)) {
-        $db->exec("ALTER TABLE training_courses ADD COLUMN duration_hours INT NOT NULL DEFAULT 40 AFTER end_date");
-    }
-    $catCols = $db->query("SHOW COLUMNS FROM training_courses LIKE 'category'")->fetchAll();
-    if (empty($catCols)) {
-        $db->exec("ALTER TABLE training_courses ADD COLUMN category VARCHAR(150) NULL AFTER name_en, ADD COLUMN level VARCHAR(100) NULL AFTER category");
-    }
-    $nameCols = $db->query("SHOW COLUMNS FROM training_courses LIKE 'name'")->fetchAll();
-    if (empty($nameCols)) {
-        $db->exec("ALTER TABLE training_courses ADD COLUMN name VARCHAR(255) NULL AFTER name_en");
-    }
-    $descCols = $db->query("SHOW COLUMNS FROM training_courses LIKE 'description'")->fetchAll();
-    if (empty($descCols)) {
-        $db->exec("ALTER TABLE training_courses ADD COLUMN description TEXT NULL AFTER description_en");
-    }
-} catch (Throwable $e) {}
+    $stmt = $db->prepare("
+        INSERT INTO training_courses (name, category, level, description, start_date, end_date, duration_hours, status, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)
+    ");
+    $stmt->execute([
+        $name,
+        $category,
+        $level,
+        $description ?: null,
+        $startDate ?: null,
+        $endDate ?: null,
+        $durationHours,
+        $admin['id']
+    ]);
+    $courseId = (int)$db->lastInsertId();
 
-$stmt = $db->prepare("
-    INSERT INTO training_courses (name, name_en, category, level, description, description_en, start_date, end_date, duration_hours, status, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
-");
-$stmt->execute([
-    $name,
-    $name,
-    $category,
-    $level,
-    $description ?: null,
-    $description ?: null,
-    $startDate ?: null,
-    $endDate ?: null,
-    $durationHours,
-    $admin['id']
-]);
-$courseId = (int)$db->lastInsertId();
-
-respond([
-    'success' => true,
-    'message' => 'Course created successfully',
-    'course_id' => $courseId
-], 201);
+    respond([
+        'success' => true,
+        'message' => 'Course created successfully',
+        'course_id' => $courseId
+    ], 201);
+} catch (Throwable $e) {
+    error_log('Failed to create course: ' . $e->getMessage());
+    respondError('Failed to create course: ' . $e->getMessage(), 500);
+}
 

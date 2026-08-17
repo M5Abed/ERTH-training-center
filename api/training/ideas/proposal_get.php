@@ -28,7 +28,7 @@ $db = db();
 // Fetch the idea — trainees can only read their own or team idea
 if ($isEval) {
     $stmt = $db->prepare('
-        SELECT i.id, i.owner_id, i.title_en, i.proposal_json, i.catalog_project_id,
+        SELECT i.id, i.owner_id, i.title, i.proposal_json, i.catalog_project_id,
                i.status, i.course_id
         FROM training_ideas i
         WHERE i.id = ?
@@ -36,7 +36,7 @@ if ($isEval) {
     $stmt->execute([$ideaId]);
 } else {
     $stmt = $db->prepare('
-        SELECT i.id, i.owner_id, i.title_en, i.proposal_json, i.catalog_project_id,
+        SELECT i.id, i.owner_id, i.title, i.proposal_json, i.catalog_project_id,
                i.status, i.course_id
         FROM training_ideas i
         WHERE i.id = ?
@@ -72,7 +72,7 @@ $documentLabel = $isEval ? 'documentation' : 'proposal';
 
 respond([
     'idea_id'            => (int)$idea['id'],
-    'title'              => $idea['title_en'],
+    'title'              => $idea['title'],
     'catalog_project_id' => $idea['catalog_project_id'] ? (int)$idea['catalog_project_id'] : null,
     'status'             => $idea['status'],
     'document_label'     => $documentLabel,

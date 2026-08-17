@@ -46,13 +46,13 @@ if (!$courseId || !$title || !$description) {
 $db = db();
 
 // Verify course exists
-$cStmt = $db->prepare("SELECT id, name_en FROM training_courses WHERE id = ?");
+$cStmt = $db->prepare("SELECT id, name FROM training_courses WHERE id = ?");
 $cStmt->execute([$courseId]);
 $course = $cStmt->fetch();
 if (!$course) {
     respondError('Invalid or non-existent course selected');
 }
-$courseName = $course['name_en'] ?? 'Training Course';
+$courseName = $course['name'] ?? 'Training Course';
 
 // Require submitter to be enrolled in the course (unless admin)
 $role = strtolower($user['role'] ?? '');
@@ -68,7 +68,7 @@ if (!$isAdmin) {
 
 // Check if submitter is already in another team as a member (site-wide)
 $mStmt = $db->prepare("
-    SELECT ti.id, ti.title_en, tim.role, tc.name AS course_name
+    SELECT ti.id, ti.title, tim.role, tc.name AS course_name
     FROM training_idea_members tim
     JOIN training_ideas ti ON tim.idea_id = ti.id
     LEFT JOIN training_courses tc ON ti.course_id = tc.id
@@ -77,7 +77,7 @@ $mStmt = $db->prepare("
 $mStmt->execute([$uid]);
 $existingMemberRow = $mStmt->fetch();
 if ($existingMemberRow) {
-    respondError("You are already enrolled as a team member in project ('" . ($existingMemberRow['title_en'] ?: 'Project') . "'). You cannot submit another project.");
+    respondError("You are already enrolled as a team member in project ('" . ($existingMemberRow['title'] ?: 'Project') . "'). You cannot submit another project.");
 }
 
 // Check if submitter already owns an idea for this course
@@ -109,18 +109,18 @@ if (!empty($teammateIds)) {
         }
 
         // 3. Teammate is not leader of another project
-        $tOwnSql = "SELECT id, title_en FROM training_ideas WHERE owner_id = ?" . ($existingIdeaId ? " AND id != ?" : "");
+        $tOwnSql = "SELECT id, title FROM training_ideas WHERE owner_id = ?" . ($existingIdeaId ? " AND id != ?" : "");
         $tOwnParams = $existingIdeaId ? [$tId, $existingIdeaId] : [$tId];
         $tOwnStmt = $db->prepare($tOwnSql);
         $tOwnStmt->execute($tOwnParams);
         $tOwnRow = $tOwnStmt->fetch();
         if ($tOwnRow) {
-            respondError("Student '$tName' is already the leader of another project ('" . ($tOwnRow['title_en'] ?: 'Project') . "').");
+            respondError("Student '$tName' is already the leader of another project ('" . ($tOwnRow['title'] ?: 'Project') . "').");
         }
 
         // 4. Teammate is not a member of another project
         $tMemSql = "
-            SELECT ti.id, ti.title_en 
+            SELECT ti.id, ti.title 
             FROM training_idea_members tim
             JOIN training_ideas ti ON tim.idea_id = ti.id
             WHERE tim.user_id = ?" . ($existingIdeaId ? " AND ti.id != ?" : "");
@@ -129,7 +129,7 @@ if (!empty($teammateIds)) {
         $tMemStmt->execute($tMemParams);
         $tMemRow = $tMemStmt->fetch();
         if ($tMemRow) {
-            respondError("Student '$tName' is already a team member in another project ('" . ($tMemRow['title_en'] ?: 'Project') . "').");
+            respondError("Student '$tName' is already a team member in another project ('" . ($tMemRow['title'] ?: 'Project') . "').");
         }
     }
 }
@@ -186,8 +186,8 @@ try {
         $ideaId = $existingIdeaId;
         $uStmt = $db->prepare("
             UPDATE training_ideas 
-            SET title_en          = ?,
-                description_en    = ?,
+            SET title             = ?,
+                description       = ?,
                 tech_stack        = ?,
                 problem_statement = ?,
                 expected_output   = ?,
@@ -208,7 +208,7 @@ try {
     } else {
         $iStmt = $db->prepare("
             INSERT INTO training_ideas 
-                (owner_id, course_id, title_en, description_en, tech_stack, problem_statement, expected_output, proposal_json, status)
+                (owner_id, course_id, title, description, tech_stack, problem_statement, expected_output, proposal_json, status)
             VALUES 
                 (?, ?, ?, ?, ?, ?, ?, ?, 'submitted')
         ");

@@ -207,8 +207,8 @@ export default function TraineeProjects() {
         }
     };
 
-    const fetchCatalogProjects = async () => {
-        if (catalogProjects.length > 0) return;
+    const fetchCatalogProjects = async (force = false) => {
+        if (!force && catalogProjects.length > 0) return;
         setCatalogError('');
         setLoadingCatalog(true);
         try {
@@ -1911,62 +1911,96 @@ export default function TraineeProjects() {
                                     </div>
                                 </div>
 
+                                {catalogError && (
+                                    <div className="alert alert-error" style={{ marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                        <span>{catalogError}</span>
+                                        <button
+                                            type="button"
+                                            className="btn btn-secondary"
+                                            onClick={() => fetchCatalogProjects(true)}
+                                            style={{ padding: '3px 10px', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                            <RefreshCw size={12} /> {lang === 'ar' ? 'إعادة المحاولة' : 'Retry'}
+                                        </button>
+                                    </div>
+                                )}
+
                                 {loadingCatalog ? (
                                     <div style={{ textAlign: 'center', padding: '3rem 2rem' }}>
                                         <Loader2 className="spin" size={28} style={{ color: '#3b82f6' }} />
-                                        <p style={{ marginTop: '0.75rem', color: '#94a3b8', fontSize: '0.9rem' }}>Loading 64 official project ideas...</p>
+                                        <p style={{ marginTop: '0.75rem', color: '#94a3b8', fontSize: '0.9rem' }}>
+                                            {lang === 'ar' ? 'جاري تحميل دليل المشاريع الـ 64 المعتمدة...' : 'Loading 64 official project ideas...'}
+                                        </p>
                                     </div>
-                                ) : (
-                                    <div className="catalog-grid-64">
-                                        {catalogProjects.filter(p => {
-                                            if (catalogCategory !== 'all' && p.category !== catalogCategory) return false;
-                                            if (catalogSearch.trim()) {
-                                                const q = catalogSearch.toLowerCase();
-                                                return (p.title || '').toLowerCase().includes(q) ||
-                                                    (p.skills || '').toLowerCase().includes(q);
-                                            }
-                                            return true;
-                                        }).map(p => {
-                                            const isSelected = selectedCatalogId === p.id;
-                                            return (
-                                                <div
-                                                    key={p.id}
-                                                    className={`catalog-item-card ${isSelected ? 'selected' : ''}`}
-                                                    onClick={() => handleSelectCatalogIdea(p)}
-                                                >
-                                                    <div>
-                                                        <div className="catalog-item-top">
-                                                            <span className="catalog-item-id">#{p.id}</span>
-                                                            <span className={`category-tag ${p.category}`}>{p.category}</span>
-                                                        </div>
-                                                        <h4>{p.title}</h4>
-                                                        <p className="catalog-item-skills">
-                                                            <strong>{p.level}</strong> • {p.skills}
-                                                        </p>
-                                                    </div>
+                                ) : (() => {
+                                    const filtered = catalogProjects.filter(p => {
+                                        if (catalogCategory !== 'all' && p.category !== catalogCategory) return false;
+                                        if (catalogSearch.trim()) {
+                                            const q = catalogSearch.toLowerCase();
+                                            return (p.title || '').toLowerCase().includes(q) ||
+                                                (p.skills || '').toLowerCase().includes(q) ||
+                                                (p.level || '').toLowerCase().includes(q);
+                                        }
+                                        return true;
+                                    });
 
-                                                    <button
-                                                        type="button"
-                                                        className="btn-select-catalog-item"
-                                                        disabled={selectingCatalog}
+                                    if (filtered.length === 0) {
+                                        return (
+                                            <div style={{ textAlign: 'center', padding: '3rem 2rem', color: 'var(--text-2, #64748b)', background: 'var(--bg-subtle, #f8fafc)', borderRadius: '12px', border: '1px dashed var(--border, #cbd5e1)' }}>
+                                                <p style={{ fontWeight: 700, fontSize: '0.95rem', margin: '0 0 0.35rem 0', color: 'var(--text-0, #0f172a)' }}>
+                                                    {lang === 'ar' ? 'لم يتم العثور على أفكار مشاريع مطابقة للبحث' : 'No project templates found matching your search'}
+                                                </p>
+                                                <p style={{ fontSize: '0.85rem', margin: 0 }}>
+                                                    {lang === 'ar' ? 'جرب البحث بكلمات أخرى أو اختر تصنيفاً مختلفاً.' : 'Try searching with different keywords or select another category filter.'}
+                                                </p>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div className="catalog-grid-64">
+                                            {filtered.map(p => {
+                                                const isSelected = selectedCatalogId === p.id;
+                                                return (
+                                                    <div
+                                                        key={p.id}
+                                                        className={`catalog-item-card ${isSelected ? 'selected' : ''}`}
+                                                        onClick={() => handleSelectCatalogIdea(p)}
                                                     >
-                                                        {isSelected ? (
-                                                            <>
-                                                                <CheckCircle2 size={14} style={{ color: '#22c55e' }} />
-                                                                <span>{lang === 'ar' ? 'تم اختيار الفكرة' : 'Selected Idea'}</span>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Zap size={14} />
-                                                                <span>{lang === 'ar' ? 'اختيار وتجهيز المقترح فوراً' : 'Select & View Proposal'}</span>
-                                                            </>
-                                                        )}
-                                                    </button>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+                                                        <div>
+                                                            <div className="catalog-item-top">
+                                                                <span className="catalog-item-id">#{p.id}</span>
+                                                                <span className={`category-tag ${p.category}`}>{p.category}</span>
+                                                            </div>
+                                                            <h4>{p.title}</h4>
+                                                            <p className="catalog-item-skills">
+                                                                <strong>{p.level}</strong>{p.skills ? ` • ${p.skills}` : ''}
+                                                            </p>
+                                                        </div>
+
+                                                        <button
+                                                            type="button"
+                                                            className="btn-select-catalog-item"
+                                                            disabled={selectingCatalog}
+                                                        >
+                                                            {isSelected ? (
+                                                                <>
+                                                                    <CheckCircle2 size={14} style={{ color: '#22c55e' }} />
+                                                                    <span>{lang === 'ar' ? 'تم اختيار الفكرة' : 'Selected Idea'}</span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Zap size={14} />
+                                                                    <span>{lang === 'ar' ? 'اختيار وتجهيز المقترح فوراً' : 'Select & View Proposal'}</span>
+                                                                </>
+                                                            )}
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         )}
 

@@ -75,7 +75,7 @@ if ($trainingIdeaId) {
 
     // Check if trainee is already a member in another team
     $memCheck = $db->prepare("
-        SELECT ti.title_en FROM training_idea_members tim
+        SELECT ti.title FROM training_idea_members tim
         JOIN training_ideas ti ON tim.idea_id = ti.id
         WHERE tim.user_id = ? AND tim.role = 'member'
     ");
@@ -95,7 +95,7 @@ if ($trainingIdeaId) {
     } else {
         // Create new idea row in 'submitted' (under review) status
         $insStmt = $db->prepare("
-            INSERT INTO training_ideas (owner_id, course_id, title_en, description_en, status)
+            INSERT INTO training_ideas (owner_id, course_id, title, description, status)
             VALUES (?, ?, ?, ?, 'submitted')
         ");
         $insStmt->execute([
@@ -191,7 +191,7 @@ if ($trainerRow) {
 }
 
 // Course name
-$courseStmt = $db->prepare("SELECT name_en FROM training_courses WHERE id = ?");
+$courseStmt = $db->prepare("SELECT name FROM training_courses WHERE id = ?");
 $courseStmt->execute([$courseId]);
 $courseName = $courseStmt->fetchColumn() ?: 'Training Course';
 
@@ -261,8 +261,8 @@ $proposalJson = [
 // ── 7. Save to training_ideas ────────────────────────────────────────────────
 $saveStmt = $db->prepare("
     UPDATE training_ideas
-    SET title_en           = ?,
-        description_en     = ?,
+    SET title              = ?,
+        description        = ?,
         tech_stack         = ?,
         catalog_project_id = ?,
         proposal_json      = ?,

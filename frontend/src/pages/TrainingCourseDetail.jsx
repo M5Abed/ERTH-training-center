@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -10,12 +10,14 @@ import {
 } from 'lucide-react';
 import AddStudentModal from '../components/AddStudentModal';
 import CertificateModal from '../components/CertificateModal';
+import ConfirmModal from '../components/ConfirmModal';
 import EngMagyMascot from '../components/mascot/EngMagyMascot';
 import TeammateSelector from '../components/TeammateSelector';
 import MemberDetailModal from '../components/MemberDetailModal';
 import './TrainingCourseDetail.css';
 
 export default function TrainingCourseDetail({ courseIdOverride }) {
+    const navigate = useNavigate();
     const { id: paramCourseId } = useParams();
     const courseId = courseIdOverride || paramCourseId;
     const { lang } = useI18n();
@@ -66,6 +68,10 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
         name: '', description: '', start_date: '', end_date: '', duration_hours: 40, category: '', level: ''
     });
 
+    // Delete Course state
+    const [showDeleteCourseModal, setShowDeleteCourseModal] = useState(false);
+    const [isDeletingCourse, setIsDeletingCourse] = useState(false);
+
     const openEditCourseModal = () => {
         setEditCourseForm({
             name: course?.name || '',
@@ -103,6 +109,31 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
             alert('Connection error');
         } finally {
             setIsUpdatingCourse(false);
+        }
+    };
+
+    const handleDeleteCourse = async () => {
+        setIsDeletingCourse(true);
+        try {
+            const res = await fetch('/api/training/courses/delete.php', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: courseId })
+            });
+            let data = {};
+            try { data = await res.json(); } catch (err) {}
+            if (res.ok && data.success) {
+                setShowDeleteCourseModal(false);
+                navigate('/courses');
+            } else {
+                alert(data.error || (lang === 'ar' ? 'فشل حذف الدورة التدريبية' : 'Failed to delete course'));
+            }
+        } catch (e) {
+            console.error('Delete course error:', e);
+            alert(lang === 'ar' ? 'خطأ في الاتصال أثناء حذف الدورة' : 'Connection error while deleting course');
+        } finally {
+            setIsDeletingCourse(false);
         }
     };
 
@@ -1031,6 +1062,10 @@ void loop() {
                         <button className="btn btn-outline" onClick={() => setShowExcelModal(true)}>
                             <FileSpreadsheet size={18} />
                             {lang === 'ar' ? 'استيراد كشف المتدربين (Excel)' : 'Import Trainees (Excel)'}
+                        </button>
+                        <button className="btn btn-danger" onClick={() => setShowDeleteCourseModal(true)}>
+                            <Trash2 size={18} />
+                            {lang === 'ar' ? 'حذف الدورة' : 'Delete Course'}
                         </button>
                     </div>
                 )}
@@ -2299,6 +2334,21 @@ void loop() {
                     onClose={() => setViewingMember(null)} 
                 />
             )}
+
+            {/* Delete Course Confirmation Modal */}
+            <ConfirmModal 
+                isOpen={showDeleteCourseModal}
+                onClose={() => setShowDeleteCourseModal(false)}
+                onConfirm={handleDeleteCourse}
+                title={lang === 'ar' ? 'حذف الدورة التدريبية' : 'Delete Training Course'}
+                message={lang === 'ar' 
+                    ? `هل أنت متأكد من رغبتك في حذف الدورة "${course?.name}"؟ سيتم حذف جميع المواضيع والمواد التدريبية والمشاريع والتقييمات المرتبطة بها نهائياً.` 
+                    : `Are you sure you want to delete "${course?.name}"? All associated topics, materials, student enrollments, ideas, and certificates will be permanently removed.`}
+                confirmText={lang === 'ar' ? 'نعم، احذف الدورة' : 'Yes, Delete Course'}
+                cancelText={lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                isLoading={isDeletingCourse}
+                variant="danger"
+            />
 
             {/* Eng. Magy Assistant Mascot (Robotics Courses) */}
             <EngMagyMascot 

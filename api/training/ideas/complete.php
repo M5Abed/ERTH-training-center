@@ -24,7 +24,7 @@ try {
     $db = db();
 
     // Fetch idea
-    $stmt = $db->prepare("SELECT id, owner_id, course_id, COALESCE(title_en, title_ar, 'Project') AS title, status, reviewed_by FROM training_ideas WHERE id = ?");
+    $stmt = $db->prepare("SELECT id, owner_id, course_id, title, status, reviewed_by FROM training_ideas WHERE id = ?");
     $stmt->execute([$ideaId]);
     $idea = $stmt->fetch();
 

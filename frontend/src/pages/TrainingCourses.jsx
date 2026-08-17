@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, Plus, Calendar, Users, FileText, ChevronRight, Loader2, Search, X, UserPlus, Clock } from 'lucide-react';
+import { BookOpen, Plus, Calendar, Users, FileText, ChevronRight, Loader2, Search, X, UserPlus, Clock, Trash2 } from 'lucide-react';
 import AddStudentModal from '../components/AddStudentModal';
+import ConfirmModal from '../components/ConfirmModal';
 import './TrainingCourses.css';
 
 export default function TrainingCourses() {
@@ -18,6 +19,8 @@ export default function TrainingCourses() {
     const [search, setSearch] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [selectedCourseForAdd, setSelectedCourseForAdd] = useState(null);
+    const [courseToDelete, setCourseToDelete] = useState(null);
+    const [isDeletingCourse, setIsDeletingCourse] = useState(false);
 
     // Create Course form state
     const [name, setName] = useState('');
@@ -58,6 +61,7 @@ export default function TrainingCourses() {
         try {
             const res = await fetch('/api/training/courses/create.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: name,
@@ -69,7 +73,12 @@ export default function TrainingCourses() {
                     duration_hours: parseInt(durationHours) || 40
                 })
             });
-            const data = await res.json();
+            let data = {};
+            try {
+                data = await res.json();
+            } catch (err) {
+                // non-JSON response from server
+            }
             if (res.ok && data.success) {
                 setShowCreateModal(false);
                 setName(''); setDesc('');
@@ -78,12 +87,42 @@ export default function TrainingCourses() {
                 setDurationHours(40);
                 fetchCourses();
             } else {
-                setError(data.error || 'Failed to create course');
+                setError(data.error || (lang === 'ar' ? 'فشل إنشاء الدورة التدريبية' : 'Failed to create course'));
             }
         } catch (e) {
-            setError('Connection error');
+            console.error('Course creation error:', e);
+            setError(lang === 'ar' ? 'خطأ في الاتصال بالخادم' : 'Connection error. Please try again.');
         } finally {
             setCreating(false);
+        }
+    };
+
+    const handleConfirmDeleteCourse = async () => {
+        if (!courseToDelete) return;
+        setIsDeletingCourse(true);
+        try {
+            const res = await fetch('/api/training/courses/delete.php', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: courseToDelete.id })
+            });
+            let data = {};
+            try {
+                data = await res.json();
+            } catch (err) {}
+
+            if (res.ok && data.success) {
+                setCourseToDelete(null);
+                fetchCourses();
+            } else {
+                alert(data.error || (lang === 'ar' ? 'فشل حذف الدورة التدريبية' : 'Failed to delete course'));
+            }
+        } catch (err) {
+            console.error('Delete course error:', err);
+            alert(lang === 'ar' ? 'خطأ في الاتصال أثناء حذف الدورة' : 'Connection error while deleting course');
+        } finally {
+            setIsDeletingCourse(false);
         }
     };
 
@@ -176,14 +215,24 @@ export default function TrainingCourses() {
                                     <ChevronRight size={16} />
                                 </Link>
                                 {isTrainer && (
-                                    <button 
-                                        className="btn btn-primary"
-                                        style={{ padding: '0.6rem 0.85rem' }}
-                                        title={lang === 'ar' ? 'إضافة متدرب' : 'Add Student'}
-                                        onClick={() => setSelectedCourseForAdd(course)}
-                                    >
-                                        <UserPlus size={16} />
-                                    </button>
+                                    <>
+                                        <button 
+                                            className="btn btn-primary"
+                                            style={{ padding: '0.6rem 0.85rem' }}
+                                            title={lang === 'ar' ? 'إضافة متدرب' : 'Add Student'}
+                                            onClick={() => setSelectedCourseForAdd(course)}
+                                        >
+                                            <UserPlus size={16} />
+                                        </button>
+                                        <button 
+                                            className="btn btn-danger"
+                                            style={{ padding: '0.6rem 0.85rem' }}
+                                            title={lang === 'ar' ? 'حذف الدورة التدريبية' : 'Delete Course'}
+                                            onClick={() => setCourseToDelete(course)}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </>
                                 )}
                             </div>
                         </div>
@@ -198,6 +247,21 @@ export default function TrainingCourses() {
                 courseId={selectedCourseForAdd?.id}
                 courseName={selectedCourseForAdd ? (selectedCourseForAdd.name) : ''}
                 onStudentAdded={() => fetchCourses()}
+            />
+
+            {/* Delete Course Confirmation Modal */}
+            <ConfirmModal 
+                isOpen={!!courseToDelete}
+                onClose={() => setCourseToDelete(null)}
+                onConfirm={handleConfirmDeleteCourse}
+                title={lang === 'ar' ? 'حذف الدورة التدريبية' : 'Delete Training Course'}
+                message={lang === 'ar' 
+                    ? `هل أنت متأكد من رغبتك في حذف الدورة "${courseToDelete?.name}"؟ سيتم حذف جميع المواضيع والملفات والمشاريع والتقييمات المرتبطة بها نهائياً.` 
+                    : `Are you sure you want to delete "${courseToDelete?.name}"? All associated topics, learning materials, student enrollments, project ideas, and certificates will be permanently deleted.`}
+                confirmText={lang === 'ar' ? 'نعم، احذف الدورة' : 'Yes, Delete Course'}
+                cancelText={lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                isLoading={isDeletingCourse}
+                variant="danger"
             />
 
             {/* Create Course Modal */}

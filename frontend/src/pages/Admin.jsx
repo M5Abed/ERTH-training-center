@@ -158,6 +158,7 @@ export default function Admin() {
         try {
             const res = await fetch('/api/training/courses/create.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: courseName.trim(),
@@ -167,7 +168,12 @@ export default function Admin() {
                     duration_hours: parseInt(courseDuration) || 40
                 })
             });
-            const data = await res.json();
+            let data = {};
+            try {
+                data = await res.json();
+            } catch (jsonErr) {
+                // non-JSON response
+            }
             if (res.ok && data.success) {
                 setCourseMsg({ text: lang === 'ar' ? 'تم إنشاء الدورة التدريبية بنجاح!' : 'Course created successfully!', type: 'success' });
                 setCourseName('');
@@ -178,10 +184,11 @@ export default function Admin() {
                     setCourseMsg({ text: '', type: '' });
                 }, 2000);
             } else {
-                setCourseMsg({ text: data.error || (lang === 'ar' ? 'فشل إنشاء الدورة' : 'Failed to create course'), type: 'error' });
+                setCourseMsg({ text: data.error || (lang === 'ar' ? 'فشل إنشاء الدورة التدريبية' : 'Failed to create course'), type: 'error' });
             }
         } catch (err) {
-            setCourseMsg({ text: lang === 'ar' ? 'خطأ في الاتصال بالخادم' : 'Connection error', type: 'error' });
+            console.error('Course creation error:', err);
+            setCourseMsg({ text: lang === 'ar' ? 'خطأ في الاتصال بالخادم' : 'Connection error. Please try again.', type: 'error' });
         } finally {
             setCourseLoading(false);
         }

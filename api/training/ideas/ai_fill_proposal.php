@@ -31,7 +31,7 @@ $db = db();
 // ─── Enrich from DB ─────────────────────────────────────
 if ($ideaId) {
     $stmt = $db->prepare("
-        SELECT ti.*, tc.name_en AS course_name
+        SELECT ti.*, tc.name AS course_name
         FROM training_ideas ti
         LEFT JOIN training_courses tc ON ti.course_id = tc.id
         WHERE ti.id = ?
@@ -39,8 +39,8 @@ if ($ideaId) {
     $stmt->execute([$ideaId]);
     $idea = $stmt->fetch();
     if ($idea) {
-        $title      = $title ?: ($idea['title_en'] ?: $idea['title_ar'] ?: 'Training Project');
-        $desc       = $desc  ?: ($idea['description_en'] ?: $idea['description_ar'] ?: '');
+        $title      = $title ?: ($idea['title'] ?: 'Training Project');
+        $desc       = $desc  ?: ($idea['description'] ?: '');
         $tech       = $tech  ?: ($idea['tech_stack'] ?? '');
         $prob       = $prob  ?: ($idea['problem_statement'] ?? '');
         $outp       = $outp  ?: ($idea['expected_output'] ?? '');

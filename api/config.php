@@ -230,13 +230,50 @@ function _autoMigrate(): void
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ");
 
-        // Sync existing idea owners as project leaders if missing
+        // 6. Ensure projects_catalog & proposals_pregenerated tables exist
         db()->exec("
-            INSERT IGNORE INTO training_idea_members (idea_id, user_id, role)
-            SELECT id, owner_id, 'leader' 
-            FROM training_ideas 
-            WHERE owner_id IS NOT NULL AND owner_id > 0;
+            CREATE TABLE IF NOT EXISTS projects_catalog (
+              id            INT PRIMARY KEY,
+              title         VARCHAR(255) NOT NULL,
+              category      VARCHAR(64) NOT NULL,
+              level         VARCHAR(64) NOT NULL,
+              skills        TEXT NULL,
+              display_order INT DEFAULT 0,
+              created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ");
+
+        db()->exec("
+            CREATE TABLE IF NOT EXISTS proposals_pregenerated (
+              id                 INT AUTO_INCREMENT PRIMARY KEY,
+              catalog_project_id INT NOT NULL,
+              section_key        VARCHAR(64) NOT NULL,
+              content            MEDIUMTEXT NOT NULL,
+              created_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE KEY idx_pregen_proj_section (catalog_project_id, section_key),
+              INDEX idx_pregen_proj (catalog_project_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
+
+        // 7. Ensure training_courses columns exist
+        $tcCols = db()->query("SHOW COLUMNS FROM training_courses LIKE 'category'")->fetchAll();
+        if (empty($tcCols)) {
+            db()->exec("ALTER TABLE training_courses ADD COLUMN category VARCHAR(150) NULL AFTER name");
+        }
+        $tlCols = db()->query("SHOW COLUMNS FROM training_courses LIKE 'level'")->fetchAll();
+        if (empty($tlCols)) {
+            db()->exec("ALTER TABLE training_courses ADD COLUMN level VARCHAR(100) NULL AFTER category");
+        }
+        $tdCols = db()->query("SHOW COLUMNS FROM training_courses LIKE 'duration_hours'")->fetchAll();
+        if (empty($tdCols)) {
+            db()->exec("ALTER TABLE training_courses ADD COLUMN duration_hours INT NOT NULL DEFAULT 40 AFTER end_date");
+        }
+
+        // 8. Ensure training_ideas catalog_project_id exists
+        $tiCols = db()->query("SHOW COLUMNS FROM training_ideas LIKE 'catalog_project_id'")->fetchAll();
+        if (empty($tiCols)) {
+            db()->exec("ALTER TABLE training_ideas ADD COLUMN catalog_project_id INT NULL AFTER course_id");
+        }
     } catch (\Exception $e) {
         // silently skip if user lacks CREATE privileges
         error_log("Auto-migration failed: " . $e->getMessage());

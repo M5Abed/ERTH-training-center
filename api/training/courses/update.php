@@ -49,23 +49,28 @@ if (!$stmt->fetch()) {
 verifyCourseAccess($courseId, $user);
 
 // Update the course
-$updateStmt = $db->prepare("
-    UPDATE training_courses 
-    SET name_en = ?, category = ?, level = ?, description_en = ?, start_date = ?, end_date = ?, duration_hours = ?
-    WHERE id = ?
-");
-$updateStmt->execute([
-    $name,
-    $category,
-    $level,
-    $description ?: null,
-    $startDate ?: null,
-    $endDate ?: null,
-    $durationHours,
-    $courseId
-]);
+try {
+    $updateStmt = $db->prepare("
+        UPDATE training_courses 
+        SET name = ?, category = ?, level = ?, description = ?, start_date = ?, end_date = ?, duration_hours = ?
+        WHERE id = ?
+    ");
+    $updateStmt->execute([
+        $name,
+        $category,
+        $level,
+        $description ?: null,
+        $startDate ?: null,
+        $endDate ?: null,
+        $durationHours,
+        $courseId
+    ]);
 
-respond([
-    'success' => true,
-    'message' => 'Course updated successfully'
-], 200);
+    respond([
+        'success' => true,
+        'message' => 'Course updated successfully'
+    ], 200);
+} catch (Throwable $e) {
+    error_log('Failed to update course: ' . $e->getMessage());
+    respondError('Failed to update course: ' . $e->getMessage(), 500);
+}

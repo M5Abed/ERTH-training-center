@@ -78,8 +78,8 @@ try {
                u.email AS trainee_email, 
                u.student_id,
                COALESCE(
-                   (SELECT COALESCE(title_en, title_ar, 'Summer Training Project') FROM training_ideas WHERE id = td.idea_id LIMIT 1),
-                   (SELECT COALESCE(title_en, title_ar, 'Summer Training Project') FROM training_ideas WHERE course_id = td.course_id AND (owner_id = td.trainee_id) ORDER BY id DESC LIMIT 1),
+                   (SELECT COALESCE(title, 'Summer Training Project') FROM training_ideas WHERE id = td.idea_id LIMIT 1),
+                   (SELECT COALESCE(title, 'Summer Training Project') FROM training_ideas WHERE course_id = td.course_id AND (owner_id = td.trainee_id) ORDER BY id DESC LIMIT 1),
                    'Summer Training Project'
                ) AS project_title
         FROM trainee_documentation td

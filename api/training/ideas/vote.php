@@ -70,7 +70,7 @@ try {
     } catch (Exception $e) {}
 
     // Verify idea exists
-    $stmt = $db->prepare("SELECT id, COALESCE(title_en, title_ar, 'Project') AS title, status FROM training_ideas WHERE id = ?");
+    $stmt = $db->prepare("SELECT id, title, status FROM training_ideas WHERE id = ?");
     $stmt->execute([$ideaId]);
     $idea = $stmt->fetch();
 
