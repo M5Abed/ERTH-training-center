@@ -21,6 +21,22 @@ if (!$rawId) {
 }
 
 $db = db();
+
+if ($rawId === 'default') {
+    if ($role === 'trainee') {
+        $enr = $db->prepare("SELECT course_id FROM trainee_enrollments WHERE trainee_id = ? LIMIT 1");
+        $enr->execute([$uid]);
+        $enrollment = $enr->fetch();
+        if ($enrollment) {
+            $rawId = $enrollment['course_id'];
+        } else {
+            $rawId = 'robotics';
+        }
+    } else {
+        $rawId = 'robotics';
+    }
+}
+
 $course = null;
 $courseId = 0;
 

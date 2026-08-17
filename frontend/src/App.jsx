@@ -74,7 +74,7 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/" element={<Landing />} />
-        <Route path="/auth" element={user ? <Navigate to="/courses" replace /> : <Auth />} />
+        <Route path="/auth" element={user ? <Navigate to="/dashboard" replace /> : <Auth />} />
         <Route path="/u/:id" element={<PublicProfile />} />
         <Route path="/verify-certificate" element={<CertificateVerification />} />
         <Route path="/verify" element={<CertificateVerification />} />
@@ -88,15 +88,19 @@ export default function App() {
           <Route path="/courses/robotics/*" element={<TrainingCourseDetail courseIdOverride="robotics" />} />
           <Route path="/courses/:id" element={<TrainingCourseDetail />} />
           <Route path="/submitted-projects" element={<TraineeProjects />} />
+          <Route path="/trainee-projects" element={<TraineeProjects />} />
+          <Route path="/evaluations" element={<Navigate to="/courses/default?tab=evaluations" replace />} />
           <Route path="/post-project" element={<PostProject />} />
           <Route path="/leaderboard" element={<IdeaLeaderboard />} />
           <Route path="/docs-archive" element={<DocumentsArchive />} />
           <Route path="/trainees" element={<TrainerOrAdminRoute><TraineesManagement /></TrainerOrAdminRoute>} />
+          <Route path="/trainees-management" element={<TrainerOrAdminRoute><TraineesManagement /></TrainerOrAdminRoute>} />
           <Route path="/approvals" element={<TrainerOrAdminRoute><TrainingApprovals /></TrainerOrAdminRoute>} />
+          <Route path="/training-approvals" element={<TrainerOrAdminRoute><TrainingApprovals /></TrainerOrAdminRoute>} />
           <Route path="/trainers" element={<AdminRoute><TrainersManagement /></AdminRoute>} />
 
           {/* Legacy route redirects */}
-          <Route path="/projects" element={<Navigate to="/submitted-projects" replace />} />
+          <Route path="/projects" element={<Navigate to="/trainee-projects" replace />} />
           <Route path="/people" element={<Navigate to="/courses" replace />} />
           
 

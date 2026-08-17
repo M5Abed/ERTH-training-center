@@ -4,7 +4,7 @@ import { useI18n } from '../../contexts/I18nContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getNotifications, markNotificationsRead, clearAllNotifications, changePassword } from '../../services/api';
-import { Menu, Bell, Check, Trash2, Sun, Moon, Languages, FolderKanban, PlusCircle, Users, Star, MapPin, UserCircle, Shield, Activity, LogOut, ChevronDown, X, Loader2, CheckCircle2, Circle, Save, FileText } from 'lucide-react';
+import { Menu, Bell, Check, Trash2, Sun, Moon, Languages, FolderKanban, PlusCircle, Users, Star, MapPin, UserCircle, Shield, Activity, LogOut, ChevronDown, X, Loader2, CheckCircle2, Circle, Save, FileText, Trophy, FolderOpen } from 'lucide-react';
 import './Topbar.css';
 
 function relTime(dateStr, lang) {
@@ -17,8 +17,8 @@ function relTime(dateStr, lang) {
 }
 
 const TYPE_LABELS = {
-    en: { application: 'Application', accepted: 'Accepted', rejected: 'Declined', invite: 'Invite', pending: 'Update' },
-    ar: { application: 'طلب جديد', accepted: 'قُبل', rejected: 'مرفوض', invite: 'دعوة', pending: 'معلق' },
+    en: { application: 'Application', accepted: 'Accepted', rejected: 'Declined', invite: 'Invite', pending: 'Update', idea: 'Project Idea', team: 'Team Update' },
+    ar: { application: 'طلب جديد', accepted: 'قُبل', rejected: 'مرفوض', invite: 'دعوة', pending: 'معلق', idea: 'فكرة مشروع', team: 'تحديث الفريق' },
 };
 
 export default function Topbar({ onMenuClick }) {
@@ -55,11 +55,18 @@ export default function Topbar({ onMenuClick }) {
         ['ta', 'lecturer', 'professor'].includes(profile?.role)
     );
 
+    const isItemUnread = (n) => !n.is_read || n.is_read === 0 || n.is_read === '0' || n.is_read === false;
+
     useEffect(() => {
         if (user) {
-            getNotifications().then(n => setNotifications(n || []));
-            const iv = setInterval(() => getNotifications().then(n => setNotifications(n || [])), 30000);
-            return () => clearInterval(iv);
+            const loadNotifs = () => getNotifications().then(n => setNotifications(n || []));
+            loadNotifs();
+            const iv = setInterval(loadNotifs, 10000);
+            window.addEventListener('focus', loadNotifs);
+            return () => {
+                clearInterval(iv);
+                window.removeEventListener('focus', loadNotifs);
+            };
         }
     }, [user]);
 
@@ -72,7 +79,7 @@ export default function Topbar({ onMenuClick }) {
         return () => document.removeEventListener('mousedown', handleClick);
     }, []);
 
-    const unread = notifications.filter(n => !n.is_read).length;
+    const unread = notifications.filter(isItemUnread).length;
     const prevUnreadRef = useRef(unread);
 
     useEffect(() => {
@@ -141,7 +148,7 @@ export default function Topbar({ onMenuClick }) {
             icon: <FileText size={16} />, 
             label: (isAdmin || isTrainer)
                 ? (lang === 'ar' ? 'مشاريع المتدربين' : 'Trainee Projects')
-                : (lang === 'ar' ? 'مشاريعي وأفكاري' : 'My Projects & Ideas')
+                : (lang === 'ar' ? 'مشروعي وفكرتي' : 'My Project & Idea')
         },
     ];
 
@@ -218,14 +225,26 @@ export default function Topbar({ onMenuClick }) {
                                 ) : (
                                     <div className="notif-list">
                                         {notifications.slice(0, 20).map(n => (
-                                            <div key={n.id} className={`notif-item ${n.is_read ? '' : 'notif-item--unread'}`}
+                                            <div key={n.id} className={`notif-item ${isItemUnread(n) ? 'notif-item--unread' : ''}`}
                                                 onClick={() => {
                                                     setShowNotifs(false);
-                                                    if (n.type === 'chat' && n.project_id) navigate(`/project/${n.project_id}/chat`);
-                                                    else if (n.project_id) navigate(`/project/${n.project_id}`);
-                                                    else if (['invite', 'pending', 'application'].includes(n.type)) setShowNotifs(false);
+                                                    if (n.type === 'training_evaluation') {
+                                                        navigate('/courses?tab=evaluations');
+                                                    } else if (n.type === 'chat' && n.project_id) {
+                                                        navigate(`/project/${n.project_id}/chat`);
+                                                    } else if (n.project_id) {
+                                                        navigate(`/project/${n.project_id}`);
+                                                    } else if (n.type === 'idea' || n.type === 'team' || n.type === 'training_idea') {
+                                                        navigate('/trainee-projects');
+                                                    } else if (n.type === 'invite' || n.type === 'pending' || n.type === 'application') {
+                                                        navigate('/trainee-projects');
+                                                    } else if (n.type === 'new_content' || n.type === 'topic') {
+                                                        navigate('/courses');
+                                                    } else {
+                                                        navigate('/dashboard');
+                                                    }
                                                 }}
-                                                style={{ cursor: n.project_id || ['invite', 'pending', 'application'].includes(n.type) ? 'pointer' : 'default' }}
+                                                style={{ cursor: 'pointer' }}
                                             >
                                                 <div className="notif-item-top">
                                                     <span className="notif-type-label" style={{ color: getTypeColor(n.type) }}>{getTypeLabel(n.type)}</span>

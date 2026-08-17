@@ -20,10 +20,23 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respondError('Method not allowed', 405);
 }
 
-// Ensure the master template file exists
-$templatePath = __DIR__ . '/master_template.docx';
-if (!file_exists($templatePath)) {
-    respondError('Master template not found. Upload master_template.docx to api/training/reports/', 500);
+// Ensure the master template file exists — dynamic relative paths
+$candidateTemplates = [
+    __DIR__ . '/master_template.docx',
+    __DIR__ . '/../templates/NMU_AI_Robotics_Field_Training_Project_Template.docx',
+    dirname(__DIR__, 2) . '/templates/NMU_AI_Robotics_Field_Training_Project_Template.docx',
+    dirname(__DIR__, 2) . '/dev/NMU_AI_Robotics_Field_Training_Project_Template.docx',
+    dirname(__DIR__, 2) . '/NMU_AI_Robotics_Field_Training_Project_Template.docx',
+];
+$templatePath = null;
+foreach ($candidateTemplates as $ct) {
+    if (file_exists($ct)) {
+        $templatePath = $ct;
+        break;
+    }
+}
+if (!$templatePath) {
+    respondError('Official report template not found.', 500);
 }
 
 $userId = requireSession();

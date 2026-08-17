@@ -327,14 +327,19 @@ function callAI(int $userId, string $taskType, array $payload): array
             _incrementKeyTokens($keyRow['id'], $tokenCount);
             _incrementUserUsage($userId, $tokenCount);
 
-            // Parse JSON task types automatically
+            // Parse JSON task types automatically with markdown cleanup
             $parsedResult = $rawResult;
             if (in_array($taskType, ['proposal', 'custom_proposal_7_sections', 'evaluate_idea', 'quiz_generate', 'match_projects', 'fill_proposal_pages', 'fill_proposal_a', 'fill_proposal_b'], true)) {
-                $decoded = json_decode($rawResult, true);
-                if (json_last_error() === JSON_ERROR_NONE) {
+                $cleanText = trim($rawResult);
+                if (preg_match('/^```(?:json)?\s*([\s\S]*?)\s*```$/i', $cleanText, $matches)) {
+                    $cleanText = trim($matches[1]);
+                } elseif (preg_match('/\{[\s\S]*\}/', $cleanText, $matches)) {
+                    $cleanText = trim($matches[0]);
+                }
+                $decoded = json_decode($cleanText, true);
+                if (json_last_error() === JSON_ERROR_NONE && (is_array($decoded) || is_object($decoded))) {
                     $parsedResult = $decoded;
                 }
-                // If JSON parse fails, return raw string so the caller can decide
             }
 
             return ['ok' => true, 'result' => $parsedResult, 'cached' => false, 'tokens' => $tokenCount];
@@ -467,11 +472,19 @@ function _pickKey(): ?array
 function _readSecret(string $envVarName): string
 {
     // Check PHP constants first (loaded by config.php via parse_ini_file)
-    if (defined($envVarName)) {
+    if (defined($envVarName) && constant($envVarName) !== '') {
         return constant($envVarName);
     }
-    // Fall back to real environment variables (Docker env_file / system env)
-    return (string)(getenv($envVarName) ?: '');
+    if (getenv($envVarName)) {
+        return (string)getenv($envVarName);
+    }
+    if (!empty($_ENV[$envVarName])) {
+        return (string)$_ENV[$envVarName];
+    }
+    if (!empty($_SERVER[$envVarName])) {
+        return (string)$_SERVER[$envVarName];
+    }
+    return '';
 }
 
 /**

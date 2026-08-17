@@ -54,7 +54,7 @@ export default function MemberDetailModal({ member, onClose }) {
                             <span>{fullName.charAt(0).toUpperCase()}</span>
                         )}
                         <span className={`member-role-icon-badge ${isLeader ? 'badge-leader-icon' : 'badge-member-icon'}`}>
-                            {isLeader ? '👑' : '👤'}
+                            {isLeader ? <Crown size={12} /> : <User size={12} />}
                         </span>
                     </div>
 

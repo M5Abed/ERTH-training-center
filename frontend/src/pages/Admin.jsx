@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getAdminStats, adminDeleteUser, adminDeleteProject, adminCreateStaff } from '../services/api';
 import { COLLEGES, SKILLS_CATALOG } from '../data/constants';
-import { Users, FolderKanban, Star, Activity, BarChart3, TrendingUp, Download, Search, Trash2, AlertTriangle, UserPlus, Loader2 } from 'lucide-react';
+import { Users, FolderKanban, Star, Activity, BarChart3, TrendingUp, Download, Search, Trash2, AlertTriangle, UserPlus, Loader2, Lock, Settings, BookOpen, Plus } from 'lucide-react';
 import { formatDate } from '../services/api';
 import './Admin.css';
 
@@ -27,6 +28,16 @@ export default function Admin() {
     const [staffLoading, setStaffLoading] = useState(false);
     const [staffMsg, setStaffMsg] = useState({ text: '', type: '' });
 
+    // Course creation form
+    const [showCourseForm, setShowCourseForm] = useState(false);
+    const [courseName, setCourseName] = useState('');
+    const [courseDesc, setCourseDesc] = useState('');
+    const [courseCategory, setCourseCategory] = useState('Software / AI');
+    const [courseLevel, setCourseLevel] = useState('Intermediate');
+    const [courseDuration, setCourseDuration] = useState(40);
+    const [courseLoading, setCourseLoading] = useState(false);
+    const [courseMsg, setCourseMsg] = useState({ text: '', type: '' });
+
     const reload = () => {
         setLoading(true);
         getAdminStats().then(s => {
@@ -44,7 +55,9 @@ export default function Admin() {
     if (!isAdmin) {
         return (
             <div className="empty-state">
-                <div style={{ fontSize: '3rem' }}>🔒</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem', color: 'var(--text-muted)' }}>
+                    <Lock size={48} />
+                </div>
                 <h3>{lang === 'ar' ? 'غير مصرح' : 'Unauthorized'}</h3>
                 <p>{lang === 'ar' ? 'هذه الصفحة للمسؤولين فقط' : 'This page is for admins only'}</p>
             </div>
@@ -134,6 +147,46 @@ export default function Admin() {
         }
     };
 
+    const handleCreateCourse = async (e) => {
+        e?.preventDefault?.();
+        if (!courseName.trim()) {
+            setCourseMsg({ text: lang === 'ar' ? 'اسم الدورة التدريبية مطلوب' : 'Course name is required', type: 'error' });
+            return;
+        }
+        setCourseLoading(true);
+        setCourseMsg({ text: '', type: '' });
+        try {
+            const res = await fetch('/api/training/courses/create.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: courseName.trim(),
+                    description: courseDesc.trim(),
+                    category: courseCategory,
+                    level: courseLevel,
+                    duration_hours: parseInt(courseDuration) || 40
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setCourseMsg({ text: lang === 'ar' ? 'تم إنشاء الدورة التدريبية بنجاح!' : 'Course created successfully!', type: 'success' });
+                setCourseName('');
+                setCourseDesc('');
+                setCourseDuration(40);
+                setTimeout(() => {
+                    setShowCourseForm(false);
+                    setCourseMsg({ text: '', type: '' });
+                }, 2000);
+            } else {
+                setCourseMsg({ text: data.error || (lang === 'ar' ? 'فشل إنشاء الدورة' : 'Failed to create course'), type: 'error' });
+            }
+        } catch (err) {
+            setCourseMsg({ text: lang === 'ar' ? 'خطأ في الاتصال بالخادم' : 'Connection error', type: 'error' });
+        } finally {
+            setCourseLoading(false);
+        }
+    };
+
     const typeLabels = { project: lang === 'ar' ? 'مشروع' : 'Project', research: lang === 'ar' ? 'بحث' : 'Research', graduation: lang === 'ar' ? 'تخرج' : 'Graduation' };
     const statusColors = { open: 'var(--green)', in_progress: 'var(--amber)', completed: 'var(--muted)' };
 
@@ -167,12 +220,20 @@ export default function Admin() {
 
             <div className="page-header">
                 <div>
-                    <h1 className="page-title">⚙️ {lang === 'ar' ? 'لوحة التحكم' : 'Admin Dashboard'}</h1>
+                    <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Settings size={24} className="text-primary" />
+                        {lang === 'ar' ? 'لوحة التحكم' : 'Admin Dashboard'}
+                    </h1>
                     <p className="page-subtitle">{t('admin_subtitle')}</p>
                 </div>
-                <button className="btn btn-secondary btn-sm" onClick={handleExport}>
-                    <Download size={16} /> {lang === 'ar' ? 'تصدير البيانات' : 'Export Data'}
-                </button>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <Link to="/courses" className="btn btn-primary btn-sm">
+                        <BookOpen size={16} /> {lang === 'ar' ? 'عرض الدورات التدريبية' : 'Manage Courses'}
+                    </Link>
+                    <button className="btn btn-secondary btn-sm" onClick={handleExport}>
+                        <Download size={16} /> {lang === 'ar' ? 'تصدير البيانات' : 'Export Data'}
+                    </button>
+                </div>
             </div>
 
             {/* KPI Cards */}
@@ -184,6 +245,90 @@ export default function Admin() {
                         <div className="admin-stat-label">{s.label}</div>
                     </div>
                 ))}
+            </div>
+
+            {/* Manage Training Courses */}
+            <div className="admin-section">
+                <div className="admin-section-header">
+                    <h3><BookOpen size={18} /> {lang === 'ar' ? 'الدورات التدريبية الصيفية' : 'Summer Training Courses'}</h3>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <Link to="/courses" className="btn btn-outline btn-sm">
+                            {lang === 'ar' ? 'الدورات النشطة' : 'View All'}
+                        </Link>
+                        <button className="btn btn-primary btn-sm" onClick={() => setShowCourseForm(!showCourseForm)}>
+                            <Plus size={15} />
+                            {showCourseForm ? (lang === 'ar' ? 'إغلاق' : 'Close') : (lang === 'ar' ? 'إضافة دورة جديدة' : 'Add Course')}
+                        </button>
+                    </div>
+                </div>
+                {showCourseForm && (
+                    <form onSubmit={handleCreateCourse} className="admin-staff-form animate-fade-in" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
+                        <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                            <label>{lang === 'ar' ? 'عنوان الدورة التدريبية' : 'Course Title'} *</label>
+                            <input
+                                type="text"
+                                required
+                                value={courseName}
+                                onChange={e => setCourseName(e.target.value)}
+                                placeholder={lang === 'ar' ? 'مثال: الذكاء الاصطناعي وتعلم الآلة' : 'e.g. AI & Machine Learning'}
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>{lang === 'ar' ? 'المسار / التصنيف' : 'Track / Category'}</label>
+                            <select value={courseCategory} onChange={e => setCourseCategory(e.target.value)}>
+                                <option value="Software / AI">Software / AI</option>
+                                <option value="Robotics">Robotics</option>
+                                <option value="Embedded Systems">Embedded Systems</option>
+                                <option value="Data Science">Data Science</option>
+                                <option value="Web & Mobile">Web & Mobile</option>
+                                <option value="Cybersecurity">Cybersecurity</option>
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label>{lang === 'ar' ? 'المستوى' : 'Level'}</label>
+                            <select value={courseLevel} onChange={e => setCourseLevel(e.target.value)}>
+                                <option value="Beginner">Beginner</option>
+                                <option value="Intermediate">Intermediate</option>
+                                <option value="Advanced">Advanced</option>
+                                <option value="All Levels">All Levels</option>
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label>{lang === 'ar' ? 'الساعات المعتمدة' : 'Duration Hours'}</label>
+                            <input
+                                type="number"
+                                min="10"
+                                max="200"
+                                value={courseDuration}
+                                onChange={e => setCourseDuration(e.target.value)}
+                            />
+                        </div>
+                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                            <label>{lang === 'ar' ? 'وصف الدورة وأهدافها' : 'Course Description'}</label>
+                            <textarea
+                                rows={2}
+                                value={courseDesc}
+                                onChange={e => setCourseDesc(e.target.value)}
+                                placeholder={lang === 'ar' ? 'شرح مختصر لأهداف الدورة والمخرجات التعليمية...' : 'Brief description of learning objectives...'}
+                                style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border)' }}
+                            />
+                        </div>
+                        <div className="form-group" style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowCourseForm(false)}>
+                                {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                            </button>
+                            <button type="submit" className="btn btn-primary btn-sm" disabled={courseLoading}>
+                                {courseLoading ? <Loader2 size={14} className="spin" /> : <Plus size={14} />}
+                                {' '}{lang === 'ar' ? 'إنشاء وحفظ الدورة' : 'Create Course'}
+                            </button>
+                        </div>
+                        {courseMsg.text && (
+                            <div style={{ gridColumn: '1 / -1', padding: '0.5rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', background: courseMsg.type === 'success' ? 'rgba(34,197,94,0.1)' : 'rgba(244,63,94,0.1)', color: courseMsg.type === 'success' ? 'var(--green)' : 'var(--rose)' }}>
+                                {courseMsg.text}
+                            </div>
+                        )}
+                    </form>
+                )}
             </div>
 
             {/* Skill Distribution */}

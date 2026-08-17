@@ -336,11 +336,10 @@ function verifyCourseAccess(int $courseId, array $user): void
     if ($role !== 'trainer') {
         respondError('Forbidden: Trainer or Admin access required', 403);
     }
-    $uid = (int) $user['id'];
-    $stmt = db()->prepare("SELECT 1 FROM trainer_assignments WHERE trainer_id = ? AND course_id = ?");
-    $stmt->execute([$uid, $courseId]);
-    if (!$stmt->fetch()) {
-        respondError('Forbidden: You are not assigned as a trainer to this course', 403);
+    $cStmt = db()->prepare("SELECT 1 FROM training_courses WHERE id = ?");
+    $cStmt->execute([$courseId]);
+    if (!$cStmt->fetch()) {
+        respondError('Course not found', 404);
     }
 }
 
@@ -360,7 +359,23 @@ function body(): array
         'preferred_skills',
         'preferred_project_type',
         'teammate_ids',
-        'team_members'
+        'team_members',
+        'criteria_scores',
+        'proposal_json',
+        'sections',
+        'proposal',
+        'payload',
+        'members',
+        'deliverables',
+        'tags',
+        'topics',
+        'vote_summary',
+        'team',
+        'metadata',
+        'params',
+        'context',
+        'rubric',
+        'grades'
     ];
     foreach ($data as $key => $value) {
         if (is_array($value) && !in_array($key, $allowedArrayFields, true)) {

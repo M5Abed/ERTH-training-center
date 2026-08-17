@@ -60,7 +60,7 @@ export const ar = {
     project_types_pref: "أنواع المشاريع المفضلة",
     type_project: "مشروع مادة دراسية", type_research: "بحث علمي", type_graduation: "مشروع تخرّج",
     skill_level_hint: "انقر مرة للمبتدئ، مرتين للمتوسط، ثلاث مرات للمتقدم، ومرة رابعة لإلغاء التحديد.",
-    onboarding_done_title: "اكتمل الملف الشخصي! 🎉", onboarding_done_desc: "أنت جاهز. ابدأ باستكشاف المشاريع أو انشر فكرتك لاستقطاب زملاء الفريق.",
+    onboarding_done_title: "اكتمل الملف الشخصي!", onboarding_done_desc: "أنت جاهز. ابدأ باستكشاف المشاريع أو انشر فكرتك لاستقطاب زملاء الفريق.",
     go_to_projects: "استكشاف المشاريع",
     profile_title: "الملف الشخصي", edit_profile: "تعديل الملف الشخصي", skills_section: "المهارات",
     add_skill: "إضافة مهارة", no_skills: "لم تُضَف مهارات بعد. أضف مهاراتك لتحسين نتائج المطابقة.",

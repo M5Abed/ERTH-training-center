@@ -82,7 +82,7 @@
 .course-desc { 
     font-size: 0.875rem; color: var(--body, #334155); 
     line-height: 1.55; margin-bottom: 1.25rem; 
-    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; 
+    display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; 
 }
 
 .course-meta { 

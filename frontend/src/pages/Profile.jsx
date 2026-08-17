@@ -9,7 +9,7 @@ import {
     formatDate, formatMonthYear
 } from '../services/api';
 import { SKILLS_CATALOG, COLLEGES, MAJORS_BY_FACULTY } from '../data/constants';
-import { Edit3, Camera, Star, FolderKanban, MessageSquare, Save, X, Loader2, Mail, PenLine, Trash2, Check, RotateCcw, ClipboardCheck, Handshake, Clock, Share2, Award, Download } from 'lucide-react';
+import { Edit3, Camera, Star, FolderKanban, MessageSquare, Save, X, Loader2, Mail, PenLine, Trash2, Check, RotateCcw, ClipboardCheck, Handshake, Clock, Share2, Award, Download, BookOpen } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '../utils/cropImage';
 import CertificateModal from '../components/CertificateModal';
@@ -517,7 +517,9 @@ export default function Profile() {
 
                         {rawSkills.length === 0 ? (
                             <div className="skills-empty">
-                                <div className="skills-empty-icon">📚</div>
+                                <div className="skills-empty-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <BookOpen size={36} className="text-muted" />
+                                </div>
                                 <p>{t('no_skills')}</p>
                                 {isOwnProfile && (
                                     <Link to="/onboarding" className="btn btn-primary btn-sm">
@@ -716,7 +718,7 @@ export default function Profile() {
                                                 <div className="inv-card-top">
                                                     <span className="inv-project">{lang === 'ar' ? (a.projects?.title_ar || a.projects?.title) : (a.projects?.title || '—')}</span>
                                                     <span className={`inv-badge inv-badge--${a.status}`}>
-                                                        {a.status === 'accepted' ? '✓ Accepted' : a.status === 'rejected' ? '✗ Declined' : '⏳ Pending'}
+                                                        {a.status === 'accepted' ? 'Accepted' : a.status === 'rejected' ? 'Declined' : 'Pending'}
                                                     </span>
                                                 </div>
                                                 {a.message && <p className="inv-message">{a.message}</p>}
@@ -749,7 +751,7 @@ export default function Profile() {
                                                         <span className="inv-project-sm">{lang === 'ar' ? 'لمشروع: ' : 'For: '}{lang === 'ar' ? (a.projects?.title_ar || a.projects?.title) : (a.projects?.title || '—')}</span>
                                                     </div>
                                                     <span className={`inv-badge inv-badge--${a.status}`}>
-                                                        {a.status === 'accepted' ? '✓ Accepted' : a.status === 'rejected' ? '✗ Declined' : '⏳ Pending'}
+                                                        {a.status === 'accepted' ? 'Accepted' : a.status === 'rejected' ? 'Declined' : 'Pending'}
                                                     </span>
                                                 </div>
                                                 {a.message && <p className="inv-message">{a.message}</p>}

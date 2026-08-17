@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { getUserProfile, getCompletedProjectsForUser, formatDate, formatMonthYear } from '../services/api';
 import { SKILLS_CATALOG } from '../data/constants';
 import { useI18n } from '../contexts/I18nContext';
-import { Star, GraduationCap, Briefcase, Lock, Calendar } from 'lucide-react';
+import { Star, GraduationCap, Briefcase, Lock, Calendar, Wrench, CheckCircle2 } from 'lucide-react';
 import './PublicProfile.css';
 
 export default function PublicProfile() {
@@ -136,8 +136,9 @@ export default function PublicProfile() {
                 <div className="gv-columns">
                     {/* Skills */}
                     <div className="gv-card gv-section">
-                        <h2 className="gv-section-title">
-                            {lang === 'ar' ? '🛠 المهارات' : '🛠 Skills'}
+                        <h2 className="gv-section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Wrench size={18} className="text-primary" />
+                            {lang === 'ar' ? 'المهارات والخبرات' : 'Skills & Proficiencies'}
                         </h2>
                         {!hasSkills ? (
                             <p className="gv-muted">{lang === 'ar' ? 'لا توجد مهارات مُضافة.' : 'No skills listed yet.'}</p>
@@ -163,8 +164,9 @@ export default function PublicProfile() {
                 {/* Completed Projects — only shown when there are any */}
                 {projects.length > 0 && (
                     <div className="gv-card gv-section">
-                        <h2 className="gv-section-title">
-                            {lang === 'ar' ? '✅ المشاريع المكتملة' : '✅ Completed Projects'}
+                        <h2 className="gv-section-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <CheckCircle2 size={18} style={{ color: '#16a34a' }} />
+                            {lang === 'ar' ? 'المشاريع المكتملة' : 'Completed Projects'}
                             <span className="gv-proj-count">{projects.length}</span>
                         </h2>
                         <div className="gv-project-list">

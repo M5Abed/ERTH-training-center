@@ -37,8 +37,16 @@ if ($fullSections) {
     ];
     $aiResult = callAI($userId, 'custom_proposal_7_sections', $aiPayload);
 
-    if ($aiResult['ok'] && is_array($aiResult['result'])) {
-        $r = $aiResult['result'];
+    $r = $aiResult['result'] ?? null;
+    if (is_string($r)) {
+        $clean = trim($r);
+        if (preg_match('/^```(?:json)?\s*([\s\S]*?)\s*```$/i', $clean, $m)) $clean = trim($m[1]);
+        elseif (preg_match('/\{[\s\S]*\}/', $clean, $m)) $clean = trim($m[0]);
+        $dec = json_decode($clean, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($dec)) $r = $dec;
+    }
+
+    if ($aiResult['ok'] && is_array($r)) {
         $sectionTitles = [
             'abstract'                => 'Abstract',
             'introduction_background' => 'Introduction & Background',
@@ -67,8 +75,8 @@ if ($fullSections) {
                 'title'         => $r['title'] ?? ("Smart System for " . ucwords($keywords)),
                 'tech_stack'    => $r['tech_stack'] ?? 'Python, FastAPI, React, MySQL',
                 'sections'      => $sections,
-                'description'   => $r['abstract'] ?? '',
-                'problem_statement' => $r['problem_definition'] ?? '',
+                'description'   => $r['abstract'] ?? ($r['description'] ?? ''),
+                'problem_statement' => $r['problem_definition'] ?? ($r['problem_statement'] ?? ''),
                 'expected_output'   => "1. Core Application Pipeline\n2. Database & API Implementation\n3. Verification & Benchmark Report",
             ],
         ]);
@@ -78,8 +86,16 @@ if ($fullSections) {
 // ── Standard Quick Generator ────────────────────────────────────────────────
 $aiResult = callAI($userId, 'proposal', ['keywords' => $keywords, 'domain' => $domain]);
 
-if ($aiResult['ok'] && is_array($aiResult['result'])) {
-    $p = $aiResult['result'];
+$p = $aiResult['result'] ?? null;
+if (is_string($p)) {
+    $clean = trim($p);
+    if (preg_match('/^```(?:json)?\s*([\s\S]*?)\s*```$/i', $clean, $m)) $clean = trim($m[1]);
+    elseif (preg_match('/\{[\s\S]*\}/', $clean, $m)) $clean = trim($m[0]);
+    $dec = json_decode($clean, true);
+    if (json_last_error() === JSON_ERROR_NONE && is_array($dec)) $p = $dec;
+}
+
+if ($aiResult['ok'] && is_array($p)) {
 
     $expectedOutputRaw = $p['expected_output'] ?? null;
     $expectedOutputStr = "1. Web Application\n2. Documentation\n3. Final Presentation";

@@ -60,7 +60,7 @@ export const en = {
     project_types_pref: "Preferred project types",
     type_project: "Course Project", type_research: "Research Paper", type_graduation: "Graduation Project",
     skill_level_hint: "Click once for Beginner, twice for Intermediate, three times for Advanced, and a fourth time to deselect.",
-    onboarding_done_title: "Profile Complete! 🎉", onboarding_done_desc: "You're all set. Start exploring projects or publish your own idea to attract teammates.",
+    onboarding_done_title: "Profile Complete!", onboarding_done_desc: "You're all set. Start exploring projects or publish your own idea to attract teammates.",
     go_to_projects: "Explore Projects",
     profile_title: "Profile", edit_profile: "Edit Profile", skills_section: "Skills",
     add_skill: "Add Skill", no_skills: "No skills listed yet. Add your skills to improve your matching results.",

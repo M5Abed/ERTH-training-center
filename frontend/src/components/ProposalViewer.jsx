@@ -1,6 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, Sparkles, Edit3, CheckCircle2, User, Users, Calendar, BookOpen, Loader2, X, AlertCircle } from 'lucide-react';
+import {
+    FileText, Download, Sparkles, CheckCircle2, User, Users, Calendar,
+    BookOpen, Loader2, X, AlertCircle, Shield, Target, Compass, AlertTriangle,
+    Layers, Cpu, Layout, Code, ShieldAlert, ShieldCheck, Hammer, Activity,
+    Bookmark, Paperclip, Copy, Check, Search, Filter
+} from 'lucide-react';
 import './ProposalViewer.css';
+
+// Section icons & badges helper
+const getSectionMeta = (key, idx) => {
+    const k = (key || '').toLowerCase();
+    if (k.includes('abstract')) return { icon: BookOpen, tag: 'Overview', color: '#3b82f6' };
+    if (k.includes('introduction') || k.includes('background')) return { icon: Compass, tag: 'Context', color: '#6366f1' };
+    if (k.includes('problem')) return { icon: AlertTriangle, tag: 'Problem Statement', color: '#f59e0b' };
+    if (k.includes('objective') || k.includes('scope')) return { icon: Target, tag: 'Goals & Scope', color: '#10b981' };
+    if (k.includes('related')) return { icon: Layers, tag: 'Literature', color: '#8b5cf6' };
+    if (k.includes('methodology')) return { icon: Cpu, tag: 'Core Method', color: '#06b6d4' };
+    if (k.includes('design') || k.includes('architecture')) return { icon: Layout, tag: 'System Design', color: '#ec4899' };
+    if (k.includes('team') || k.includes('contribution')) return { icon: Users, tag: 'Team Roles', color: '#3b82f6' };
+    if (k.includes('success') || k.includes('criteria')) return { icon: CheckCircle2, tag: 'Success Criteria', color: '#10b981' };
+    if (k.includes('tech') || k.includes('tools') || k.includes('stack')) return { icon: Code, tag: 'Tech Stack', color: '#f97316' };
+    if (k.includes('challenge') || k.includes('risk')) return { icon: ShieldAlert, tag: 'Risk & Mitigation', color: '#ef4444' };
+    if (k.includes('ethic') || k.includes('safety')) return { icon: ShieldCheck, tag: 'Ethics & Safety', color: '#14b8a6' };
+    if (k.includes('implementation') || k.includes('approach')) return { icon: Hammer, tag: 'Implementation Plan', color: '#a855f7' };
+    if (k.includes('test') || k.includes('result')) return { icon: Activity, tag: 'Testing Strategy', color: '#0ea5e9' };
+    if (k.includes('reference')) return { icon: Bookmark, tag: 'References', color: '#64748b' };
+    if (k.includes('appendix')) return { icon: Paperclip, tag: 'Appendices', color: '#eab308' };
+    return { icon: FileText, tag: `Section ${idx + 1}`, color: '#6366f1' };
+};
 
 export default function ProposalViewer({
     ideaId,
@@ -13,8 +40,10 @@ export default function ProposalViewer({
     const [proposal, setProposal] = useState(initialProposal);
     const [loading, setLoading] = useState(!initialProposal && !!ideaId);
     const [error, setError] = useState('');
-    
-    // Live Section Edit (Case A) State
+    const [searchQuery, setSearchQuery] = useState('');
+    const [copiedSec, setCopiedSec] = useState(null);
+
+    // Live Section Edit (Case A: Custom Ideas ONLY)
     const [editingSection, setEditingSection] = useState(null);
     const [editInstruction, setEditInstruction] = useState('');
     const [savingEdit, setSavingEdit] = useState(false);
@@ -45,6 +74,12 @@ export default function ProposalViewer({
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleCopySection = (key, text) => {
+        navigator.clipboard.writeText(text || '');
+        setCopiedSec(key);
+        setTimeout(() => setCopiedSec(null), 2000);
     };
 
     const handleOpenEdit = (sec) => {
@@ -100,10 +135,13 @@ export default function ProposalViewer({
 
     if (loading) {
         return (
-            <div className="proposal-viewer-container" style={{ padding: '3rem', textAlign: 'center' }}>
-                <Loader2 className="spin" size={32} style={{ color: '#3b82f6', marginBottom: '0.75rem' }} />
-                <p style={{ margin: 0, color: '#94a3b8' }}>
-                    {lang === 'ar' ? 'جاري تحميل وثيقة المقترح...' : 'Loading official document...'}
+            <div className="proposal-viewer-container" style={{ padding: '3.5rem 2rem', textAlign: 'center' }}>
+                <Loader2 className="spin" size={36} style={{ color: '#3b82f6', marginBottom: '1rem' }} />
+                <h4 style={{ margin: '0 0 0.5rem', color: '#f8fafc' }}>
+                    {lang === 'ar' ? 'جاري تحميل وثيقة المشروع المعتمدة...' : 'Loading Official Academic Proposal...'}
+                </h4>
+                <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.9rem' }}>
+                    {lang === 'ar' ? 'يتم جلب أقسام التقرير الكاملة ومطابقتها...' : 'Retrieving full multi-section report specifications...'}
                 </p>
             </div>
         );
@@ -111,22 +149,36 @@ export default function ProposalViewer({
 
     if (error || !proposal) {
         return (
-            <div className="proposal-viewer-container" style={{ padding: '2rem', textAlign: 'center' }}>
-                <AlertCircle size={32} style={{ color: '#ef4444', marginBottom: '0.5rem' }} />
-                <p style={{ color: '#ef4444', margin: 0 }}>{error || 'No proposal data available'}</p>
+            <div className="proposal-viewer-container" style={{ padding: '2.5rem', textAlign: 'center' }}>
+                <AlertCircle size={36} style={{ color: '#ef4444', marginBottom: '0.75rem' }} />
+                <h4 style={{ color: '#ef4444', margin: '0 0 0.5rem' }}>{lang === 'ar' ? 'تعذر تحميل بيانات المشروع' : 'Unable to Load Project Data'}</h4>
+                <p style={{ color: '#94a3b8', margin: 0 }}>{error || 'No proposal data available'}</p>
             </div>
         );
     }
 
-    const sections = proposal.sections || [];
+    const rawSections = proposal.sections || [];
     const team = proposal.team || {};
     const title = proposal.project_title || proposal.title || 'Training Project';
     const category = proposal.category || 'software';
     const isDocLabel = documentLabel === 'documentation';
 
-    const displayTitle = isDocLabel 
-        ? (lang === 'ar' ? 'توثيق المشروع الرسمي' : 'Official Project Documentation')
-        : (lang === 'ar' ? 'مقترح المشروع الأكاديمي' : 'Official Project Proposal');
+    // Strict ZERO-AI rule for the 64 catalog ideas
+    const isCatalogSeed = proposal.source === 'catalog_seed' || proposal.catalog_project_id != null;
+    const allowAiEdit = canEdit && !isCatalogSeed;
+
+    const displayTitle = isDocLabel
+        ? (lang === 'ar' ? 'توثيق المشروع الرسمي المعتمد' : 'Official Project Documentation & Technical Report')
+        : (lang === 'ar' ? 'المقترح الأكاديمي والتوثيق المعتمد' : 'Official Academic Proposal & Documentation');
+
+    // Filter sections based on search query
+    const sections = rawSections.filter(sec => {
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        const t = (sec.title || sec.key || '').toLowerCase();
+        const c = (sec.content || '').toLowerCase();
+        return t.includes(q) || c.includes(q);
+    });
 
     return (
         <div className="proposal-viewer-container">
@@ -134,19 +186,19 @@ export default function ProposalViewer({
             <div className="proposal-viewer-header">
                 <div className="proposal-title-area">
                     <div className="proposal-icon-badge">
-                        <FileText size={24} />
+                        <FileText size={26} />
                     </div>
                     <div className="proposal-header-text">
-                        <h3>{displayTitle}</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <h3>{displayTitle}</h3>
+                            <span className="section-count-badge">
+                                {rawSections.length} {lang === 'ar' ? 'أقسام رسمية' : 'Sections'}
+                            </span>
+                        </div>
                         <div className="proposal-header-meta">
                             <span className={`category-tag ${category}`}>{category}</span>
                             <span>•</span>
-                            <span style={{ fontWeight: 600, color: '#f1f5f9' }}>{title}</span>
-                            {proposal.source === 'catalog_seed' && (
-                                <span className="source-badge">
-                                    {lang === 'ar' ? 'محتوى معتمد جاهز' : 'Verified Catalog Template'}
-                                </span>
-                            )}
+                            <span className="project-title-highlight">{title}</span>
                         </div>
                     </div>
                 </div>
@@ -160,7 +212,7 @@ export default function ProposalViewer({
                             className="btn-docx-download"
                         >
                             <Download size={15} />
-                            <span>{lang === 'ar' ? 'تحميل التقرير الرسمي (.docx)' : 'Download Official Word Report (.docx)'}</span>
+                            <span>{lang === 'ar' ? 'تحميل التقرير الكامل (.docx)' : 'Download Full Proposal (.docx)'}</span>
                         </a>
                     )}
                 </div>
@@ -170,74 +222,147 @@ export default function ProposalViewer({
             <div className="proposal-team-bar">
                 {team.leader && (
                     <div className="team-bar-item">
-                        <User size={14} className="text-primary" />
+                        <User size={14} style={{ color: '#3b82f6' }} />
                         <span>{lang === 'ar' ? 'قائد الفريق:' : 'Team Leader:'} <strong>{team.leader}</strong></span>
                     </div>
                 )}
                 {team.members && team.members.length > 0 && (
                     <div className="team-bar-item">
-                        <Users size={14} />
+                        <Users size={14} style={{ color: '#8b5cf6' }} />
                         <span>{lang === 'ar' ? 'الأعضاء:' : 'Members:'} <strong>{team.members.join(', ')}</strong></span>
                     </div>
                 )}
                 {team.trainer && (
                     <div className="team-bar-item">
                         <CheckCircle2 size={14} style={{ color: '#10b981' }} />
-                        <span>{lang === 'ar' ? 'المشرف:' : 'Supervisor:'} <strong>{team.trainer}</strong></span>
+                        <span>{lang === 'ar' ? 'المشرف الأكاديمي:' : 'Supervisor:'} <strong>{team.trainer}</strong></span>
                     </div>
                 )}
                 {team.course && (
                     <div className="team-bar-item">
-                        <BookOpen size={14} />
+                        <BookOpen size={14} style={{ color: '#f59e0b' }} />
                         <span>{team.course}</span>
                     </div>
                 )}
                 {team.date && (
                     <div className="team-bar-item">
-                        <Calendar size={14} />
+                        <Calendar size={14} style={{ color: '#64748b' }} />
                         <span>{team.date}</span>
                     </div>
                 )}
             </div>
 
-            {/* Document Sections List */}
-            <div className="proposal-sections-list">
-                {sections.map((sec, idx) => (
-                    <div 
-                        key={sec.key || idx} 
-                        className="proposal-section-card revealing"
-                        style={{ animationDelay: `${idx * 0.08}s` }}
-                    >
-                        <div className="section-card-header">
-                            <div className="section-number-title">
-                                <span className="section-num">{idx + 1}</span>
-                                <h4>{sec.title || sec.key}</h4>
-                            </div>
-
-                            {canEdit && (
-                                <div className="section-actions">
-                                    <button
-                                        type="button"
-                                        className="btn-ai-edit-section"
-                                        onClick={() => handleOpenEdit(sec)}
-                                        title={lang === 'ar' ? 'طلب تعديل ذكي لهذا القسم بالذكاء الاصطناعي' : 'Request AI revision for this specific section'}
-                                    >
-                                        <Sparkles size={13} />
-                                        <span>{lang === 'ar' ? 'تعديل ذكي بالذكاء الاصطناعي' : 'AI Section Edit'}</span>
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="section-card-content">
-                            {sec.content || <em style={{ color: '#64748b' }}>Pending implementation details...</em>}
-                        </div>
-                    </div>
-                ))}
+            {/* Search & Filter Bar */}
+            <div className="proposal-toolbar">
+                <div className="proposal-search-box">
+                    <Search size={15} style={{ color: '#64748b' }} />
+                    <input
+                        type="text"
+                        placeholder={lang === 'ar' ? 'ابحث في محتوى أقسام الوثيقة...' : 'Search within sections and requirements...'}
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                    />
+                    {searchQuery && (
+                        <button type="button" className="clear-search-btn" onClick={() => setSearchQuery('')}>
+                            <X size={13} />
+                        </button>
+                    )}
+                </div>
+                <div className="proposal-toolbar-stats">
+                    <span>{lang === 'ar' ? `عرض ${sections.length} من أصل ${rawSections.length} قسم` : `Showing ${sections.length} of ${rawSections.length} sections`}</span>
+                </div>
             </div>
 
-            {/* Case A: AI Section Live Revision Modal */}
-            {editingSection && (
+            {/* Document Sections List */}
+            <div className="proposal-sections-list">
+                {sections.length === 0 ? (
+                    <div className="no-sections-found">
+                        <Search size={28} style={{ color: '#64748b', marginBottom: '0.5rem' }} />
+                        <p>{lang === 'ar' ? 'لا توجد أقسام مطابقة للبحث' : 'No sections match your search query.'}</p>
+                    </div>
+                ) : (
+                    sections.map((sec, idx) => {
+                        const meta = getSectionMeta(sec.title || sec.key, idx);
+                        const IconComponent = meta.icon;
+
+                        return (
+                            <div
+                                key={sec.key || idx}
+                                className="proposal-section-card"
+                                id={`section-${sec.key}`}
+                            >
+                                <div className="section-card-header">
+                                    <div className="section-number-title">
+                                        <div className="section-icon-pill" style={{ background: `${meta.color}18`, color: meta.color, borderColor: `${meta.color}35` }}>
+                                            <IconComponent size={16} />
+                                        </div>
+                                        <div className="section-title-wrap">
+                                            <div className="section-tag-row">
+                                                <span className="section-idx-badge">{idx + 1}</span>
+                                                <span className="section-cat-tag" style={{ color: meta.color }}>{meta.tag}</span>
+                                            </div>
+                                            <h4>{sec.title || sec.key}</h4>
+                                        </div>
+                                    </div>
+
+                                    <div className="section-actions">
+                                        <button
+                                            type="button"
+                                            className="btn-sec-action"
+                                            onClick={() => handleCopySection(sec.key, sec.content)}
+                                            title={lang === 'ar' ? 'نسخ نص القسم' : 'Copy section text'}
+                                        >
+                                            {copiedSec === sec.key ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
+                                            <span>{copiedSec === sec.key ? (lang === 'ar' ? 'تم النسخ' : 'Copied') : (lang === 'ar' ? 'نسخ' : 'Copy')}</span>
+                                        </button>
+
+                                        {/* AI Edit ONLY for custom student ideas */}
+                                        {allowAiEdit && (
+                                            <button
+                                                type="button"
+                                                className="btn-ai-edit-section"
+                                                onClick={() => handleOpenEdit(sec)}
+                                                title={lang === 'ar' ? 'طلب تعديل ذكي لهذا القسم بالذكاء الاصطناعي' : 'AI-revise this section'}
+                                            >
+                                                <Sparkles size={13} />
+                                                <span>{lang === 'ar' ? 'تعديل ذكي' : 'AI Edit'}</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="section-card-content">
+                                    {sec.content ? (
+                                        sec.content.split('\n').map((line, li) => {
+                                            const trimmed = line.trim();
+                                            if (!trimmed) return <div key={li} style={{ height: '0.6rem' }} />;
+                                            
+                                            // Check if bullet point or numbered item
+                                            const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-') || /^\(\d+\)/.test(trimmed) || /^\d+\./.test(trimmed);
+                                            
+                                            return (
+                                                <p
+                                                    key={li}
+                                                    className={`section-paragraph ${isBullet ? 'bullet-item' : ''}`}
+                                                >
+                                                    {trimmed}
+                                                </p>
+                                            );
+                                        })
+                                    ) : (
+                                        <em className="pending-text">
+                                            {lang === 'ar' ? 'قيد التطوير والتنفيذ العملي...' : 'Pending implementation details...'}
+                                        </em>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
+            </div>
+
+            {/* AI Section Revision Modal (Custom Ideas ONLY) */}
+            {editingSection && allowAiEdit && (
                 <div className="ai-edit-modal-overlay" onClick={() => !savingEdit && setEditingSection(null)}>
                     <div className="ai-edit-modal-card" onClick={e => e.stopPropagation()}>
                         <div className="ai-edit-modal-header">
@@ -245,8 +370,8 @@ export default function ProposalViewer({
                                 <Sparkles size={18} style={{ color: '#c084fc' }} />
                                 <span>{lang === 'ar' ? `تعديل قسم: ${editingSection.title}` : `Revise Section: ${editingSection.title}`}</span>
                             </h4>
-                            <button 
-                                className="btn btn-ghost btn-icon" 
+                            <button
+                                className="btn btn-ghost btn-icon"
                                 onClick={() => setEditingSection(null)}
                                 disabled={savingEdit}
                             >
@@ -265,7 +390,7 @@ export default function ProposalViewer({
                             </label>
                             <textarea
                                 rows="3"
-                                placeholder={lang === 'ar' 
+                                placeholder={lang === 'ar'
                                     ? 'مثال: اجعل صياغة المشكلة أكثر تركيزاً على المستخدمين كبار السن، أو اختصر منهجية العمل...'
                                     : 'e.g. Make the problem statement more specific to healthcare kiosks, or shorten this section to 2 paragraphs...'}
                                 value={editInstruction}
@@ -319,3 +444,4 @@ export default function ProposalViewer({
         </div>
     );
 }
+

@@ -132,7 +132,7 @@ function attachTeamMembers($db, array &$ideas, int $currentUserId) {
     }
 }
 
-function attachVotesAndTrainers($db, array &$ideas, int $currentUserId) {
+function attachVotesAndTrainers($db, array &$ideas, int $currentUserId, string $role = 'trainee', bool $isAdmin = false) {
     if (empty($ideas)) return;
 
     $ideaIds = array_column($ideas, 'id');
@@ -194,13 +194,15 @@ function attachVotesAndTrainers($db, array &$ideas, int $currentUserId) {
                 }
             }
 
+            // Isolate internal votes list from students
+            $isTraineeUser = ($role === 'trainee' && !$isAdmin);
             $idea['vote_summary'] = [
                 'total_votes' => count($votes),
                 'approve_count' => $approveCount,
                 'reject_count' => $rejectCount,
                 'my_vote' => $myVote,
                 'my_notes' => $myNotes,
-                'votes_list' => $votes
+                'votes_list' => $isTraineeUser ? [] : $votes
             ];
 
             // Assigned trainers fallback if reviewer_name not present
@@ -228,7 +230,7 @@ $stmt = $db->prepare($sql);
 $stmt->execute($params);
 $ideas = $stmt->fetchAll();
 
-attachVotesAndTrainers($db, $ideas, $uid);
+attachVotesAndTrainers($db, $ideas, $uid, $role, $isAdmin);
 attachTeamMembers($db, $ideas, $uid);
 
 respond([

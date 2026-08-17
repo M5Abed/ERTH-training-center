@@ -126,8 +126,8 @@ export default function IdeaLeaderboard() {
                                 const rank = podIdx === 1 ? 1 : podIdx === 0 ? 2 : 3;
                                 return (
                                     <div key={idea.id} className={`podium-card rank-${rank}`}>
-                                        <div className="podium-medal" style={{ background: medalColors[rank - 1] }}>
-                                            {rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉'}
+                                        <div className="podium-medal" style={{ background: medalColors[rank - 1], display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }}>
+                                            <Award size={18} />
                                         </div>
                                         <h4>{idea.title || idea.title_ar}</h4>
                                         <p className="podium-trainee"><User size={12} /> {idea.trainee_name || 'Unknown'}</p>

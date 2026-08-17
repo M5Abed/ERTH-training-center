@@ -399,10 +399,10 @@ function PageCard({ pageDef, savedContent, source, onSave, ideaId, readOnly, isL
         : isAI ? 'pdm-badge-ai'
         : needsFill ? 'pdm-badge-fill'
         : 'pdm-badge-default';
-    const badgeText  = isTraineeSaved ? '✓ Saved'
-        : isAI ? '✦ AI Generated'
-        : needsFill ? '✎ Fill Required'
-        : '📄 Template';
+    const badgeText  = isTraineeSaved ? 'Saved'
+        : isAI ? 'AI Generated'
+        : needsFill ? 'Fill Required'
+        : 'Official Template';
 
     const startEdit = () => { setDraft(displayContent); setEditing(true); setSaveOk(false); setSaveErr(''); };
 
@@ -455,7 +455,7 @@ function PageCard({ pageDef, savedContent, source, onSave, ideaId, readOnly, isL
                 </div>
                 <div className="pdm-shimmer-ai-label">
                     <Sparkles size={13} />
-                    <span>Groq AI is writing this page...</span>
+                    <span>ERTH AI is generating this page...</span>
                 </div>
                 <div className="pdm-page-footer">
                     <span>New Mansoura University — AI &amp; Robotics Field Training Report</span>
@@ -569,7 +569,6 @@ export default function ProposalDocModal({
     const [evaluating, setEvaluating]       = useState(false);
     const [feedback, setFeedback]           = useState('');
     const [evalError, setEvalError]         = useState('');
-    const [pdfGenerating, setPdfGenerating] = useState(false);
     const [aiFilling, setAiFilling]         = useState(false);
     const [aiFillMsg, setAiFillMsg]         = useState('');
     const [editingApproval, setEditingApproval] = useState(false);
@@ -632,13 +631,15 @@ export default function ProposalDocModal({
     // Check if AI content is present (any section with ai_generated source)
     const hasAIContent = rawSections.some(s => s.source === 'ai_generated' && s.content);
 
-    // ── Core AI fill function ────────────────────────────────────────────────
+    const isCatalog = proposal?.source === 'catalog_seed' || !!proposal?.catalog_project_id;
+
+    // ── Core ERTH AI fill function ───────────────────────────────────────────
     const triggerAiFill = useCallback(async (showConfirm = false) => {
         if (showConfirm) {
             const ok = window.confirm(
                 lang === 'ar'
-                    ? 'هل تريد إعادة توليد المحتوى بالذكاء الاصطناعي Groq؟'
-                    : 'Regenerate all pages with Groq AI?'
+                    ? 'هل تريد توليد / تحديث محتوى الصفحات بواسطة ERTH AI؟'
+                    : 'Generate / update all proposal pages with ERTH AI?'
             );
             if (!ok) return;
         }
@@ -649,7 +650,7 @@ export default function ProposalDocModal({
             .map(p => p.key);
         setLoadingKeys(new Set(fillableKeys));
         setAiFilling(true);
-        setAiFillMsg('Groq AI is reading the project idea...');
+        setAiFillMsg(lang === 'ar' ? 'نموذج ERTH AI يحلل بيانات ومتطلبات المشروع...' : 'ERTH AI is analyzing project requirements...');
 
         try {
             const res = await fetch('/api/training/ideas/ai_fill_proposal.php', {
@@ -670,7 +671,7 @@ export default function ProposalDocModal({
                 // Reveal pages one by one with a staggered animation
                 const sections = data.proposal.sections || [];
                 setProposal(data.proposal);
-                setAiFillMsg('✨ Groq finished! Pages are appearing...');
+                setAiFillMsg(lang === 'ar' ? 'انتهى نموذج ERTH AI من بناء الصفحات بنجاح!' : 'ERTH AI generated sections successfully!');
 
                 // Stagger-remove shimmer key by key as pages load
                 sections.forEach((sec, idx) => {
@@ -689,13 +690,13 @@ export default function ProposalDocModal({
 
                 setTimeout(() => setAiFillMsg(''), 4000);
             } else {
-                alert(data.error || 'AI generation failed');
+                alert(data.error || (lang === 'ar' ? 'فشل التوليد بواسطة الذكاء الاصطناعي' : 'ERTH AI generation failed'));
                 setAiFillMsg('');
                 setLoadingKeys(new Set());
             }
         } catch (e) {
             console.error(e);
-            alert('Network error — could not reach Groq AI');
+            alert(lang === 'ar' ? 'حدث خطأ في الاتصال بنموذج ERTH AI' : 'Network error — could not reach ERTH AI');
             setAiFillMsg('');
             setLoadingKeys(new Set());
         } finally {
@@ -703,9 +704,9 @@ export default function ProposalDocModal({
         }
     }, [ideaId, title, category, proposal, lang]);
 
-    // Auto-trigger on mount if no AI content present
+    // Auto-trigger on mount only if custom proposal with no AI content (NEVER for catalog)
     useEffect(() => {
-        if (!autoFillTriggered.current && !hasAIContent && ideaId) {
+        if (!autoFillTriggered.current && !hasAIContent && ideaId && !isCatalog) {
             autoFillTriggered.current = true;
             triggerAiFill(false);
         }
@@ -735,58 +736,7 @@ export default function ProposalDocModal({
         }
     };
 
-    // TRUE PDF DOWNLOAD — jsPDF + html2canvas (no browser print dialog)
-    const handleDownloadPDF = async () => {
-        setPdfGenerating(true);
-        setPdfProgress('Preparing document...');
-        try {
-            const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
-                import('jspdf'), import('html2canvas')
-            ]);
-            const pages = document.querySelectorAll('.pdm-page-card');
-            const pdf   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-            const A4W = 210, A4H = 297;
 
-            for (let i = 0; i < pages.length; i++) {
-                const el = pages[i];
-                setPdfProgress(`Rendering page ${i + 1} of ${pages.length}...`);
-
-                // Hide UI-only elements
-                const noPrints = el.querySelectorAll('.no-print');
-                noPrints.forEach(n => { n.dataset.prevDisp = n.style.display; n.style.display = 'none'; });
-
-                const canvas = await html2canvas(el, {
-                    scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false,
-                    onclone: (doc) => {
-                        const p = doc.querySelector('#' + el.id);
-                        if (p) { p.style.boxShadow = 'none'; p.style.margin = '0'; }
-                    }
-                });
-                noPrints.forEach(n => { n.style.display = n.dataset.prevDisp || ''; });
-
-                // Scale canvas to fit A4 page
-                const pxW  = canvas.width  / 2 * 0.264583;  // px → mm at 96dpi
-                const pxH  = canvas.height / 2 * 0.264583;
-                const scale = Math.min(A4W / pxW, A4H / pxH, 1);
-                const imgW  = pxW * scale;
-                const imgH  = pxH * scale;
-
-                if (i > 0) pdf.addPage();
-                pdf.addImage(canvas.toDataURL('image/jpeg', 0.88), 'JPEG',
-                    (A4W - imgW) / 2, (A4H - imgH) / 2, imgW, imgH);
-            }
-
-            const safe = title.replace(/[^\w\s]/g, '').replace(/\s+/g, '_').substring(0, 40);
-            pdf.save(`NMU_Proposal_${safe}.pdf`);
-            setPdfProgress('');
-        } catch (err) {
-            console.error('PDF error:', err);
-            setPdfProgress('Error — falling back to print...');
-            setTimeout(() => { window.print(); setPdfProgress(''); }, 600);
-        } finally {
-            setPdfGenerating(false);
-        }
-    };
 
     const handleEvaluate = async (status) => {
         if (status === 'rejected' && !showFeedback) { setShowFeedback(true); return; }
@@ -835,38 +785,47 @@ export default function ProposalDocModal({
                             <Layers size={13} />
                             <span>30 Official Pages</span>
                         </div>
-                        <button
-                            type="button"
-                            className={`pdm-btn-ai-fill ${aiFilling ? 'loading' : ''}`}
-                            onClick={() => triggerAiFill(hasAIContent)}
-                            disabled={aiFilling || pdfGenerating}
-                            title="Let Groq AI review the idea and fill all 30 pages"
-                        >
-                            {aiFilling
-                                ? <><Loader2 size={15} className="spin" /><span>{aiFillMsg || 'Thinking...'}</span></>
-                                : <><Sparkles size={15} /><span>{hasAIContent ? 'Regenerate with Groq' : 'Fill with Groq AI'}</span></>}
-                        </button>
-                        <button
-                            type="button"
-                            className={`pdm-btn-download ${pdfGenerating ? 'loading' : ''}`}
-                            onClick={handleDownloadPDF}
-                            disabled={pdfGenerating || aiFilling}
-                            title="Download as PDF file (no print dialog)"
-                        >
-                            {pdfGenerating
-                                ? <><Loader2 size={15} className="spin" /><span>{pdfProgress || 'Generating...'}</span></>
-                                : <><Download size={15} /><span>Download PDF</span></>}
-                        </button>
+
+                        {/* Primary Action 1: Download Official .docx */}
                         {ideaId && (
                             <a
                                 href={`/api/training/ideas/proposal_docx.php?idea_id=${ideaId}`}
                                 target="_blank" rel="noopener noreferrer"
-                                className="pdm-btn-download"
+                                className="pdm-btn-download pdm-btn-docx-primary"
+                                style={{
+                                    background: 'linear-gradient(135deg, #c8a951 0%, #e2c875 100%)',
+                                    color: '#0a1930',
+                                    fontWeight: 800,
+                                    border: 'none',
+                                    padding: '0.45rem 1rem',
+                                    borderRadius: '8px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    boxShadow: '0 2px 8px rgba(200, 169, 81, 0.35)'
+                                }}
+                                title="Download the official NMU Word document template (.docx)"
                             >
                                 <Download size={15} />
-                                <span>.docx</span>
+                                <span>{lang === 'ar' ? 'تحميل ملف Word (.docx)' : 'Download Word (.docx)'}</span>
                             </a>
                         )}
+
+                        {/* Action 2: ERTH AI Fill (Only for custom ideas, NOT for 64 pre-approved catalog ideas) */}
+                        {!isCatalog && (
+                            <button
+                                type="button"
+                                className={`pdm-btn-ai-fill ${aiFilling ? 'loading' : ''}`}
+                                onClick={() => triggerAiFill(hasAIContent)}
+                                disabled={aiFilling}
+                                title="Let ERTH AI generate sections for your custom project"
+                            >
+                                {aiFilling
+                                    ? <><Loader2 size={15} className="spin" /><span>{aiFillMsg || 'Thinking...'}</span></>
+                                    : <><Sparkles size={15} /><span>{hasAIContent ? 'Regenerate with ERTH AI' : 'Fill with ERTH AI'}</span></>}
+                            </button>
+                        )}
+
                         <button type="button" className="pdm-close-btn" onClick={onClose}><X size={20} /></button>
                     </div>
                 </div>
@@ -875,7 +834,7 @@ export default function ProposalDocModal({
                 {aiFilling && (
                     <div className="pdm-ai-status-bar no-print">
                         <Loader2 size={14} className="spin" />
-                        <span>{aiFillMsg || 'Groq AI is working...'}</span>
+                        <span>{aiFillMsg || 'ERTH AI is working...'}</span>
                         <div className="pdm-ai-status-dots"><span/><span/><span/></div>
                     </div>
                 )}
@@ -961,7 +920,7 @@ export default function ProposalDocModal({
                                     </div>
                                 </div>
                                 <div className="pdm-page-header-right no-print">
-                                    <span className="pdm-section-badge pdm-badge-default">📄 Official Template</span>
+                                    <span className="pdm-section-badge pdm-badge-default">Official Template</span>
                                     {!isEvaluator && !editingApproval && (
                                         <button
                                             type="button"
@@ -1164,7 +1123,7 @@ export default function ProposalDocModal({
                                     <div className="pdm-section-subtitle">Complete report structure — click any entry to navigate</div>
                                 </div>
                                 <div className="pdm-title-actions no-print">
-                                    <span className="pdm-section-badge pdm-badge-default">📄 Template</span>
+                                    <span className="pdm-section-badge pdm-badge-default">Template</span>
                                 </div>
                             </div>
                             <div className="pdm-page-body">

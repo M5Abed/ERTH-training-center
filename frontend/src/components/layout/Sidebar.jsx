@@ -73,21 +73,16 @@ export default function Sidebar({ open, onClose }) {
     navItems.push({
         to: '/submitted-projects',
         icon: <FileText size={20} />,
-        label: (isAdmin || isTrainer) ? 'Trainee Projects' : 'My Projects & Ideas'
+        label: (isAdmin || isTrainer)
+            ? (lang === 'ar' ? 'مشاريع المتدربين' : 'Trainee Projects')
+            : (lang === 'ar' ? 'مشروعي وفكرتي' : 'My Project & Idea')
     });
 
-    // Leaderboard
+    // Academic Evaluations
     navItems.push({
-        to: '/leaderboard',
-        icon: <Trophy size={20} />,
-        label: 'Idea Leaderboard'
-    });
-
-    // Documents Archive
-    navItems.push({
-        to: '/docs-archive',
-        icon: <FolderOpen size={20} />,
-        label: 'Documents Archive'
+        to: '/evaluations',
+        icon: <CheckCircle2 size={20} />,
+        label: lang === 'ar' ? 'التقييم الأكاديمي' : 'Academic Evaluations'
     });
 
     // Items available to Admin & Trainer

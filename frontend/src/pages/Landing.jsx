@@ -111,7 +111,7 @@ export default function Landing() {
                                 </Link>
                             </>
                         ) : (
-                            <Link to="/courses" className="lp-cta-btn">
+                            <Link to="/dashboard" className="lp-cta-btn">
                                 Dashboard <ArrowRight size={14} />
                             </Link>
                         )}
@@ -146,8 +146,8 @@ export default function Landing() {
                                     </Link>
                                 </>
                             ) : (
-                                <Link to="/courses" className="lp-cta-btn lp-cta-btn--lg">
-                                    Access Training Portal <ArrowUpRight size={18} />
+                                <Link to="/dashboard" className="lp-cta-btn lp-cta-btn--lg">
+                                    Dashboard <ArrowUpRight size={18} />
                                 </Link>
                             )}
                         </div>

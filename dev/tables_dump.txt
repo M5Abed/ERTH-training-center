@@ -1,0 +1,268 @@
+[TABLE in Cover]: (length 430)
+   Content: Project Title[Enter the full project title]Student Name(s)[Student 1]  |  [Student 2]  |  [Student 3] [Student 4][Student 5]Student ID(s)[ID 1]  |  [ID 2]  |  [ID 3]Training Track☐ Software     ☐ Simulation   ☐ HardwareRobot / Platform[Yanshee / NAO / Robot Arm / AI Box / LIMO / Other]Academic Supervisor[Name and title]Technical Trainer[Name and title]Training Period[Start date] to [End date]Submission Date[Day / Month / Year]
+
+
+================ PAGE: 02  Approval Page ================
+[TABLE in 02  Approval Page]: (length 53)
+   Content: Project Title[Project title]Student(s)[Names and IDs]
+
+[TABLE in 02  Approval Page]: (length 241)
+   Content: What to include on this pageComplete all student and project information before printing.Obtain signatures after the final presentation and technical review.Use original signatures; do not paste scanned signatures unless officially approved.
+
+[TABLE in 02  Approval Page]: (length 332)
+   Content: Technical TrainerName: __________________  Signature: __________  Date: ________Academic SupervisorName: __________________  Signature: __________  Date: ________Program CoordinatorName: __________________  Signature: __________  Date: ________Head of Department / DeanName: __________________  Signature: __________  Date: ________
+
+[TABLE in 02  Approval Page]: (length 0)
+   Content: 
+
+
+================ PAGE: 03  Student Declaration ================
+[TABLE in 03  Student Declaration]: (length 252)
+   Content: What to include on this pageConfirm that the report reflects the team’s own work during field training.List any external libraries, datasets, tutorials, images, or code used.All borrowed ideas, code, and figures must be cited in the References section.
+
+[TABLE in 03  Student Declaration]: (length 0)
+   Content: 
+
+
+================ PAGE: 04  Acknowledgment ================
+[TABLE in 04  Acknowledgment]: (length 256)
+   Content: What to include on this pageThank the university, faculty, laboratory team, supervisors, and trainers.Mention technical or logistical support that directly contributed to the project.Keep this section professional and concise (approximately 150–250 words).
+
+[TABLE in 04  Acknowledgment]: (length 0)
+   Content: 
+
+
+================ PAGE: 05  Executive Summary / Abstract ================
+[TABLE in 05  Executive Summary / Abstract]: (length 78)
+   Content: Keywords[3–6 keywords, e.g., robotics, computer vision, NAO, object detection]
+
+[TABLE in 05  Executive Summary / Abstract]: (length 259)
+   Content: What to include on this pageWrite 200–300 words after completing the project.Include the problem, objective, robot/platform, methodology, main implementation, key result, and conclusion.Avoid citations, long background discussion, and undefined abbreviations.
+
+[TABLE in 05  Executive Summary / Abstract]: (length 0)
+   Content: 
+
+
+================ PAGE: 06  Table of Contents ================
+[TABLE in 06  Table of Contents]: (length 236)
+   Content: What to include on this pageIn Microsoft Word, use References → Table of Contents for an automatic TOC.Apply Heading 1, Heading 2, and Heading 3 styles consistently.Check that all headings and page numbers are correct before submission.
+
+[TABLE in 06  Table of Contents]: (length 280)
+   Content: SectionPageExecutive Summary5Chapter 1: Introduction9Chapter 2: Related Work12Chapter 3: Problem Analysis & Requirements15Chapter 4: Methodology & System Design18Chapter 5: Implementation22Chapter 6: Testing & Results25Chapter 7: Conclusion & Future Work28References29Appendices30
+
+[TABLE in 06  Table of Contents]: (length 0)
+   Content: 
+
+
+================ PAGE: 07  Lists of Figures and Tables ================
+[TABLE in 07  Lists of Figures and Tables]: (length 202)
+   Content: What to include on this pageEvery figure and table must have a number and descriptive caption.Mention each figure/table in the report text before it appears.Use clear, readable screenshots and diagrams.
+
+[TABLE in 07  Lists of Figures and Tables]: (length 195)
+   Content: Figure 1[Title] ........................................ Page [ ]Figure 2[Title] ........................................ Page [ ]Figure 3[Title] ........................................ Page [ ]
+
+[TABLE in 07  Lists of Figures and Tables]: (length 195)
+   Content: Table 1[Title] ......................................... Page [ ]Table 2[Title] ......................................... Page [ ]Table 3[Title] ......................................... Page [ ]
+
+[TABLE in 07  Lists of Figures and Tables]: (length 0)
+   Content: 
+
+
+================ PAGE: 08  Abbreviations and Technical Terms ================
+[TABLE in 08  Abbreviations and Technical Terms]: (length 212)
+   Content: What to include on this pageInclude only abbreviations that appear in the report.Write the full term the first time it appears in the main text.Add robot-specific and software-specific terms used by your project.
+
+[TABLE in 08  Abbreviations and Technical Terms]: (length 229)
+   Content: AbbreviationMeaningAIArtificial IntelligenceCVComputer VisionHRIHuman–Robot InteractionROSRobot Operating SystemSLAMSimultaneous Localization and MappingAPIApplication Programming Interface[Add][Add project-specific abbreviation]
+
+[TABLE in 08  Abbreviations and Technical Terms]: (length 0)
+   Content: 
+
+
+================ PAGE: 09  Chapter 1 — Introduction ================
+[TABLE in 09  Chapter 1 — Introduction]: (length 285)
+   Content: What to include on this pageDescribe the AI & Robotics field training and the selected application area.Explain why the topic is relevant to education, industry, healthcare, museums, smart cities, or society.Introduce the robot/platform used without giving detailed implementation yet.
+
+[TABLE in 09  Chapter 1 — Introduction]: (length 0)
+   Content: 
+
+
+================ PAGE: 10  Project Background ================
+[TABLE in 10  Project Background]: (length 252)
+   Content: What to include on this pageExplain the basic concepts required to understand the project.Describe the role of sensors, actuators, controller, software, and AI in the system.Use simple diagrams where helpful and cite any external technical information.
+
+[TABLE in 10  Project Background]: (length 0)
+   Content: 
+
+
+================ PAGE: 11  Aim, Objectives and Scope ================
+[TABLE in 11  Aim, Objectives and Scope]: (length 233)
+   Content: What to include on this pageWrite one clear overall aim.Provide 4–7 measurable objectives beginning with action verbs such as design, implement, test, evaluate, or integrate.State what is included and excluded from the project scope.
+
+[TABLE in 11  Aim, Objectives and Scope]: (length 0)
+   Content: 
+
+
+================ PAGE: 12  Chapter 2 — Related Work ================
+[TABLE in 12  Chapter 2 — Related Work]: (length 268)
+   Content: What to include on this pageReview at least three relevant systems, research projects, products, or educational demonstrations.For each work, explain the platform, method, main capability, and limitation.Do not copy product descriptions; summarize and cite the source.
+
+[TABLE in 12  Chapter 2 — Related Work]: (length 0)
+   Content: 
+
+
+================ PAGE: 13  Comparative Analysis ================
+[TABLE in 13  Comparative Analysis]: (length 288)
+   Content: What to include on this pageCompare existing work using common criteria such as robot type, sensors, AI function, programming environment, cost, accuracy, or application.Explain what your project adopts, improves, simplifies, or changes.Use the comparison to justify the proposed project.
+
+[TABLE in 13  Comparative Analysis]: (length 174)
+   Content: SystemPlatformMain FeatureLimitationSource[Name][Robot][Feature][Limitation][Citation][Name][Robot][Feature][Limitation][Citation][Name][Robot][Feature][Limitation][Citation]
+
+[TABLE in 13  Comparative Analysis]: (length 0)
+   Content: 
+
+
+================ PAGE: 14  Research / Design Gap ================
+[TABLE in 14  Research / Design Gap]: (length 231)
+   Content: What to include on this pageIdentify the unmet need or limitation found in related work.Explain why the gap matters for the selected users or environment.State the expected contribution of the student project in 2–4 precise points.
+
+[TABLE in 14  Research / Design Gap]: (length 0)
+   Content: 
+
+
+================ PAGE: 15  Chapter 3 — Problem Definition ================
+[TABLE in 15  Chapter 3 — Problem Definition]: (length 215)
+   Content: What to include on this pageDescribe the current situation, affected users, and main difficulty.State causes, constraints, and consequences.Write the problem as an engineering challenge, not only as a general topic.
+
+[TABLE in 15  Chapter 3 — Problem Definition]: (length 0)
+   Content: 
+
+
+================ PAGE: 16  Users and Requirements ================
+[TABLE in 16  Users and Requirements]: (length 269)
+   Content: What to include on this pageIdentify primary users, secondary users, supervisor/operator, and environment.Write functional requirements: what the system must do.Write non-functional requirements: safety, reliability, speed, usability, privacy, maintainability, or cost.
+
+[TABLE in 16  Users and Requirements]: (length 161)
+   Content: IDTypeRequirementPriorityFR-01FunctionalThe system shall ____________________________.HighNFR-01Non-functionalThe system should __________________________.Medium
+
+[TABLE in 16  Users and Requirements]: (length 0)
+   Content: 
+
+
+================ PAGE: 17  Project Plan and Success Criteria ================
+[TABLE in 17  Project Plan and Success Criteria]: (length 266)
+   Content: What to include on this pageBreak the project into training and development tasks.Define measurable success criteria such as detection accuracy, task completion, response time, navigation success, or repeatability.Identify key technical risks and mitigation actions.
+
+[TABLE in 17  Project Plan and Success Criteria]: (length 122)
+   Content: RiskLikelihoodImpactMitigation[Risk]Low / Med / HighLow / Med / High[Action][Risk]Low / Med / HighLow / Med / High[Action]
+
+[TABLE in 17  Project Plan and Success Criteria]: (length 0)
+   Content: 
+
+
+================ PAGE: 18  Chapter 4 — Methodology ================
+[TABLE in 18  Chapter 4 — Methodology]: (length 237)
+   Content: What to include on this pageExplain the steps followed from problem analysis to final testing.Describe how the team divided tasks, reviewed progress, and made design decisions.Include a flowchart showing the complete project methodology.
+
+[TABLE in 18  Chapter 4 — Methodology]: (length 0)
+   Content: 
+
+
+================ PAGE: 19  Robot / Platform Description ================
+[TABLE in 19  Robot / Platform Description]: (length 316)
+   Content: What to include on this pageIdentify the selected platform: Yanshee, NAO, Robot Arm, AI Box, LIMO, Computer Vision Kit, or another lab system.Describe the relevant hardware: cameras, microphones, motors, joints, LiDAR, IMU, gripper, controller, and connectivity.Explain why this platform is suitable for the project.
+
+[TABLE in 19  Robot / Platform Description]: (length 0)
+   Content: 
+
+
+================ PAGE: 20  System Architecture ================
+[TABLE in 20  System Architecture]: (length 253)
+   Content: What to include on this pageDraw a block diagram showing inputs, processing, decision-making, and outputs.List software tools, programming languages, libraries, APIs, operating systems, and communication methods.Explain how the components exchange data.
+
+[TABLE in 20  System Architecture]: (length 0)
+   Content: 
+
+
+================ PAGE: 21  Algorithm and Workflow ================
+[TABLE in 21  Algorithm and Workflow]: (length 235)
+   Content: What to include on this pagePresent the project flow from startup to task completion.Describe sensing, preprocessing, AI inference or rule-based decision, robot action, and feedback.Add pseudocode or a flowchart for the main algorithm.
+
+[TABLE in 21  Algorithm and Workflow]: (length 0)
+   Content: 
+
+
+================ PAGE: 22  Chapter 5 — Implementation ================
+[TABLE in 22  Chapter 5 — Implementation]: (length 285)
+   Content: What to include on this pageDocument the implementation in chronological steps.Include hardware setup, network connection, software installation, calibration, and testing of individual components.Use numbered steps and clear screenshots; hide passwords and private network information.
+
+[TABLE in 22  Chapter 5 — Implementation]: (length 0)
+   Content: 
+
+
+================ PAGE: 23  Programming and Configuration ================
+[TABLE in 23  Programming and Configuration]: (length 253)
+   Content: What to include on this pageExplain the main files, modules, functions, robot behaviors, or block-programming sequences.Include only important code excerpts and explain each excerpt.Place full code in the appendix or repository, not in the main chapter.
+
+[TABLE in 23  Programming and Configuration]: (length 0)
+   Content: 
+
+
+================ PAGE: 24  Application Scenario ================
+[TABLE in 24  Application Scenario]: (length 238)
+   Content: What to include on this pageDescribe one complete real-world or competition scenario.Explain the initial state, user input, robot perception, decision, action, and final output.Add a sequence diagram, storyboard, or annotated photographs.
+
+[TABLE in 24  Application Scenario]: (length 0)
+   Content: 
+
+
+================ PAGE: 25  Chapter 6 — Testing ================
+[TABLE in 25  Chapter 6 — Testing]: (length 237)
+   Content: What to include on this pageTest components individually before testing the full system.For every test, record purpose, input/condition, expected result, actual result, and status.Include normal cases, edge cases, and failure conditions.
+
+[TABLE in 25  Chapter 6 — Testing]: (length 243)
+   Content: IDTestInput / ConditionExpectedActualStatusT-__[Test][Condition][Expected][Actual]Pass / FailT-__[Test][Condition][Expected][Actual]Pass / FailT-__[Test][Condition][Expected][Actual]Pass / FailT-__[Test][Condition][Expected][Actual]Pass / Fail
+
+[TABLE in 25  Chapter 6 — Testing]: (length 0)
+   Content: 
+
+
+================ PAGE: 26  Results and Evaluation ================
+[TABLE in 26  Results and Evaluation]: (length 208)
+   Content: What to include on this pagePresent quantitative and qualitative results.Use tables, charts, images, or videos as evidence.Compare results with the success criteria defined earlier and explain any deviations.
+
+[TABLE in 26  Results and Evaluation]: (length 0)
+   Content: 
+
+
+================ PAGE: 27  Discussion and Limitations ================
+[TABLE in 27  Discussion and Limitations]: (length 257)
+   Content: What to include on this pageExplain what worked well and why.Discuss technical limitations such as lighting, noise, battery, Wi-Fi, processing delay, mechanical reach, sensor range, or dataset limitations.Describe corrective changes made during development.
+
+[TABLE in 27  Discussion and Limitations]: (length 0)
+   Content: 
+
+
+================ PAGE: 28  Chapter 7 — Conclusion and Future Work ================
+[TABLE in 28  Chapter 7 — Conclusion and Future Work]: (length 245)
+   Content: What to include on this pageSummarize the problem, system, method, and main result without adding new information.Describe technical and teamwork skills gained during field training.Recommend realistic future improvements or additional features.
+
+[TABLE in 28  Chapter 7 — Conclusion and Future Work]: (length 0)
+   Content: 
+
+
+================ PAGE: 29  References ================
+[TABLE in 29  References]: (length 329)
+   Content: What to include on this pageInclude every source cited in the report: books, papers, official manuals, websites, datasets, and software documentation.Prefer official robot documentation and primary technical sources.Include author/organization, title, year, publisher/site, URL if applicable, and access date for online material.
+
+[TABLE in 29  References]: (length 0)
+   Content: 
+
+
+================ PAGE: 30  Appendices ================
+[TABLE in 30  Appendices]: (length 294)
+   Content: What to include on this pageAppendix A: Full source code or repository information.Appendix B: Datasheets, wiring, calibration settings, robot configuration, or API commands.Appendix C: Weekly training log, attendance evidence, photographs, additional test results, and team contribution table.
+
+[TABLE in 30  Appendices]: (length 0)
+   Content: 
+

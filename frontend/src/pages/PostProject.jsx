@@ -371,8 +371,8 @@ export default function PostProject() {
                     {/* How-to hint */}
                     <p className="pp-skills-tip">
                         {lang === 'ar'
-                            ? '🖱 انقر مرة: مطلوبة  •  انقر مرتين: مفضّلة  •  انقر ثلاث مرات: إزالة'
-                            : '🖱 Click once: Required  •  Click twice: Preferred  •  Click again: Remove'}
+                            ? 'انقر مرة: مطلوبة  •  انقر مرتين: مفضّلة  •  انقر ثلاث مرات: إزالة'
+                            : 'Click once: Required  •  Click twice: Preferred  •  Click again: Remove'}
                     </p>
 
                     {/* Grouped skill tags */}

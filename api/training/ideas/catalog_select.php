@@ -73,6 +73,18 @@ if ($trainingIdeaId) {
         }
     }
 
+    // Check if trainee is already a member in another team
+    $memCheck = $db->prepare("
+        SELECT ti.title_en FROM training_idea_members tim
+        JOIN training_ideas ti ON tim.idea_id = ti.id
+        WHERE tim.user_id = ? AND tim.role = 'member'
+    ");
+    $memCheck->execute([$uid]);
+    $alreadyMem = $memCheck->fetchColumn();
+    if ($alreadyMem) {
+        respondError("You are already enrolled as a team member in another project ('$alreadyMem').");
+    }
+
     // Check if trainee already has an idea for this course
     $existStmt = $db->prepare("SELECT id FROM training_ideas WHERE owner_id = ? AND course_id = ?");
     $existStmt->execute([$uid, $courseId]);
@@ -114,7 +126,16 @@ $secStmt = $db->prepare("
         'objectives_scope',
         'related_work',
         'methodology',
-        'expected_system_design'
+        'expected_system_design',
+        'team_contribution_statement',
+        'success_criteria',
+        'technology_stack___tools',
+        'anticipated_challenges___risk_mitigation',
+        'ethical___safety_considerations',
+        'planned_implementation_approach__to_be_expanded_with_real_work_',
+        'test_plan__results_added_once_testing_is_performed_',
+        'starter_reference_list__expand_as_more_sources_are_used_',
+        'appendix_a'
     )
 ");
 $secStmt->execute([$catalogProjectId]);
@@ -187,6 +208,15 @@ $sectionTitles = [
     'related_work'            => 'Related Work',
     'methodology'             => 'Proposed Methodology',
     'expected_system_design'  => 'Expected System Design',
+    'team_contribution_statement' => 'Team Contribution Statement',
+    'success_criteria' => 'Success Criteria',
+    'technology_stack___tools' => 'Technology Stack & Tools',
+    'anticipated_challenges___risk_mitigation' => 'Anticipated Challenges & Risk Mitigation',
+    'ethical___safety_considerations' => 'Ethical & Safety Considerations',
+    'planned_implementation_approach__to_be_expanded_with_real_work_' => 'Planned Implementation Approach',
+    'test_plan__results_added_once_testing_is_performed_' => 'Test Plan',
+    'starter_reference_list__expand_as_more_sources_are_used_' => 'Starter Reference List',
+    'appendix_a' => 'Appendix A: Supporting Materials Index',
 ];
 
 // ── 6. Build proposal_json structure ─────────────────────────────────────────

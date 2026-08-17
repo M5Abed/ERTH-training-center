@@ -29,7 +29,7 @@ if (!is_array($rawTeammateIds)) {
     $rawTeammateIds = [];
 }
 
-// Clean and deduplicate teammate IDs
+// Clean and deduplicate teammate IDs (Max 4 teammates + 1 leader = 5 total)
 $teammateIds = [];
 foreach ($rawTeammateIds as $tId) {
     $id = (int) $tId;
@@ -37,6 +37,7 @@ foreach ($rawTeammateIds as $tId) {
         $teammateIds[] = $id;
     }
 }
+$teammateIds = array_slice($teammateIds, 0, 4);
 
 if (!$courseId || !$title || !$description) {
     respondError('Course ID, title, and description are required');
@@ -65,17 +66,18 @@ if (!$isAdmin) {
     }
 }
 
-// Check if submitter is already in another team as a member
+// Check if submitter is already in another team as a member (site-wide)
 $mStmt = $db->prepare("
-    SELECT ti.id, ti.title_en, tim.role
+    SELECT ti.id, ti.title_en, tim.role, tc.name AS course_name
     FROM training_idea_members tim
     JOIN training_ideas ti ON tim.idea_id = ti.id
-    WHERE tim.user_id = ? AND ti.course_id = ? AND tim.role = 'member'
+    LEFT JOIN training_courses tc ON ti.course_id = tc.id
+    WHERE tim.user_id = ? AND tim.role = 'member'
 ");
-$mStmt->execute([$uid, $courseId]);
+$mStmt->execute([$uid]);
 $existingMemberRow = $mStmt->fetch();
 if ($existingMemberRow) {
-    respondError("You are already enrolled as a team member in another project ('" . ($existingMemberRow['title_en'] ?: 'Project') . "') for this course. You cannot submit a new project.");
+    respondError("You are already enrolled as a team member in project ('" . ($existingMemberRow['title_en'] ?: 'Project') . "'). You cannot submit another project.");
 }
 
 // Check if submitter already owns an idea for this course
@@ -106,28 +108,28 @@ if (!empty($teammateIds)) {
             }
         }
 
-        // 3. Teammate is not leader of another project in this course
-        $tOwnSql = "SELECT id, title_en FROM training_ideas WHERE owner_id = ? AND course_id = ?" . ($existingIdeaId ? " AND id != ?" : "");
-        $tOwnParams = $existingIdeaId ? [$tId, $courseId, $existingIdeaId] : [$tId, $courseId];
+        // 3. Teammate is not leader of another project
+        $tOwnSql = "SELECT id, title_en FROM training_ideas WHERE owner_id = ?" . ($existingIdeaId ? " AND id != ?" : "");
+        $tOwnParams = $existingIdeaId ? [$tId, $existingIdeaId] : [$tId];
         $tOwnStmt = $db->prepare($tOwnSql);
         $tOwnStmt->execute($tOwnParams);
         $tOwnRow = $tOwnStmt->fetch();
         if ($tOwnRow) {
-            respondError("Student '$tName' is already the leader of another project ('" . ($tOwnRow['title_en'] ?: 'Project') . "') for this course.");
+            respondError("Student '$tName' is already the leader of another project ('" . ($tOwnRow['title_en'] ?: 'Project') . "').");
         }
 
-        // 4. Teammate is not a member of another project in this course
+        // 4. Teammate is not a member of another project
         $tMemSql = "
             SELECT ti.id, ti.title_en 
             FROM training_idea_members tim
             JOIN training_ideas ti ON tim.idea_id = ti.id
-            WHERE tim.user_id = ? AND ti.course_id = ?" . ($existingIdeaId ? " AND ti.id != ?" : "");
-        $tMemParams = $existingIdeaId ? [$tId, $courseId, $existingIdeaId] : [$tId, $courseId];
+            WHERE tim.user_id = ?" . ($existingIdeaId ? " AND ti.id != ?" : "");
+        $tMemParams = $existingIdeaId ? [$tId, $existingIdeaId] : [$tId];
         $tMemStmt = $db->prepare($tMemSql);
         $tMemStmt->execute($tMemParams);
         $tMemRow = $tMemStmt->fetch();
         if ($tMemRow) {
-            respondError("Student '$tName' is already a member of another project team ('" . ($tMemRow['title_en'] ?: 'Project') . "') for this course.");
+            respondError("Student '$tName' is already a team member in another project ('" . ($tMemRow['title_en'] ?: 'Project') . "').");
         }
     }
 }

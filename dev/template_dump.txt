@@ -1,0 +1,368 @@
+P3: FIELD TRAINING PROJECT REPORT
+P4: AI & Robotics Summer Camp Workshop
+P5: Project Title
+P6: [Enter the full project title]
+P7: Student Name(s)
+P8: [Student 1]  |  [Student 2]  |  [Student 3] [Student 4][Student 5]
+P9: Student ID(s)
+P10: [ID 1]  |  [ID 2]  |  [ID 3]
+P11: Training Track
+P12: ☐ Software     ☐ Simulation   ☐ Hardware
+P13: Robot / Platform
+P14: [Yanshee / NAO / Robot Arm / AI Box / LIMO / Other]
+P15: Academic Supervisor
+P16: [Name and title]
+P17: Technical Trainer
+P18: [Name and title]
+P19: Training Period
+P20: [Start date] to [End date]
+P21: Submission Date
+P22: [Day / Month / Year]
+P24: Submitted in partial fulfillment of the AI & Robotics Summer Field Training requirements.
+P26: 02  Approval Page
+P27: Supervisor and training committee approval
+P28: Project Title
+P29: [Project title]
+P30: Student(s)
+P31: [Names and IDs]
+P33: What to include on this page
+P34: Complete all student and project information before printing.
+P35: Obtain signatures after the final presentation and technical review.
+P36: Use original signatures; do not paste scanned signatures unless officially approved.
+P38: Technical Trainer
+P39: Name: __________________  Signature: __________  Date: ________
+P40: Academic Supervisor
+P41: Name: __________________  Signature: __________  Date: ________
+P42: Program Coordinator
+P43: Name: __________________  Signature: __________  Date: ________
+P44: Head of Department / Dean
+P45: Name: __________________  Signature: __________  Date: ________
+P47: Student content
+P52: 03  Student Declaration
+P53: Academic integrity and authorship statement
+P54: What to include on this page
+P55: Confirm that the report reflects the team’s own work during field training.
+P56: List any external libraries, datasets, tutorials, images, or code used.
+P57: All borrowed ideas, code, and figures must be cited in the References section.
+P59: We declare that this project report is our original work, completed during the New Mansoura University AI & Robotics field training. All external sources, code, datasets, and technical materials have been acknowledged.Student signatures: ________________________________________________
+P60: Student content
+P67: 04  Acknowledgment
+P68: Recognize the people and institutions that supported the project
+P69: What to include on this page
+P70: Thank the university, faculty, laboratory team, supervisors, and trainers.
+P71: Mention technical or logistical support that directly contributed to the project.
+P72: Keep this section professional and concise (approximately 150–250 words).
+P74: Student content
+P88: 05  Executive Summary / Abstract
+P89: A concise overview of the complete project
+P90: Keywords
+P91: [3–6 keywords, e.g., robotics, computer vision, NAO, object detection]
+P93: What to include on this page
+P94: Write 200–300 words after completing the project.
+P95: Include the problem, objective, robot/platform, methodology, main implementation, key result, and conclusion.
+P96: Avoid citations, long background discussion, and undefined abbreviations.
+P98: Student content
+P113: 06  Table of Contents
+P114: Update page numbers after the report is complete
+P115: What to include on this page
+P116: In Microsoft Word, use References → Table of Contents for an automatic TOC.
+P117: Apply Heading 1, Heading 2, and Heading 3 styles consistently.
+P118: Check that all headings and page numbers are correct before submission.
+P120: Recommended report structure and suggested starting pages:
+P121: Section
+P122: Page
+P123: Executive Summary
+P124: 5
+P125: Chapter 1: Introduction
+P126: 9
+P127: Chapter 2: Related Work
+P128: 12
+P129: Chapter 3: Problem Analysis & Requirements
+P130: 15
+P131: Chapter 4: Methodology & System Design
+P132: 18
+P133: Chapter 5: Implementation
+P134: 22
+P135: Chapter 6: Testing & Results
+P136: 25
+P137: Chapter 7: Conclusion & Future Work
+P138: 28
+P139: References
+P140: 29
+P141: Appendices
+P142: 30
+P143: Student content
+P146: 07  Lists of Figures and Tables
+P147: A navigation page for visual material
+P148: What to include on this page
+P149: Every figure and table must have a number and descriptive caption.
+P150: Mention each figure/table in the report text before it appears.
+P151: Use clear, readable screenshots and diagrams.
+P153: List of Figures
+P154: Figure 1
+P155: [Title] ........................................ Page [ ]
+P156: Figure 2
+P157: [Title] ........................................ Page [ ]
+P158: Figure 3
+P159: [Title] ........................................ Page [ ]
+P161: List of Tables
+P162: Table 1
+P163: [Title] ......................................... Page [ ]
+P164: Table 2
+P165: [Title] ......................................... Page [ ]
+P166: Table 3
+P167: [Title] ......................................... Page [ ]
+P169: Student content
+P172: 08  Abbreviations and Technical Terms
+P173: Define terms used throughout the report
+P174: What to include on this page
+P175: Include only abbreviations that appear in the report.
+P176: Write the full term the first time it appears in the main text.
+P177: Add robot-specific and software-specific terms used by your project.
+P179: Abbreviation
+P180: Meaning
+P181: AI
+P182: Artificial Intelligence
+P183: CV
+P184: Computer Vision
+P185: HRI
+P186: Human–Robot Interaction
+P187: ROS
+P188: Robot Operating System
+P189: SLAM
+P190: Simultaneous Localization and Mapping
+P191: API
+P192: Application Programming Interface
+P193: [Add]
+P194: [Add project-specific abbreviation]
+P195: Student content
+P200: 09  Chapter 1 — Introduction
+P201: 1.1 Field Training Context and Technology Area
+P202: What to include on this page
+P203: Describe the AI & Robotics field training and the selected application area.
+P204: Explain why the topic is relevant to education, industry, healthcare, museums, smart cities, or society.
+P205: Introduce the robot/platform used without giving detailed implementation yet.
+P207: Student content
+P219: 10  Project Background
+P220: 1.2 Technical Background
+P221: What to include on this page
+P222: Explain the basic concepts required to understand the project.
+P223: Describe the role of sensors, actuators, controller, software, and AI in the system.
+P224: Use simple diagrams where helpful and cite any external technical information.
+P226: Student content
+P238: 11  Aim, Objectives and Scope
+P239: 1.3 What the Project Will Achieve
+P240: What to include on this page
+P241: Write one clear overall aim.
+P242: Provide 4–7 measurable objectives beginning with action verbs such as design, implement, test, evaluate, or integrate.
+P243: State what is included and excluded from the project scope.
+P245: Student content
+P255: 12  Chapter 2 — Related Work
+P256: 2.1 Existing Systems and Similar Projects
+P257: What to include on this page
+P258: Review at least three relevant systems, research projects, products, or educational demonstrations.
+P259: For each work, explain the platform, method, main capability, and limitation.
+P260: Do not copy product descriptions; summarize and cite the source.
+P262: Student content
+P274: 13  Comparative Analysis
+P275: 2.2 Comparison of Related Systems
+P276: What to include on this page
+P277: Compare existing work using common criteria such as robot type, sensors, AI function, programming environment, cost, accuracy, or application.
+P278: Explain what your project adopts, improves, simplifies, or changes.
+P279: Use the comparison to justify the proposed project.
+P281: System
+P282: Platform
+P283: Main Feature
+P284: Limitation
+P285: Source
+P286: [Name]
+P287: [Robot]
+P288: [Feature]
+P289: [Limitation]
+P290: [Citation]
+P291: [Name]
+P292: [Robot]
+P293: [Feature]
+P294: [Limitation]
+P295: [Citation]
+P296: [Name]
+P297: [Robot]
+P298: [Feature]
+P299: [Limitation]
+P300: [Citation]
+P301: Student content
+P308: 14  Research / Design Gap
+P309: 2.3 Identified Gap and Project Contribution
+P310: What to include on this page
+P311: Identify the unmet need or limitation found in related work.
+P312: Explain why the gap matters for the selected users or environment.
+P313: State the expected contribution of the student project in 2–4 precise points.
+P315: Student content
+P326: 15  Chapter 3 — Problem Definition
+P327: 3.1 Problem Statement
+P328: What to include on this page
+P329: Describe the current situation, affected users, and main difficulty.
+P330: State causes, constraints, and consequences.
+P331: Write the problem as an engineering challenge, not only as a general topic.
+P333: Student content
+P345: 16  Users and Requirements
+P346: 3.2 Stakeholders, Use Cases and Requirements
+P347: What to include on this page
+P348: Identify primary users, secondary users, supervisor/operator, and environment.
+P349: Write functional requirements: what the system must do.
+P350: Write non-functional requirements: safety, reliability, speed, usability, privacy, maintainability, or cost.
+P352: Suggested requirements format:
+P353: ID
+P354: Type
+P355: Requirement
+P356: Priority
+P357: FR-01
+P358: Functional
+P359: The system shall ____________________________.
+P360: High
+P361: NFR-01
+P362: Non-functional
+P363: The system should __________________________.
+P364: Medium
+P365: Student content
+P373: 17  Project Plan and Success Criteria
+P374: 3.3 Tasks, Timeline, Risks and Evaluation Metrics
+P375: What to include on this page
+P376: Break the project into training and development tasks.
+P377: Define measurable success criteria such as detection accuracy, task completion, response time, navigation success, or repeatability.
+P378: Identify key technical risks and mitigation actions.
+P380: Risk register example:
+P381: Risk
+P382: Likelihood
+P383: Impact
+P384: Mitigation
+P385: [Risk]
+P386: Low / Med / High
+P387: Low / Med / High
+P388: [Action]
+P389: [Risk]
+P390: Low / Med / High
+P391: Low / Med / High
+P392: [Action]
+P393: Student content
+P399: 18  Chapter 4 — Methodology
+P400: 4.1 Development Approach
+P401: What to include on this page
+P402: Explain the steps followed from problem analysis to final testing.
+P403: Describe how the team divided tasks, reviewed progress, and made design decisions.
+P404: Include a flowchart showing the complete project methodology.
+P406: Student content
+P416: 19  Robot / Platform Description
+P417: 4.2 Selected Laboratory Equipment
+P418: What to include on this page
+P419: Identify the selected platform: Yanshee, NAO, Robot Arm, AI Box, LIMO, Computer Vision Kit, or another lab system.
+P420: Describe the relevant hardware: cameras, microphones, motors, joints, LiDAR, IMU, gripper, controller, and connectivity.
+P421: Explain why this platform is suitable for the project.
+P423: Student content
+P432: 20  System Architecture
+P433: 4.3 Hardware and Software Architecture
+P434: What to include on this page
+P435: Draw a block diagram showing inputs, processing, decision-making, and outputs.
+P436: List software tools, programming languages, libraries, APIs, operating systems, and communication methods.
+P437: Explain how the components exchange data.
+P439: Student content
+P448: 21  Algorithm and Workflow
+P449: 4.4 System Logic and AI / Robotics Pipeline
+P450: What to include on this page
+P451: Present the project flow from startup to task completion.
+P452: Describe sensing, preprocessing, AI inference or rule-based decision, robot action, and feedback.
+P453: Add pseudocode or a flowchart for the main algorithm.
+P455: Student content
+P464: 22  Chapter 5 — Implementation
+P465: 5.1 Setup and Integration Steps
+P466: What to include on this page
+P467: Document the implementation in chronological steps.
+P468: Include hardware setup, network connection, software installation, calibration, and testing of individual components.
+P469: Use numbered steps and clear screenshots; hide passwords and private network information.
+P471: Student content
+P481: 23  Programming and Configuration
+P482: 5.2 Code Structure and Key Functions
+P483: What to include on this page
+P484: Explain the main files, modules, functions, robot behaviors, or block-programming sequences.
+P485: Include only important code excerpts and explain each excerpt.
+P486: Place full code in the appendix or repository, not in the main chapter.
+P488: Student content
+P497: 24  Application Scenario
+P498: 5.3 Complete System Operation
+P499: What to include on this page
+P500: Describe one complete real-world or competition scenario.
+P501: Explain the initial state, user input, robot perception, decision, action, and final output.
+P502: Add a sequence diagram, storyboard, or annotated photographs.
+P504: Student content
+P514: 25  Chapter 6 — Testing
+P515: 6.1 Test Plan and Test Cases
+P516: What to include on this page
+P517: Test components individually before testing the full system.
+P518: For every test, record purpose, input/condition, expected result, actual result, and status.
+P519: Include normal cases, edge cases, and failure conditions.
+P521: ID
+P522: Test
+P523: Input / Condition
+P524: Expected
+P525: Actual
+P526: Status
+P527: T-__
+P528: [Test]
+P529: [Condition]
+P530: [Expected]
+P531: [Actual]
+P532: Pass / Fail
+P533: T-__
+P534: [Test]
+P535: [Condition]
+P536: [Expected]
+P537: [Actual]
+P538: Pass / Fail
+P539: T-__
+P540: [Test]
+P541: [Condition]
+P542: [Expected]
+P543: [Actual]
+P544: Pass / Fail
+P545: T-__
+P546: [Test]
+P547: [Condition]
+P548: [Expected]
+P549: [Actual]
+P550: Pass / Fail
+P551: Student content
+P556: 26  Results and Evaluation
+P557: 6.2 Measurements and Observed Performance
+P558: What to include on this page
+P559: Present quantitative and qualitative results.
+P560: Use tables, charts, images, or videos as evidence.
+P561: Compare results with the success criteria defined earlier and explain any deviations.
+P563: Student content
+P570: 27  Discussion and Limitations
+P571: 6.3 Interpretation of Results
+P572: What to include on this page
+P573: Explain what worked well and why.
+P574: Discuss technical limitations such as lighting, noise, battery, Wi-Fi, processing delay, mechanical reach, sensor range, or dataset limitations.
+P575: Describe corrective changes made during development.
+P577: Student content
+P588: 28  Chapter 7 — Conclusion and Future Work
+P589: Summary, Learning Outcomes and Next Steps
+P590: What to include on this page
+P591: Summarize the problem, system, method, and main result without adding new information.
+P592: Describe technical and teamwork skills gained during field training.
+P593: Recommend realistic future improvements or additional features.
+P595: Student content
+P607: 29  References
+P608: Use one consistent academic citation style
+P609: What to include on this page
+P610: Include every source cited in the report: books, papers, official manuals, websites, datasets, and software documentation.
+P611: Prefer official robot documentation and primary technical sources.
+P612: Include author/organization, title, year, publisher/site, URL if applicable, and access date for online material.
+P614: Student content
+P626: 30  Appendices
+P627: Supporting Evidence and Project Records
+P628: What to include on this page
+P629: Appendix A: Full source code or repository information.
+P630: Appendix B: Datasheets, wiring, calibration settings, robot configuration, or API commands.
+P631: Appendix C: Weekly training log, attendance evidence, photographs, additional test results, and team contribution table.
+P633: Student content

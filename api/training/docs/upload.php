@@ -2,6 +2,7 @@
 // =========================================================
 // NMU TRAINING — Upload / Add Project Documentation & Links
 // Access: Trainee (Upload own project docs/links), Trainer/Admin
+// Supports direct file uploads and external URLs (GitHub, Demo, Figma, Video)
 // =========================================================
 
 require_once __DIR__ . '/../../config.php';
@@ -39,24 +40,27 @@ try {
         if (empty($cols)) {
             $db->exec("ALTER TABLE trainee_documentation ADD COLUMN idea_id INT DEFAULT NULL AFTER id");
         }
-    } catch (Throwable $e) {
-    }
+    } catch (Throwable $e) {}
 
-    $ideaId = (int) ($_POST['idea_id'] ?? 0);
-    $courseId = (int) ($_POST['course_id'] ?? 0);
-    $docType = trim(strtolower($_POST['doc_type'] ?? 'report')); // report, code_zip, presentation, link, github, demo, figma
-    $linkUrl = trim($_POST['url'] ?? $_POST['file_url'] ?? '');
-    $linkTitle = trim($_POST['title'] ?? $_POST['file_name'] ?? '');
+    // Support both multipart form-data (for files) and JSON payloads (for links)
+    $inputData = !empty($_POST) ? $_POST : body();
+
+    $ideaId    = (int) ($inputData['idea_id'] ?? 0);
+    $courseId  = (int) ($inputData['course_id'] ?? 0);
+    $docType   = trim(strtolower($inputData['doc_type'] ?? ''));
+    $linkUrl   = trim($inputData['url'] ?? $inputData['file_url'] ?? $inputData['link_url'] ?? '');
+    $linkTitle = trim($inputData['title'] ?? $inputData['file_name'] ?? '');
 
     // If idea_id provided, fetch idea to auto-fill course_id
     if ($ideaId) {
-        $iStmt = $db->prepare("SELECT course_id, trainee_id, owner_id FROM training_ideas WHERE id = ?");
+        $iStmt = $db->prepare("SELECT id, course_id, owner_id FROM training_ideas WHERE id = ?");
         $iStmt->execute([$ideaId]);
         $ideaRow = $iStmt->fetch();
         if ($ideaRow) {
             $ideaId = (int) $ideaRow['id'];
-            if (!$courseId)
+            if (!$courseId) {
                 $courseId = (int) $ideaRow['course_id'];
+            }
         }
     }
 
@@ -68,20 +72,36 @@ try {
             if ($eRow) {
                 $courseId = (int) $eRow['course_id'];
             }
-        } catch (Throwable $ignored) {
-        }
+        } catch (Throwable $ignored) {}
     }
 
     $fileName = '';
-    $fileUrl = '';
+    $fileUrl  = '';
     $fileSize = 0;
 
-    // Option A: Link Submission
+    // Option A: Link Submission (GitHub, Demo, Figma, Video, etc.)
     if (!empty($linkUrl)) {
         if (!filter_var($linkUrl, FILTER_VALIDATE_URL) && !preg_match('#^https?://#i', $linkUrl)) {
             $linkUrl = 'https://' . $linkUrl;
         }
         $fileUrl = $linkUrl;
+        $host = strtolower(parse_url($linkUrl, PHP_URL_HOST) ?? '');
+
+        // Auto-detect doc_type if not explicitly set
+        if (empty($docType) || $docType === 'link' || $docType === 'report') {
+            if (strpos($host, 'github.com') !== false || strpos($host, 'gitlab.com') !== false) {
+                $docType = 'github';
+            } elseif (strpos($host, 'figma.com') !== false) {
+                $docType = 'figma';
+            } elseif (strpos($host, 'youtube.com') !== false || strpos($host, 'youtu.be') !== false || strpos($host, 'vimeo.com') !== false || strpos($host, 'loom.com') !== false) {
+                $docType = 'video';
+            } elseif (strpos($host, 'drive.google.com') !== false || strpos($host, 'dropbox.com') !== false) {
+                $docType = 'drive';
+            } else {
+                $docType = 'demo';
+            }
+        }
+
         if (!empty($linkTitle)) {
             $fileName = $linkTitle;
         } else {
@@ -90,20 +110,23 @@ try {
                     $fileName = 'GitHub Repository';
                     break;
                 case 'figma':
-                    $fileName = 'Figma UI Design';
+                    $fileName = 'Figma UI/UX Prototype';
+                    break;
+                case 'video':
+                    $fileName = 'Project Video Demo';
                     break;
                 case 'demo':
-                    $fileName = 'Live Demo';
+                    $fileName = 'Live System / Demo Link';
                     break;
                 default:
-                    $fileName = parse_url($linkUrl, PHP_URL_HOST) ?: 'External Link';
+                    $fileName = $host ?: 'External Project Link';
                     break;
             }
         }
         $fileSize = 0;
     }
-    // Option B: File Upload
-    else if (!empty($_FILES['file'])) {
+    // Option B: File Upload (PDF, DOCX, ZIP, PPTX, Images)
+    elseif (!empty($_FILES['file'])) {
         $file = $_FILES['file'];
 
         if ($file['error'] !== UPLOAD_ERR_OK) {
@@ -133,6 +156,19 @@ try {
         $validExts = ['pdf', 'doc', 'docx', 'zip', 'rar', '7z', 'pptx', 'ppt', 'txt', 'png', 'jpg', 'jpeg', 'webp'];
         if (!in_array($ext, $validExts, true)) {
             respondError('Invalid file type. Allowed: PDF, Word, ZIP, RAR, PowerPoint, Images, Text.');
+        }
+
+        // Auto-assign doc_type from file extension if not specified
+        if (empty($docType)) {
+            if (in_array($ext, ['zip', 'rar', '7z'], true)) {
+                $docType = 'code_zip';
+            } elseif (in_array($ext, ['ppt', 'pptx'], true)) {
+                $docType = 'presentation';
+            } elseif (in_array($ext, ['png', 'jpg', 'jpeg', 'webp'], true)) {
+                $docType = 'image';
+            } else {
+                $docType = 'report';
+            }
         }
 
         // Server-side real MIME verification
@@ -165,14 +201,14 @@ try {
             @mkdir($uploadDir, 0755, true);
         }
 
-        $uniqueName = 'doc_' . preg_replace('/[^a-zA-Z0-9]/', '', $docType) . '_' . bin2hex(random_bytes(12)) . '.' . $ext;
+        $uniqueName = 'doc_' . preg_replace('/[^a-zA-Z0-9]/', '', $docType) . '_' . bin2hex(random_bytes(10)) . '.' . $ext;
         $targetPath = $uploadDir . $uniqueName;
 
         if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
             respondError('Failed to save document on server.', 500);
         }
 
-        $fileUrl = '/uploads/docs/' . $uid . '/' . $uniqueName;
+        $fileUrl  = '/uploads/docs/' . $uid . '/' . $uniqueName;
         $fileName = htmlspecialchars(basename($file['name']), ENT_QUOTES, 'UTF-8');
         $fileSize = (int) $file['size'];
     } else {
@@ -202,6 +238,7 @@ try {
             'id' => $docId,
             'idea_id' => $ideaId,
             'trainee_id' => $uid,
+            'trainee_name' => $user['full_name'] ?: $user['username'],
             'course_id' => $courseId,
             'doc_type' => $docType,
             'file_name' => $fileName,
@@ -212,5 +249,5 @@ try {
     ], 201);
 } catch (Throwable $e) {
     error_log('Error uploading trainee doc: ' . $e->getMessage());
-    respondError('Server error while processing document upload', 500);
+    respondError('Server error while processing document upload: ' . $e->getMessage(), 500);
 }

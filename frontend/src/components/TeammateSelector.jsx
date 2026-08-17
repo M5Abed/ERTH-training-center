@@ -10,7 +10,7 @@ export default function TeammateSelector({
     selectedTeammates = [],
     onTeammatesChange,
     disabled = false,
-    maxTeammates = 5,
+    maxTeammates = 4,
     currentIdeaId = null,
     readOnly = false
 }) {

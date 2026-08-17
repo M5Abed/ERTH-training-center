@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
 import { 
     BookOpen, Users, Lightbulb, FileText, Award, Plus, Upload, 
     CheckCircle, XCircle, FileSpreadsheet, Sparkles, Download, 
     ExternalLink, Trash2, Edit3, Loader2, ArrowLeft, Video, Link as LinkIcon, X, FileCheck, UserPlus, Code, Send,
-    Play, Cpu, Terminal, Zap, ShieldAlert, Layers
+    Play, Cpu, Terminal, Zap, ShieldAlert, Layers, Calendar, MessageSquare, UserCheck, Crown, ChevronDown, ChevronUp, AlertCircle
 } from 'lucide-react';
 import AddStudentModal from '../components/AddStudentModal';
 import CertificateModal from '../components/CertificateModal';
@@ -26,7 +26,15 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
     const isTrainer = role === 'trainer' || isAdmin;
     const isTrainee = !isTrainer;
 
-    const [activeTab, setActiveTab] = useState('topics');
+    const [searchParams] = useSearchParams();
+    const urlTab = searchParams.get('tab');
+    const [activeTab, setActiveTab] = useState(urlTab || 'topics');
+
+    useEffect(() => {
+        const t = searchParams.get('tab');
+        if (t) setActiveTab(t);
+    }, [searchParams]);
+
     const [course, setCourse] = useState(null);
     const [topics, setTopics] = useState([]);
     const [trainers, setTrainers] = useState([]);
@@ -44,6 +52,12 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
     const [myEval, setMyEval] = useState(null);
     const [allEvals, setAllEvals] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Proposal Update / Re-upload state
+    const [showUpdateProposalModal, setShowUpdateProposalModal] = useState(false);
+    const [proposalFile, setProposalFile] = useState(null);
+    const [updatingProposal, setUpdatingProposal] = useState(false);
+    const [showOfficialDocPreview, setShowOfficialDocPreview] = useState(true);
 
     // Edit Course state
     const [showEditCourseModal, setShowEditCourseModal] = useState(false);
@@ -92,7 +106,14 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
         }
     };
 
-    const isRoboticsCourse = false; // Disabled as per user request to hide hardware and sensor section
+    const isRoboticsCourse = Boolean(
+        course?.category?.toLowerCase()?.includes('robot') ||
+        course?.name?.toLowerCase()?.includes('robot') ||
+        course?.name_en?.toLowerCase()?.includes('robot') ||
+        course?.name_ar?.includes('روبوت') ||
+        course?.name_ar?.includes('الروبوتات') ||
+        (typeof courseId === 'string' && courseId.toLowerCase().includes('robot'))
+    );
 
     // Robotics Simulator state
     const [simCode, setSimCode] = useState(`// Eng. Magy Robotics PWM Control Node
@@ -197,10 +218,36 @@ void loop() {
     const [ideaSubmitError, setIdeaSubmitError] = useState('');
 
     // Trainer Evaluation Form state
-    const [evalScore, setEvalScore] = useState(85);
+    const [evalScore, setEvalScore] = useState(100);
     const [evalStatus, setEvalStatus] = useState('pass');
     const [evalFeedback, setEvalFeedback] = useState('');
     const [submittingEval, setSubmittingEval] = useState(false);
+    const [evalAttendance, setEvalAttendance] = useState(15);
+    const [evalArchitecture, setEvalArchitecture] = useState(20);
+    const [evalImplementation, setEvalImplementation] = useState(25);
+    const [evalPresentation, setEvalPresentation] = useState(20);
+    const [evalDocumentation, setEvalDocumentation] = useState(20);
+
+    const updateCriteriaScore = (crit, val) => {
+        const num = Math.max(0, Number(val) || 0);
+        let att = crit === 'attendance' ? Math.min(15, num) : evalAttendance;
+        let arch = crit === 'architecture' ? Math.min(20, num) : evalArchitecture;
+        let impl = crit === 'implementation' ? Math.min(25, num) : evalImplementation;
+        let pres = crit === 'presentation' ? Math.min(20, num) : evalPresentation;
+        let doc = crit === 'documentation' ? Math.min(20, num) : evalDocumentation;
+
+        if (crit === 'attendance') setEvalAttendance(att);
+        if (crit === 'architecture') setEvalArchitecture(arch);
+        if (crit === 'implementation') setEvalImplementation(impl);
+        if (crit === 'presentation') setEvalPresentation(pres);
+        if (crit === 'documentation') setEvalDocumentation(doc);
+
+        const total = att + arch + impl + pres + doc;
+        setEvalScore(total);
+        if (total >= 60) setEvalStatus('pass');
+        else if (total >= 50) setEvalStatus('needs_revision');
+        else setEvalStatus('fail');
+    };
 
     // Doc upload
     const [docType, setDocType] = useState('srs');
@@ -294,6 +341,10 @@ void loop() {
         } else if (activeTab === 'evaluations') {
             fetchEvals();
             fetchTrainees();
+            const poll = setInterval(() => {
+                fetchEvals();
+            }, 5000);
+            return () => clearInterval(poll);
         }
     }, [activeTab]);
 
@@ -729,6 +780,30 @@ void loop() {
         }
     };
 
+    useEffect(() => {
+        if (!selectedTraineeForEval || !courseId) return;
+        fetch(`/api/training/evaluations/get.php?course_id=${courseId}&trainee_id=${selectedTraineeForEval}`)
+            .then(r => r.json())
+            .then(d => {
+                if (d.evaluation) {
+                    const ev = d.evaluation;
+                    setEvalScore(parseFloat(ev.final_score) || 0);
+                    setEvalStatus(ev.status || 'pass');
+                    setEvalFeedback(ev.feedback || '');
+                    let c = {};
+                    try {
+                        c = typeof ev.criteria_scores === 'string' ? JSON.parse(ev.criteria_scores) : (ev.criteria_scores || {});
+                    } catch (_) {}
+                    setEvalAttendance(c.attendance ?? 15);
+                    setEvalArchitecture(c.architecture ?? 20);
+                    setEvalImplementation(c.implementation ?? 25);
+                    setEvalPresentation(c.presentation ?? 20);
+                    setEvalDocumentation(c.documentation ?? 20);
+                }
+            })
+            .catch(() => {});
+    }, [selectedTraineeForEval, courseId]);
+
     const handleSubmitEvaluation = async (e) => {
         e.preventDefault();
         if (!selectedTraineeForEval) return;
@@ -743,15 +818,71 @@ void loop() {
                     trainee_id: selectedTraineeForEval,
                     final_score: evalScore,
                     status: evalStatus,
-                    feedback: evalFeedback
+                    feedback: evalFeedback,
+                    criteria_scores: {
+                        attendance: evalAttendance,
+                        architecture: evalArchitecture,
+                        implementation: evalImplementation,
+                        presentation: evalPresentation,
+                        documentation: evalDocumentation
+                    }
                 })
             });
-            if (res.ok) {
-                setSelectedTraineeForEval(null);
+            const data = await res.json();
+            if (res.ok && data.success) {
+                const trObj = trainees.find(t => t.trainee_id == selectedTraineeForEval);
+                const traineeName = trObj ? trObj.full_name : 'Trainee';
+                const successMsg = lang === 'ar'
+                    ? `تم حفظ ونشر التقييم بنجاح للمتدرب (${traineeName})! الدرجة المعتمدة: ${evalScore}/100`
+                    : `Evaluation saved and published successfully for (${traineeName})! Grade: ${evalScore}/100`;
                 fetchEvals();
+                alert(successMsg);
+            } else {
+                alert(data.error || (lang === 'ar' ? 'فشل حفظ التقييم' : 'Failed to save evaluation'));
             }
-        } catch (e) { console.error(e); }
-        finally { setSubmittingEval(false); }
+        } catch (e) {
+            console.error(e);
+            alert(lang === 'ar' ? 'حدث خطأ في الاتصال أثناء حفظ التقييم' : 'Network error: could not save evaluation');
+        } finally {
+            setSubmittingEval(false);
+        }
+    };
+
+    const handleUpdateProposalSubmit = async (e) => {
+        e.preventDefault();
+        if (!proposalFile) {
+            alert(lang === 'ar' ? 'يرجى اختيار ملف التقرير / المقترح المحدّث' : 'Please select the updated proposal/report file.');
+            return;
+        }
+        setUpdatingProposal(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', proposalFile);
+            formData.append('course_id', courseId);
+            formData.append('idea_id', myIdea?.id || '');
+            formData.append('doc_type', 'proposal');
+            formData.append('title', myIdea?.title_en || myIdea?.title || 'Updated Official Field Training Proposal');
+
+            const res = await fetch('/api/training/docs/upload.php', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert(lang === 'ar' ? 'تم تحديث ورفع نسخة المقترح بنجاح ومزامنتها مباشرة مع لوحة المشرفين!' : 'Proposal updated and synchronized with supervisor dashboard successfully!');
+                setShowUpdateProposalModal(false);
+                setProposalFile(null);
+                fetchDocs();
+                fetchIdeas();
+            } else {
+                alert(data.error || (lang === 'ar' ? 'فشل تحديث الملف' : 'Failed to update proposal file'));
+            }
+        } catch (e) {
+            console.error(e);
+            alert(lang === 'ar' ? 'حدث خطأ أثناء رفع التحديث' : 'Network error updating proposal');
+        } finally {
+            setUpdatingProposal(false);
+        }
     };
 
     const handleIssueCertificate = async (traineeId, traineeName) => {
@@ -908,7 +1039,7 @@ void loop() {
             {/* Navigation Tabs */}
             <div className="tabs-nav">
                 <button className={`tab-btn ${activeTab === 'topics' ? 'active' : ''}`} onClick={() => setActiveTab('topics')} data-magy-key="topics">
-                    <BookOpen size={16} /> {lang === 'ar' ? 'المواضيع والمواد' : 'Topics & Materials'}
+                    <BookOpen size={16} /> {lang === 'ar' ? 'المحتوى والمواد التدريبية' : 'Course Content & Materials'}
                 </button>
                 {isRoboticsCourse && (
                     <>
@@ -920,15 +1051,16 @@ void loop() {
                         </button>
                     </>
                 )}
-                <button className={`tab-btn ${activeTab === 'trainees' ? 'active' : ''}`} onClick={() => setActiveTab('trainees')} data-magy-key="trainees">
-                    <Users size={16} /> {lang === 'ar' ? 'المتدربين' : 'Trainees'}
-                </button>
-                <button className={`tab-btn ${activeTab === 'idea' ? 'active' : ''}`} onClick={() => setActiveTab('idea')} data-magy-key="idea">
-                    <Lightbulb size={16} /> {lang === 'ar' ? 'فكرة المشروعات' : 'Project Idea'}
-                </button>
-                <button className={`tab-btn ${activeTab === 'docs' ? 'active' : ''}`} onClick={() => setActiveTab('docs')} data-magy-key="docs">
-                    <FileText size={16} /> {lang === 'ar' ? 'المستندات' : 'Documentation'}
-                </button>
+                {isTrainer && (
+                    <button className={`tab-btn ${activeTab === 'trainees' ? 'active' : ''}`} onClick={() => setActiveTab('trainees')} data-magy-key="trainees">
+                        <Users size={16} /> {lang === 'ar' ? 'المتدربين' : 'Trainees'}
+                    </button>
+                )}
+                {isTrainer && (
+                    <button className={`tab-btn ${activeTab === 'idea' ? 'active' : ''}`} onClick={() => setActiveTab('idea')} data-magy-key="idea">
+                        <Lightbulb size={16} /> {lang === 'ar' ? 'أفكار المشروعات' : 'Project Ideas'}
+                    </button>
+                )}
                 <button className={`tab-btn ${activeTab === 'evaluations' ? 'active' : ''}`} onClick={() => setActiveTab('evaluations')} data-magy-key="evaluations">
                     <Award size={16} /> {lang === 'ar' ? 'التقييم والدرجات' : 'Evaluations'}
                 </button>
@@ -943,7 +1075,7 @@ void loop() {
             {activeTab === 'topics' && (
                 <div className="tab-content">
                     <div className="tab-action-bar">
-                        <h3>{lang === 'ar' ? 'المواضيع والمواد التدريبية' : 'Topics & Training Materials'}</h3>
+                        <h3>{lang === 'ar' ? 'المحتوى والمواد التدريبية للدورة' : 'Course Content & Training Materials'}</h3>
                         {isTrainer && (
                             <button className="btn btn-primary btn-sm" onClick={() => setShowTopicModal(true)}>
                                 <Plus size={16} /> {lang === 'ar' ? 'إضافة موضوع جديد' : 'Add Topic'}
@@ -1162,7 +1294,10 @@ void loop() {
             {activeTab === 'trainees' && (
                 <div className="tab-content">
                     <div className="tab-action-bar">
-                        <h3>{lang === 'ar' ? 'كشف المتدربين المقيدين' : 'Enrolled Trainees'}</h3>
+                        <h3>{isTrainer 
+                            ? (lang === 'ar' ? 'كشف المتدربين المقيدين' : 'Enrolled Trainees') 
+                            : (lang === 'ar' ? 'أعضاء فريق العمل المعتمد' : 'My Project Team Members')}
+                        </h3>
                         {isTrainer && (
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                 <button className="btn btn-primary btn-sm" onClick={() => setShowAddStudentModal(true)}>
@@ -1175,49 +1310,76 @@ void loop() {
                         )}
                     </div>
 
-                    {trainees.length === 0 ? (
-                        <div className="empty-tab">
-                            <Users size={36} />
-                            <p>{lang === 'ar' ? 'لا يوجد متدربون مقيدون بعد.' : 'No trainees enrolled yet.'}</p>
-                        </div>
-                    ) : (
-                        <table className="data-table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>{lang === 'ar' ? 'الاسم' : 'Name'}</th>
-                                    <th>{lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}</th>
-                                    <th>{lang === 'ar' ? 'الرقم الجامعي' : 'Student ID'}</th>
-                                    <th>{lang === 'ar' ? 'المصدر' : 'Source'}</th>
-                                    {isTrainer && <th>{lang === 'ar' ? 'الشهادة' : 'Certificate'}</th>}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {trainees.map((tr, idx) => (
-                                    <tr key={tr.trainee_id}>
-                                        <td>{idx + 1}</td>
-                                        <td><strong>{tr.full_name || tr.username || tr.email}</strong></td>
-                                        <td>{tr.email}</td>
-                                        <td>{tr.student_id || '-'}</td>
-                                        <td><span className="source-tag">{tr.source}</span></td>
-                                        {isTrainer && (
-                                            <td>
-                                                <button 
-                                                    className="btn btn-outline btn-sm"
-                                                    style={{ gap: '0.35rem', borderColor: 'var(--amber)', color: 'var(--amber)' }}
-                                                    disabled={issuingCertId === tr.trainee_id}
-                                                    onClick={() => handleIssueCertificate(tr.trainee_id, tr.full_name)}
-                                                >
-                                                    <Award size={14} />
-                                                    {issuingCertId === tr.trainee_id ? '...' : (lang === 'ar' ? 'معاينة وإصدار الشهادة' : 'Preview & Issue Certificate')}
-                                                </button>
-                                            </td>
-                                        )}
+                    {(() => {
+                        const displayList = isTrainer 
+                            ? trainees 
+                            : (myIdea?.team_members && myIdea.team_members.length > 0 
+                                ? myIdea.team_members 
+                                : [{ trainee_id: user?.id, full_name: user?.full_name, email: user?.email, student_id: user?.student_id, role: 'leader', source: 'Self' }]);
+
+                        if (displayList.length === 0) {
+                            return (
+                                <div className="empty-tab">
+                                    <Users size={36} />
+                                    <p>{isTrainer ? (lang === 'ar' ? 'لا يوجد متدربون مقيدون بعد.' : 'No trainees enrolled yet.') : (lang === 'ar' ? 'لم يتم تعيين فريق عمل بعد.' : 'No team members assigned yet.')}</p>
+                                </div>
+                            );
+                        }
+
+                        return (
+                            <table className="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>{lang === 'ar' ? 'الاسم' : 'Name'}</th>
+                                        <th>{lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}</th>
+                                        <th>{lang === 'ar' ? 'الرقم الجامعي' : 'Student ID'}</th>
+                                        <th>{isTrainer ? (lang === 'ar' ? 'المصدر' : 'Source') : (lang === 'ar' ? 'الدور' : 'Role')}</th>
+                                        {isTrainer && <th>{lang === 'ar' ? 'الشهادة' : 'Certificate'}</th>}
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    )}
+                                </thead>
+                                <tbody>
+                                    {displayList.map((tr, idx) => (
+                                        <tr key={tr.trainee_id || tr.user_id || tr.id || idx}>
+                                            <td>{idx + 1}</td>
+                                            <td>
+                                                <strong>{tr.full_name || tr.username || tr.email}</strong>
+                                                {tr.role === 'leader' && (
+                                                    <span style={{ marginLeft: '6px', fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.15)', color: '#d97706', fontWeight: 700 }}>
+                                                        {lang === 'ar' ? 'قائد الفريق' : 'Team Leader'}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td>{tr.email || '-'}</td>
+                                            <td>{tr.student_id || '-'}</td>
+                                            <td>
+                                                {isTrainer ? (
+                                                    <span className="source-tag">{tr.source || 'Registered'}</span>
+                                                ) : (
+                                                    <span style={{ fontWeight: 600, color: tr.role === 'leader' ? '#d97706' : '#2563eb' }}>
+                                                        {tr.role === 'leader' ? (lang === 'ar' ? 'قائد' : 'Leader') : (lang === 'ar' ? 'عضو' : 'Member')}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            {isTrainer && (
+                                                <td>
+                                                    <button 
+                                                        className="btn btn-outline btn-sm"
+                                                        style={{ gap: '0.35rem', borderColor: 'var(--amber)', color: 'var(--amber)' }}
+                                                        disabled={issuingCertId === (tr.trainee_id || tr.id)}
+                                                        onClick={() => handleIssueCertificate(tr.trainee_id || tr.id, tr.full_name)}
+                                                    >
+                                                        <Award size={14} />
+                                                        {issuingCertId === (tr.trainee_id || tr.id) ? '...' : (lang === 'ar' ? 'معاينة وإصدار الشهادة' : 'Preview & Issue Certificate')}
+                                                    </button>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        );
+                    })()}
                 </div>
             )}
 
@@ -1230,12 +1392,56 @@ void loop() {
                                 <h3>{lang === 'ar' ? 'تقديم فكرة المشروع التدريبي' : 'Training Project Idea Submission'}</h3>
                             </div>
 
+                            {/* Official Academic Proposal & Documentation Standout Card */}
+                            {myIdea && (
+                                <div className="official-doc-standout-card" style={{ marginBottom: '1.5rem' }}>
+                                    <div className="standout-card-header">
+                                        <div className="standout-title-group">
+                                            <div className="standout-icon-badge">
+                                                <FileText size={24} />
+                                            </div>
+                                            <div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                    <h4>{lang === 'ar' ? 'المقترح الأكاديمي والتوثيق المعتمد' : 'Official Academic Proposal & Documentation'}</h4>
+                                                    <span className={`status-badge status-${myIdea.status || 'submitted'}`}>
+                                                        {myIdea.status === 'approved' ? (lang === 'ar' ? 'معتمد رسمياً' : 'Approved') : (myIdea.status || 'Submitted')}
+                                                    </span>
+                                                </div>
+                                                <p className="standout-subtitle">
+                                                    {myIdea.title_en || myIdea.title || 'Official NMU Summer Training Proposal'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="standout-actions">
+                                            <a
+                                                href={`/api/training/ideas/proposal_docx.php?idea_id=${myIdea.id}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="btn btn-primary btn-sm"
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                                            >
+                                                <Download size={15} />
+                                                <span>{lang === 'ar' ? 'تحميل ملف Word (.docx)' : 'Download Word (.docx)'}</span>
+                                            </a>
+                                            <Link
+                                                to="/submitted-projects"
+                                                className="btn btn-outline btn-sm"
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                                            >
+                                                <ExternalLink size={15} />
+                                                <span>{lang === 'ar' ? 'فتح لوحة المشروع والتوثيق' : 'Open Project Portal'}</span>
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="ai-generator-card" style={{ marginBottom: '1.5rem' }}>
                                 <div className="ai-card-header">
                                     <div className="ai-title-row">
                                         <Sparkles size={18} className="ai-sparkle" />
                                         <h4>{lang === 'ar' ? 'مساعد الذكاء الاصطناعي لتوليد الأفكار' : 'AI Idea Proposal Generator'}</h4>
-                                        <span className="ai-badge">{lang === 'ar' ? 'ذكي' : 'AI Powered'}</span>
+                                        <span className="ai-badge">{lang === 'ar' ? 'توليد ذكي' : 'AI Powered'}</span>
                                     </div>
                                     <p className="ai-subtitle">
                                         {lang === 'ar' ? 'أدخل عنوان الفكرة أو اختر موضوعاً سريعاً لتوليد المقترح بالكامل' : 'Enter keywords or pick a topic to generate a full project proposal.'}
@@ -1256,9 +1462,9 @@ void loop() {
                                 <div className="ai-sample-pills">
                                     <span className="pill-label">{lang === 'ar' ? 'مقترحات سريعة:' : 'Quick Topics:'}</span>
                                     {[
-                                        { ar: '⚡ نظام حضور ذكي', en: 'Smart Attendance System' },
-                                        { ar: '🤖 شات بوت الدعم الأكاديمي', en: 'Academic Support AI Chatbot' },
-                                        { ar: '📊 لوحة تحليلات الطاقة', en: 'Energy Analytics Dashboard' }
+                                        { ar: 'نظام حضور ذكي', en: 'Smart Attendance System' },
+                                        { ar: 'شات بوت الدعم الأكاديمي', en: 'Academic Support AI Chatbot' },
+                                        { ar: 'لوحة تحليلات الطاقة', en: 'Energy Analytics Dashboard' }
                                     ].map((pill, idx) => (
                                         <button 
                                             key={idx}
@@ -1380,7 +1586,7 @@ void loop() {
                                                             transition: 'all 0.15s ease'
                                                         }}
                                                     >
-                                                        {m.role === 'leader' ? '👑' : '👤'} {m.full_name || m.username} {m.student_id ? `(${m.student_id})` : ''}
+                                                        {m.role === 'leader' ? <Crown size={12} style={{ color: '#d97706' }} /> : <Users size={12} />} {m.full_name || m.username} {m.student_id ? `(${m.student_id})` : ''}
                                                     </button>
                                                 ))}
                                             </div>
@@ -1418,137 +1624,93 @@ void loop() {
                 </div>
             )}
 
-            {/* Tab 4: Documentation Upload */}
-            {activeTab === 'docs' && (
-                <div className="tab-content">
-                    <div className="doc-upload-box">
-                        <h3>{lang === 'ar' ? 'رفع توثيق وتقارير أو روابط المشروع' : 'Upload Project Documentation & Links'}</h3>
-                        <div className="doc-upload-tabs">
-                            <button 
-                                type="button" 
-                                className={`btn btn-sm ${uploadMode === 'file' ? 'btn-primary' : 'btn-ghost'}`}
-                                onClick={() => setUploadMode('file')}
-                            >
-                                📁 {lang === 'ar' ? 'رفع ملف' : 'File Upload'}
-                            </button>
-                            <button 
-                                type="button" 
-                                className={`btn btn-sm ${uploadMode === 'link' ? 'btn-primary' : 'btn-ghost'}`}
-                                onClick={() => setUploadMode('link')}
-                            >
-                                🔗 {lang === 'ar' ? 'إضافة رابط (GitHub / Figma / Demo)' : 'Link Submission (GitHub, Figma, Demo)'}
-                            </button>
-                        </div>
 
-                        <form onSubmit={handleUploadDoc} className="doc-form">
-                            <div className="form-group">
-                                <label>{lang === 'ar' ? 'نوع التوثيق' : 'Document Category'}</label>
-                                <select value={docType} onChange={e => setDocType(e.target.value)}>
-                                    <option value="srs">SRS / System Architecture</option>
-                                    <option value="report">Final Training Report</option>
-                                    <option value="presentation">Presentation Slides (PPTX)</option>
-                                    <option value="code_zip">Source Code Archive (ZIP)</option>
-                                    <option value="github">GitHub Repository</option>
-                                    <option value="figma">Figma UI/UX Design</option>
-                                    <option value="demo">Live Project Demo / Website</option>
-                                </select>
-                            </div>
-
-                            {uploadMode === 'file' ? (
-                                <div className="form-group file-input-group">
-                                    <label>{lang === 'ar' ? 'اختر الملف (PDF, DOCX, ZIP, PPTX)' : 'Select File (PDF, DOCX, ZIP, PPTX)'}</label>
-                                    <div className="file-input-wrapper">
-                                        <input ref={fileInputRef} type="file" required onChange={e => setDocFile(e.target.files[0])} />
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="link-inputs-row">
-                                    <div className="form-group" style={{ flex: 1 }}>
-                                        <label>{lang === 'ar' ? 'عنوان الرابط / الوصف' : 'Link Title / Name'}</label>
-                                        <input 
-                                            type="text" 
-                                            placeholder={lang === 'ar' ? 'مثال: مستودع كود المشروع على GitHub' : 'e.g., GitHub Code Repository'} 
-                                            value={docTitle} 
-                                            onChange={e => setDocTitle(e.target.value)} 
-                                        />
-                                    </div>
-                                    <div className="form-group" style={{ flex: 1 }}>
-                                        <label>{lang === 'ar' ? 'رابط URL' : 'URL Link'}</label>
-                                        <input 
-                                            type="url" 
-                                            required 
-                                            placeholder="https://github.com/..." 
-                                            value={docUrl} 
-                                            onChange={e => setDocUrl(e.target.value)} 
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            <button type="submit" className="btn btn-primary submit-btn" disabled={uploadingDoc}>
-                                {uploadingDoc ? <Loader2 className="spin" size={16} /> : (uploadMode === 'file' ? (lang === 'ar' ? 'رفع المستند' : 'Upload Document') : (lang === 'ar' ? 'حفظ الرابط' : 'Add Link'))}
-                            </button>
-                        </form>
-                    </div>
-
-                    <div className="docs-list">
-                        <h4>{lang === 'ar' ? 'الملفات والروابط المرفوعة' : 'Uploaded Files & Project Links'}</h4>
-                        {docs.length === 0 ? (
-                            <p className="text-muted">No documents or project links uploaded yet.</p>
-                        ) : (
-                            <ul className="docs-ul">
-                                {docs.map(d => (
-                                    <li key={d.id} className="doc-li" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '0.75rem' }}>
-                                        <FileText size={24} style={{ color: 'var(--amber)', flexShrink: 0 }} />
-                                        <div className="doc-info" style={{ flex: 1 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                                <strong style={{ fontSize: '0.95rem' }}>{d.file_name}</strong>
-                                                <span className="source-tag" style={{ textTransform: 'uppercase', fontSize: '0.75rem', padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'var(--bg-subtle)' }}>{d.doc_type}</span>
-                                            </div>
-                                            <p style={{ margin: '0.25rem 0 0.15rem 0', fontSize: '0.85rem', color: '#b8860b', fontWeight: 600 }}>
-                                                📁 {lang === 'ar' ? 'اسم المشروع:' : 'Project:'} {d.project_title || (lang === 'ar' ? 'مشروع التدريب الصيفي' : 'Summer Training Project')}
-                                            </p>
-                                            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                                👤 {lang === 'ar' ? 'المعني/أعضاء الفريق:' : 'Submitted by:'} <strong>{d.trainee_name || 'Trainee'}</strong> {d.student_id ? `(${d.student_id})` : ''} — {d.trainee_email || ''}
-                                                <span style={{ marginLeft: '0.75rem', opacity: 0.7 }}>🕒 {d.uploaded_at}</span>
-                                            </p>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                            <a href={d.file_url} download target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" style={{ gap: '0.25rem' }}>
-                                                <Download size={14} /> {d.file_url.startsWith('http') && !d.file_url.includes('/uploads/') ? (lang === 'ar' ? 'فتح الرابط' : 'Open Link') : (lang === 'ar' ? 'تنزيل' : 'Download')}
-                                            </a>
-                                            <button 
-                                                onClick={() => handleDeleteDoc(d.id)} 
-                                                className="btn btn-ghost btn-sm" 
-                                                style={{ color: '#ef4444' }}
-                                                title={lang === 'ar' ? 'حذف' : 'Delete'}
-                                            >
-                                                <Trash2 size={14} /> {lang === 'ar' ? 'حذف' : 'Delete'}
-                                            </button>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                </div>
-            )}
 
             {/* Tab 5: Evaluations */}
             {activeTab === 'evaluations' && (
                 <div className="tab-content">
                     {isTrainee ? (
-                        <div className="eval-result-card">
-                            <h3>{lang === 'ar' ? 'نتيجة تقييم التدريب الصيفي' : 'Summer Training Final Evaluation'}</h3>
+                        <div className="eval-result-card" style={{ background: 'var(--bg-1, #ffffff)', border: '1.5px solid var(--border, #e2e8f0)', borderRadius: '16px', padding: '1.75rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-0)' }}>
+                                        {lang === 'ar' ? 'نتيجة تقييم التدريب الميداني الأكاديمي' : 'Academic Field Training Evaluation Result'}
+                                    </h3>
+                                    <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                        {lang === 'ar' ? 'معايير التقييم والدرجات المعتمدة من المشرف الأكاديمي والمدرب' : 'Evaluation criteria and grades certified by the supervising trainer.'}
+                                    </p>
+                                </div>
+                                {myEval && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                        <div style={{
+                                            padding: '0.5rem 1.25rem',
+                                            borderRadius: '12px',
+                                            background: myEval.status === 'pass' ? 'rgba(34, 197, 94, 0.12)' : (myEval.status === 'needs_revision' ? 'rgba(234, 179, 8, 0.12)' : 'rgba(239, 68, 68, 0.12)'),
+                                            color: myEval.status === 'pass' ? '#16a34a' : (myEval.status === 'needs_revision' ? '#ca8a04' : '#ef4444'),
+                                            fontWeight: 800,
+                                            fontSize: '1.1rem',
+                                            border: `1px solid ${myEval.status === 'pass' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                                        }}>
+                                            {myEval.final_score} / 100 ({myEval.status.toUpperCase()})
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
                             {myEval ? (
                                 <div className="eval-details">
-                                    <div className="score-badge">{myEval.final_score} / 100</div>
-                                    <p className={`status-text status-${myEval.status}`}>Status: <strong>{myEval.status.toUpperCase()}</strong></p>
-                                    {myEval.feedback && <p className="eval-feedback">Feedback: "{myEval.feedback}"</p>}
-                                    <p className="eval-meta">Evaluated by: {myEval.evaluator_name || 'Trainer'} on {myEval.evaluated_at}</p>
+                                    {/* 5 Academic Rubric Breakdown */}
+                                    {(() => {
+                                        let c = {};
+                                        try {
+                                            c = typeof myEval.criteria_scores === 'string' ? JSON.parse(myEval.criteria_scores || '{}') : (myEval.criteria_scores || {});
+                                        } catch (_) {}
+                                        const rubrics = [
+                                            { key: 'attendance', labelEn: 'Attendance & Discipline', labelAr: 'الحضور والالتزام بالتدريب', max: 15, val: c.attendance ?? Math.round(myEval.final_score * 0.15) },
+                                            { key: 'architecture', labelEn: 'System Architecture & Design', labelAr: 'التصميم وبنية النظام', max: 20, val: c.architecture ?? Math.round(myEval.final_score * 0.20) },
+                                            { key: 'implementation', labelEn: 'Implementation & Code Quality', labelAr: 'التنفيذ وجودة الكود البرمجي', max: 25, val: c.implementation ?? Math.round(myEval.final_score * 0.25) },
+                                            { key: 'presentation', labelEn: 'Final Presentation & Defense', labelAr: 'العرض التقديمي والمناقشة', max: 20, val: c.presentation ?? Math.round(myEval.final_score * 0.20) },
+                                            { key: 'documentation', labelEn: 'Final Project Documentation', labelAr: 'توثيق وتقرير المشروع النهائي', max: 20, val: c.documentation ?? Math.round(myEval.final_score * 0.20) },
+                                        ];
+
+                                        return (
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                                                {rubrics.map((r, idx) => (
+                                                    <div key={idx} style={{ background: 'var(--bg-subtle, #f8fafc)', border: '1px solid var(--border, #e2e8f0)', borderRadius: '12px', padding: '1rem' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-1)' }}>
+                                                                {lang === 'ar' ? r.labelAr : r.labelEn}
+                                                            </span>
+                                                            <strong style={{ fontSize: '0.9rem', color: 'var(--primary, #002D56)' }}>
+                                                                {r.val} / {r.max}
+                                                            </strong>
+                                                        </div>
+                                                        <div style={{ width: '100%', height: '7px', background: 'rgba(0,0,0,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                            <div style={{ width: `${Math.min(100, Math.round((r.val / r.max) * 100))}%`, height: '100%', background: 'linear-gradient(90deg, #002D56, #3b82f6)', borderRadius: '4px' }}></div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {myEval.feedback && (
+                                        <div style={{ background: 'rgba(0, 45, 86, 0.04)', border: '1px solid rgba(0, 45, 86, 0.12)', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.25rem' }}>
+                                            <strong style={{ color: 'var(--primary, #002D56)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.35rem' }}>
+                                                <MessageSquare size={15} /> {lang === 'ar' ? 'ملاحظات المشرف وتوجيهات التقييم:' : 'Trainer Feedback & Evaluation Notes:'}
+                                            </strong>
+                                            <p style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-0)', lineHeight: 1.5 }}>
+                                                "{myEval.feedback}"
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <p className="eval-meta" style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <UserCheck size={14} /> {lang === 'ar' ? 'تم التقييم بواسطة:' : 'Evaluated by:'} <strong>{myEval.evaluator_name || 'Dr. Supervising Trainer'}</strong> — {myEval.evaluated_at}
+                                    </p>
 
                                     {myEval.status === 'pass' && (
-                                        <div className="cert-claim-card" style={{ marginTop: '1.5rem', padding: '1.25rem', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(0, 229, 255,0.12) 0%, rgba(212,175,55,0.15) 100%)', border: '1px solid rgba(212,175,55,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                                        <div className="cert-claim-card" style={{ marginTop: '1.5rem', padding: '1.25rem', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(0, 45, 86, 0.08) 0%, rgba(200, 169, 81, 0.15) 100%)', border: '1.5px solid rgba(200, 169, 81, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                                 <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary), #b8860b)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
                                                     <Award size={26} />
@@ -1587,46 +1749,144 @@ void loop() {
                                     )}
                                 </div>
                             ) : (
-                                <p className="text-muted">Your training evaluation has not been entered yet.</p>
+                                <p className="text-muted" style={{ padding: '1rem 0' }}>{lang === 'ar' ? 'لم يتم رصد التقييم النهائي بعد من قبل المدرب المشرف.' : 'Your training evaluation has not been entered yet by the supervising trainer.'}</p>
                             )}
                         </div>
                     ) : (
-                        <div className="evals-trainer-view">
-                            <h3>{lang === 'ar' ? 'تقييم درجات المتدربين' : 'Grade & Evaluate Trainees'}</h3>
+                        <div className="evals-trainer-view" style={{ background: 'var(--bg-1, #ffffff)', border: '1.5px solid var(--border, #e2e8f0)', borderRadius: '16px', padding: '1.75rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: 800 }}>{lang === 'ar' ? 'تقييم ورصد درجات المتدربين الأكاديمية' : 'Grade & Evaluate Trainees (Academic Rubrics)'}</h3>
+                            <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                {lang === 'ar' ? 'قم بتحديد المتدرب وإدخال درجات معايير التقييم الخمسة المعتمدة.' : 'Select a trainee and enter the 5 certified academic rubric scores.'}
+                            </p>
+
                             <div className="eval-form-box">
-                                <h4>Submit Trainee Grade</h4>
                                 <form onSubmit={handleSubmitEvaluation}>
-                                    <div className="form-group">
-                                        <label>Select Trainee</label>
-                                        <select required value={selectedTraineeForEval || ''} onChange={e => setSelectedTraineeForEval(e.target.value)}>
-                                            <option value="">-- Choose Trainee --</option>
+                                    <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                                        <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.4rem' }}>{lang === 'ar' ? 'اختر المتدرب المراد تقييمه:' : 'Select Trainee to Evaluate:'}</label>
+                                        <select 
+                                            required 
+                                            value={selectedTraineeForEval || ''} 
+                                            onChange={e => setSelectedTraineeForEval(e.target.value)}
+                                            style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '0.95rem' }}
+                                        >
+                                            <option value="">{lang === 'ar' ? '-- اختر المتدرب --' : '-- Choose Trainee --'}</option>
                                             {trainees.map(tr => (
                                                 <option key={tr.trainee_id} value={tr.trainee_id}>
-                                                    {tr.full_name} ({tr.email})
+                                                    {tr.full_name} ({tr.student_id ? `${tr.student_id} - ` : ''}{tr.email})
                                                 </option>
                                             ))}
                                         </select>
                                     </div>
-                                    <div className="form-row">
+
+                                    {/* 5 Academic Rubrics Inputs */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.25rem', background: 'var(--bg-subtle, #f8fafc)', padding: '1.25rem', borderRadius: '14px', border: '1px solid var(--border)' }}>
                                         <div className="form-group">
-                                            <label>Final Score (0 - 100)</label>
-                                            <input type="number" min="0" max="100" required value={evalScore} onChange={e => setEvalScore(e.target.value)} />
+                                            <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <Calendar size={14} /> {lang === 'ar' ? 'الحضور والالتزام (15)' : 'Attendance (15)'}
+                                            </label>
+                                            <input 
+                                                type="number" 
+                                                min="0" 
+                                                max="15" 
+                                                value={evalAttendance} 
+                                                onChange={e => updateCriteriaScore('attendance', e.target.value)}
+                                                style={{ width: '100%', padding: '0.45rem 0.65rem', borderRadius: '8px', border: '1px solid var(--border)', marginTop: '4px' }}
+                                            />
                                         </div>
                                         <div className="form-group">
-                                            <label>Evaluation Status</label>
-                                            <select value={evalStatus} onChange={e => setEvalStatus(e.target.value)}>
-                                                <option value="pass">PASS</option>
-                                                <option value="fail">FAIL</option>
-                                                <option value="needs_revision">NEEDS REVISION</option>
+                                            <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <Layers size={14} /> {lang === 'ar' ? 'بنية وتصميم النظام (20)' : 'Architecture (20)'}
+                                            </label>
+                                            <input 
+                                                type="number" 
+                                                min="0" 
+                                                max="20" 
+                                                value={evalArchitecture} 
+                                                onChange={e => updateCriteriaScore('architecture', e.target.value)}
+                                                style={{ width: '100%', padding: '0.45rem 0.65rem', borderRadius: '8px', border: '1px solid var(--border)', marginTop: '4px' }}
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <Code size={14} /> {lang === 'ar' ? 'التنفيذ وجودة الكود (25)' : 'Implementation (25)'}
+                                            </label>
+                                            <input 
+                                                type="number" 
+                                                min="0" 
+                                                max="25" 
+                                                value={evalImplementation} 
+                                                onChange={e => updateCriteriaScore('implementation', e.target.value)}
+                                                style={{ width: '100%', padding: '0.45rem 0.65rem', borderRadius: '8px', border: '1px solid var(--border)', marginTop: '4px' }}
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <FileText size={14} /> {lang === 'ar' ? 'العرض والمناقشة (20)' : 'Presentation (20)'}
+                                            </label>
+                                            <input 
+                                                type="number" 
+                                                min="0" 
+                                                max="20" 
+                                                value={evalPresentation} 
+                                                onChange={e => updateCriteriaScore('presentation', e.target.value)}
+                                                style={{ width: '100%', padding: '0.45rem 0.65rem', borderRadius: '8px', border: '1px solid var(--border)', marginTop: '4px' }}
+                                            />
+                                        </div>
+                                        <div className="form-group">
+                                            <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <FileCheck size={14} /> {lang === 'ar' ? 'التوثيق والتقرير (20)' : 'Documentation (20)'}
+                                            </label>
+                                            <input 
+                                                type="number" 
+                                                min="0" 
+                                                max="20" 
+                                                value={evalDocumentation} 
+                                                onChange={e => updateCriteriaScore('documentation', e.target.value)}
+                                                style={{ width: '100%', padding: '0.45rem 0.65rem', borderRadius: '8px', border: '1px solid var(--border)', marginTop: '4px' }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="form-row" style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                                        <div className="form-group" style={{ flex: 1, minWidth: '160px' }}>
+                                            <label style={{ fontWeight: 700 }}>{lang === 'ar' ? 'الدرجة الكلية (من 100)' : 'Final Score (0 - 100)'}</label>
+                                            <input 
+                                                type="number" 
+                                                min="0" 
+                                                max="100" 
+                                                required 
+                                                value={evalScore} 
+                                                onChange={e => setEvalScore(Math.min(100, Math.max(0, Number(e.target.value))))} 
+                                                style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1.5px solid var(--primary, #002D56)', fontWeight: 800, fontSize: '1.1rem' }}
+                                            />
+                                        </div>
+                                        <div className="form-group" style={{ flex: 1, minWidth: '160px' }}>
+                                            <label style={{ fontWeight: 700 }}>{lang === 'ar' ? 'حالة الاعتماد' : 'Evaluation Status'}</label>
+                                            <select 
+                                                value={evalStatus} 
+                                                onChange={e => setEvalStatus(e.target.value)}
+                                                style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid var(--border)', fontWeight: 700 }}
+                                            >
+                                                <option value="pass">PASS (ناجح معتمد)</option>
+                                                <option value="needs_revision">NEEDS REVISION (يحتاج مراجعة)</option>
+                                                <option value="fail">FAIL (راسب)</option>
                                             </select>
                                         </div>
                                     </div>
-                                    <div className="form-group">
-                                        <label>Trainer Feedback & Notes</label>
-                                        <textarea rows="3" value={evalFeedback} onChange={e => setEvalFeedback(e.target.value)} placeholder="Constructive feedback for the trainee..." />
+
+                                    <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                                        <label style={{ fontWeight: 700 }}>{lang === 'ar' ? 'ملاحظات وتوجيهات المشرف الأكاديمي' : 'Trainer Feedback & Notes'}</label>
+                                        <textarea 
+                                            rows="3" 
+                                            value={evalFeedback} 
+                                            onChange={e => setEvalFeedback(e.target.value)} 
+                                            placeholder={lang === 'ar' ? 'أدخل ملاحظات بناءة وتوجيهات للطالب حول مشروعه وأدائه...' : 'Constructive feedback for the trainee...'} 
+                                            style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid var(--border)' }}
+                                        />
                                     </div>
-                                    <button type="submit" className="btn btn-primary" disabled={submittingEval}>
-                                        {submittingEval ? <Loader2 className="spin" size={16} /> : 'Save Grade'}
+
+                                    <button type="submit" className="btn btn-primary" disabled={submittingEval} style={{ padding: '0.75rem 2rem', fontWeight: 700, borderRadius: '10px' }}>
+                                        {submittingEval ? <Loader2 className="spin" size={16} /> : (lang === 'ar' ? 'حفظ ونشر التقييم النهائي' : 'Save & Publish Grade')}
                                     </button>
                                 </form>
                             </div>
@@ -1985,6 +2245,53 @@ void loop() {
             {/* EXCLUSIVE ROBOTICS MASCOT ASSISTANT */}
             <EngMagyMascot forceShow={isRoboticsCourse} courseTrack={course?.track || ''} />
 
+            {/* Update / Re-upload Proposal Modal */}
+            {showUpdateProposalModal && (
+                <div className="modal-overlay" onClick={() => setShowUpdateProposalModal(false)}>
+                    <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+                        <div className="modal-header-row">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Edit3 size={20} className="text-primary" />
+                                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>
+                                    {lang === 'ar' ? 'تحديث ورفع نسخة المقترح المعدلة' : 'Update Proposal / Upload Manual Edit'}
+                                </h3>
+                            </div>
+                            <button type="button" className="modal-close-btn" onClick={() => setShowUpdateProposalModal(false)}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <p style={{ margin: '0.5rem 0 1.25rem 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                            {lang === 'ar'
+                                ? 'قم باختيار ملف المقترح أو التقرير المعدل يدوياً (.docx أو .pdf) لاستبدال النسخة الحالية ومزامنتها فوراً مع لوحة المشرفين.'
+                                : 'Select your manually edited proposal/report file (.docx or .pdf) to replace the current version and sync with the supervisor.'
+                            }
+                        </p>
+                        <form onSubmit={handleUpdateProposalSubmit}>
+                            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>
+                                    {lang === 'ar' ? 'ملف المقترح المحدث (.docx, .pdf, .zip) *' : 'Updated Proposal File (.docx, .pdf, .zip) *'}
+                                </label>
+                                <div className="custom-file-dropzone" style={{ padding: '1.5rem', textAlign: 'center', border: '2px dashed var(--border)', borderRadius: '12px', background: 'var(--bg-subtle, #f8fafc)' }}>
+                                    <input type="file" required accept=".docx,.doc,.pdf,.zip" onChange={e => setProposalFile(e.target.files[0])} />
+                                    <Upload size={24} style={{ color: 'var(--primary)', marginBottom: '0.5rem' }} />
+                                    <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                                        {proposalFile ? proposalFile.name : (lang === 'ar' ? 'اضغط لاختيار الملف من جهازك' : 'Click to choose updated file')}
+                                    </div>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowUpdateProposalModal(false)}>
+                                    {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                                </button>
+                                <button type="submit" className="btn btn-primary" disabled={updatingProposal || !proposalFile}>
+                                    {updatingProposal ? <Loader2 className="spin" size={16} /> : (lang === 'ar' ? 'رفع وتحديث المقترح' : 'Upload & Update')}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {/* Member Details Modal */}
             {viewingMember && (
                 <MemberDetailModal 
@@ -1992,6 +2299,12 @@ void loop() {
                     onClose={() => setViewingMember(null)} 
                 />
             )}
+
+            {/* Eng. Magy Assistant Mascot (Robotics Courses) */}
+            <EngMagyMascot 
+                forceShow={isRoboticsCourse} 
+                courseTrack={course?.category || course?.name || ''} 
+            />
         </div>
     );
 }
