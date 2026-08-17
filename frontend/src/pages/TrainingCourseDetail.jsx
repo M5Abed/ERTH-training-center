@@ -197,16 +197,6 @@ void loop() {
         }, 1200);
     };
 
-    // Hardware Checklist state
-    const [hardwareItems] = useState([
-        { id: 1, name: 'Arduino Uno R3 / ESP32 Board', category: 'Microcontroller', status: 'connected', tip: 'التحقق من اختيار منفذ الاتصال التسلسلي (COM Port) وتكامل برامج التشغيل (CH340 / CP2102).' },
-        { id: 2, name: 'MPU6050 6-DOF Gyro & Accelerometer', category: 'IMU Sensor', status: 'calibrated', tip: 'ربط أطراف SDA و SCL بقنوات الاتصال I2C ومعايرة مصفوفة الانحراف (Gyroscope Offset Matrix).' },
-        { id: 3, name: 'HC-SR04 Ultrasonic Distance Sensor', category: 'Rangefinder', status: 'ready', tip: 'توليد نبضة مشغل (Trig Pulse) بعرض 10 ميكروثانية واحتساب زمن استجابة صدى الصوت (Echo Response Time).' },
-        { id: 4, name: 'L298N Dual H-Bridge Motor Driver', category: 'Actuation', status: 'connected', tip: 'ربط مصدر التغذية المستقل للمحركات وضمان توحيد خط الأرضي المشترك (Common GND) مع المعالج.' },
-        { id: 5, name: '2x High-Torque DC Geared Motors', category: 'Motors', status: 'ready', tip: 'تركيب مكثفات التخميد السيراميكية للتخلص من الضوضاء الكهرومغناطيسية الناتجة عن إشارات PWM.' },
-        { id: 6, name: '11.1V 3S LiPo Battery Pack', category: 'Power', status: 'calibrated', tip: 'قياس فرق الجهد للخلية الواحدة لضمان استقرار التشغيل فوق الحد الأدنى الموصى به (3.7V Per Cell).' }
-    ]);
-
     // Modals state
     const [showAddStudentModal, setShowAddStudentModal] = useState(false);
     const [showTopicModal, setShowTopicModal] = useState(false);
@@ -258,6 +248,24 @@ void loop() {
     const [evalImplementation, setEvalImplementation] = useState(25);
     const [evalPresentation, setEvalPresentation] = useState(20);
     const [evalDocumentation, setEvalDocumentation] = useState(20);
+
+    const handleFinalScoreChange = (val) => {
+        const score = Math.min(100, Math.max(0, Number(val) || 0));
+        setEvalScore(score);
+        const att = Math.min(15, Math.round(score * 0.15));
+        const arch = Math.min(20, Math.round(score * 0.20));
+        const impl = Math.min(25, Math.round(score * 0.25));
+        const pres = Math.min(20, Math.round(score * 0.20));
+        const doc = Math.min(20, Math.max(0, Math.round(score - (att + arch + impl + pres))));
+        setEvalAttendance(att);
+        setEvalArchitecture(arch);
+        setEvalImplementation(impl);
+        setEvalPresentation(pres);
+        setEvalDocumentation(doc);
+        if (score >= 60) setEvalStatus('pass');
+        else if (score >= 50) setEvalStatus('needs_revision');
+        else setEvalStatus('fail');
+    };
 
     const updateCriteriaScore = (crit, val) => {
         const num = Math.max(0, Number(val) || 0);
@@ -818,18 +826,38 @@ void loop() {
             .then(d => {
                 if (d.evaluation) {
                     const ev = d.evaluation;
-                    setEvalScore(parseFloat(ev.final_score) || 0);
-                    setEvalStatus(ev.status || 'pass');
+                    const fScore = parseFloat(ev.final_score) || 0;
+                    setEvalScore(fScore);
+                    setEvalStatus(ev.status || (fScore >= 60 ? 'pass' : (fScore >= 50 ? 'needs_revision' : 'fail')));
                     setEvalFeedback(ev.feedback || '');
                     let c = {};
                     try {
                         c = typeof ev.criteria_scores === 'string' ? JSON.parse(ev.criteria_scores) : (ev.criteria_scores || {});
                     } catch (_) {}
-                    setEvalAttendance(c.attendance ?? 15);
-                    setEvalArchitecture(c.architecture ?? 20);
-                    setEvalImplementation(c.implementation ?? 25);
-                    setEvalPresentation(c.presentation ?? 20);
-                    setEvalDocumentation(c.documentation ?? 20);
+
+                    let att = Number(c.attendance);
+                    let arch = Number(c.architecture);
+                    let impl = Number(c.implementation);
+                    let pres = Number(c.presentation);
+                    let doc = Number(c.documentation);
+                    const rawSum = (att || 0) + (arch || 0) + (impl || 0) + (pres || 0) + (doc || 0);
+
+                    if (isNaN(att) || isNaN(arch) || isNaN(impl) || isNaN(pres) || isNaN(doc) || Math.abs(rawSum - fScore) > 1 || (rawSum === 100 && fScore !== 100)) {
+                        att = Math.min(15, Math.round(fScore * 0.15));
+                        arch = Math.min(20, Math.round(fScore * 0.20));
+                        impl = Math.min(25, Math.round(fScore * 0.25));
+                        pres = Math.min(20, Math.round(fScore * 0.20));
+                        doc = Math.min(20, Math.max(0, Math.round(fScore - (att + arch + impl + pres))));
+                    }
+
+                    setEvalAttendance(att);
+                    setEvalArchitecture(arch);
+                    setEvalImplementation(impl);
+                    setEvalPresentation(pres);
+                    setEvalDocumentation(doc);
+                } else {
+                    handleFinalScoreChange(100);
+                    setEvalFeedback('');
                 }
             })
             .catch(() => {});
@@ -1077,14 +1105,9 @@ void loop() {
                     <BookOpen size={16} /> {lang === 'ar' ? 'المحتوى والمواد التدريبية' : 'Course Content & Materials'}
                 </button>
                 {isRoboticsCourse && (
-                    <>
-                        <button className={`tab-btn ${activeTab === 'simulator' ? 'active' : ''}`} onClick={() => setActiveTab('simulator')} data-magy-key="simulator">
-                            <Code size={16} /> {lang === 'ar' ? 'مختبر كود المحاكاة' : 'ROS2 Code Simulator'}
-                        </button>
-                        <button className={`tab-btn ${activeTab === 'hardware' ? 'active' : ''}`} onClick={() => setActiveTab('hardware')} data-magy-key="hardware">
-                            <Sparkles size={16} /> {lang === 'ar' ? 'عتاد الهاردوير والحساسات' : 'Hardware & Sensors'}
-                        </button>
-                    </>
+                    <button className={`tab-btn ${activeTab === 'simulator' ? 'active' : ''}`} onClick={() => setActiveTab('simulator')} data-magy-key="simulator">
+                        <Code size={16} /> {lang === 'ar' ? 'مختبر كود المحاكاة' : 'ROS2 Code Simulator'}
+                    </button>
                 )}
                 {isTrainer && (
                     <button className={`tab-btn ${activeTab === 'trainees' ? 'active' : ''}`} onClick={() => setActiveTab('trainees')} data-magy-key="trainees">
@@ -1288,43 +1311,6 @@ void loop() {
                 </div>
             )}
 
-            {/* Hardware Diagnostic Tab */}
-            {activeTab === 'hardware' && isRoboticsCourse && (
-                <div className="tab-content magy-hardware-view" data-magy-key="hardware">
-                    <div className="tab-action-bar">
-                        <div>
-                            <h3>{lang === 'ar' ? 'فحص جاهزية قطع الهاردوير والحساسات' : 'Hardware & Sensors Diagnostic Checklist'}</h3>
-                            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: '0.2rem 0 0 0' }}>
-                                {lang === 'ar' ? 'تأكد من سلامة توصيل المعالجات، درايفر المحركات، وحساسات الحركة قبل التجربة العملية.' : 'Verify microcontroller ports, motor driver H-bridge wiring, and sensor offsets.'}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="hardware-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', marginTop: '1.25rem' }}>
-                        {hardwareItems.map(item => (
-                            <div 
-                                key={item.id} 
-                                className="hardware-card"
-                                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '1.25rem' }}
-                                data-magy-tip={item.tip}
-                                data-magy-title={item.name}
-                            >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#dc2626', background: '#fef2f2', padding: '0.2rem 0.6rem', borderRadius: '50px' }}>
-                                        {item.category}
-                                    </span>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: item.status === 'calibrated' || item.status === 'connected' ? '#16a34a' : '#3b82f6', background: item.status === 'calibrated' || item.status === 'connected' ? '#f0fdf4' : '#eff6ff', padding: '0.2rem 0.5rem', borderRadius: '8px' }}>
-                                        ● {item.status.toUpperCase()}
-                                    </span>
-                                </div>
-                                <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem', color: 'var(--text-main)' }}>{item.name}</h4>
-                                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{item.tip}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
             {/* Tab 2: Trainees & Excel Import */}
             {activeTab === 'trainees' && (
                 <div className="tab-content">
@@ -1398,15 +1384,26 @@ void loop() {
                                             </td>
                                             {isTrainer && (
                                                 <td>
-                                                    <button 
-                                                        className="btn btn-outline btn-sm"
-                                                        style={{ gap: '0.35rem', borderColor: 'var(--amber)', color: 'var(--amber)' }}
-                                                        disabled={issuingCertId === (tr.trainee_id || tr.id)}
-                                                        onClick={() => handleIssueCertificate(tr.trainee_id || tr.id, tr.full_name)}
-                                                    >
-                                                        <Award size={14} />
-                                                        {issuingCertId === (tr.trainee_id || tr.id) ? '...' : (lang === 'ar' ? 'معاينة وإصدار الشهادة' : 'Preview & Issue Certificate')}
-                                                    </button>
+                                                    {(tr.evaluation_status === 'pass' || (Number(tr.evaluation_score) >= 60)) ? (
+                                                        <button 
+                                                            className="btn btn-outline btn-sm"
+                                                            style={{ gap: '0.35rem', borderColor: 'var(--amber)', color: 'var(--amber)' }}
+                                                            disabled={issuingCertId === (tr.trainee_id || tr.id)}
+                                                            onClick={() => handleIssueCertificate(tr.trainee_id || tr.id, tr.full_name)}
+                                                        >
+                                                            <Award size={14} />
+                                                            {issuingCertId === (tr.trainee_id || tr.id) ? '...' : (lang === 'ar' ? 'معاينة وإصدار الشهادة' : 'Preview & Issue Certificate')}
+                                                        </button>
+                                                    ) : (
+                                                        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                                                            {tr.evaluation_status === 'fail' 
+                                                                ? <span style={{ color: '#ef4444', fontWeight: 600 }}>{lang === 'ar' ? 'راسب' : 'Failed'}</span>
+                                                                : tr.evaluation_status === 'needs_revision'
+                                                                ? <span style={{ color: '#d97706', fontWeight: 600 }}>{lang === 'ar' ? 'يحتاج مراجعة' : 'Needs Revision'}</span>
+                                                                : '—'
+                                                            }
+                                                        </span>
+                                                    )}
                                                 </td>
                                             )}
                                         </tr>
@@ -1450,8 +1447,7 @@ void loop() {
                                         <div className="standout-actions">
                                             <a
                                                 href={`/api/training/ideas/proposal_docx.php?idea_id=${myIdea.id}`}
-                                                target="_blank"
-                                                rel="noreferrer"
+                                                download
                                                 className="btn btn-primary btn-sm"
                                                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
                                             >
@@ -1700,12 +1696,29 @@ void loop() {
                                         try {
                                             c = typeof myEval.criteria_scores === 'string' ? JSON.parse(myEval.criteria_scores || '{}') : (myEval.criteria_scores || {});
                                         } catch (_) {}
+
+                                        const finalScore = parseFloat(myEval.final_score) || 0;
+                                        let att = Number(c.attendance);
+                                        let arch = Number(c.architecture);
+                                        let impl = Number(c.implementation);
+                                        let pres = Number(c.presentation);
+                                        let doc = Number(c.documentation);
+                                        const rawSum = (att || 0) + (arch || 0) + (impl || 0) + (pres || 0) + (doc || 0);
+
+                                        if (isNaN(att) || isNaN(arch) || isNaN(impl) || isNaN(pres) || isNaN(doc) || Math.abs(rawSum - finalScore) > 1 || (rawSum === 100 && finalScore !== 100)) {
+                                            att = Math.min(15, Math.round(finalScore * 0.15));
+                                            arch = Math.min(20, Math.round(finalScore * 0.20));
+                                            impl = Math.min(25, Math.round(finalScore * 0.25));
+                                            pres = Math.min(20, Math.round(finalScore * 0.20));
+                                            doc = Math.min(20, Math.max(0, Math.round(finalScore - (att + arch + impl + pres))));
+                                        }
+
                                         const rubrics = [
-                                            { key: 'attendance', labelEn: 'Attendance & Discipline', labelAr: 'الحضور والالتزام بالتدريب', max: 15, val: c.attendance ?? Math.round(myEval.final_score * 0.15) },
-                                            { key: 'architecture', labelEn: 'System Architecture & Design', labelAr: 'التصميم وبنية النظام', max: 20, val: c.architecture ?? Math.round(myEval.final_score * 0.20) },
-                                            { key: 'implementation', labelEn: 'Implementation & Code Quality', labelAr: 'التنفيذ وجودة الكود البرمجي', max: 25, val: c.implementation ?? Math.round(myEval.final_score * 0.25) },
-                                            { key: 'presentation', labelEn: 'Final Presentation & Defense', labelAr: 'العرض التقديمي والمناقشة', max: 20, val: c.presentation ?? Math.round(myEval.final_score * 0.20) },
-                                            { key: 'documentation', labelEn: 'Final Project Documentation', labelAr: 'توثيق وتقرير المشروع النهائي', max: 20, val: c.documentation ?? Math.round(myEval.final_score * 0.20) },
+                                            { key: 'attendance', labelEn: 'Attendance & Discipline', labelAr: 'الحضور والالتزام بالتدريب', max: 15, val: att },
+                                            { key: 'architecture', labelEn: 'System Architecture & Design', labelAr: 'التصميم وبنية النظام', max: 20, val: arch },
+                                            { key: 'implementation', labelEn: 'Implementation & Code Quality', labelAr: 'التنفيذ وجودة الكود البرمجي', max: 25, val: impl },
+                                            { key: 'presentation', labelEn: 'Final Presentation & Defense', labelAr: 'العرض التقديمي والمناقشة', max: 20, val: pres },
+                                            { key: 'documentation', labelEn: 'Final Project Documentation', labelAr: 'توثيق وتقرير المشروع النهائي', max: 20, val: doc },
                                         ];
 
                                         return (
@@ -1741,7 +1754,7 @@ void loop() {
                                     )}
 
                                     <p className="eval-meta" style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <UserCheck size={14} /> {lang === 'ar' ? 'تم التقييم بواسطة:' : 'Evaluated by:'} <strong>{myEval.evaluator_name || 'Dr. Supervising Trainer'}</strong> — {myEval.evaluated_at}
+                                        <UserCheck size={14} /> {lang === 'ar' ? 'تاريخ التقييم:' : 'Evaluated on:'} <span>{myEval.evaluated_at}</span>
                                     </p>
 
                                     {myEval.status === 'pass' && (
@@ -1891,7 +1904,7 @@ void loop() {
                                                 max="100" 
                                                 required 
                                                 value={evalScore} 
-                                                onChange={e => setEvalScore(Math.min(100, Math.max(0, Number(e.target.value))))} 
+                                                onChange={e => handleFinalScoreChange(e.target.value)} 
                                                 style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1.5px solid var(--primary, #002D56)', fontWeight: 800, fontSize: '1.1rem' }}
                                             />
                                         </div>
@@ -2276,9 +2289,6 @@ void loop() {
                     </div>
                 </div>
             )}
-
-            {/* EXCLUSIVE ROBOTICS MASCOT ASSISTANT */}
-            <EngMagyMascot forceShow={isRoboticsCourse} courseTrack={course?.track || ''} />
 
             {/* Update / Re-upload Proposal Modal */}
             {showUpdateProposalModal && (

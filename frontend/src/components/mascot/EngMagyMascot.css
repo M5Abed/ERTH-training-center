@@ -78,6 +78,26 @@
     letter-spacing: 0.2px;
 }
 
+.magy-bubble-close-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 3px 5px;
+    border-radius: 6px;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.18s ease;
+    line-height: 1;
+}
+
+.magy-bubble-close-btn:hover {
+    background: rgba(220, 38, 38, 0.12);
+    color: #dc2626;
+    transform: scale(1.1);
+}
+
 
 
 .magy-bubble-text {

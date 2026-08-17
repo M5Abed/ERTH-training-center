@@ -42,19 +42,41 @@ try {
     $db->exec("ALTER TABLE training_evaluations ADD COLUMN criteria_scores JSON DEFAULT NULL");
 } catch (Throwable $e) {}
 
-// Process criteria_scores into a robust valid JSON string or NULL
+// Process and balance criteria_scores into a robust valid JSON string matching final_score
 $criteriaRaw = $data['criteria_scores'] ?? null;
-$criteriaJson = null;
-if (is_array($criteriaRaw) || is_object($criteriaRaw)) {
-    $criteriaJson = json_encode($criteriaRaw, JSON_UNESCAPED_UNICODE);
-} elseif (is_string($criteriaRaw) && trim($criteriaRaw) !== '') {
+if (is_string($criteriaRaw)) {
     $decoded = json_decode($criteriaRaw, true);
-    if (json_last_error() === JSON_ERROR_NONE) {
-        $criteriaJson = json_encode($decoded, JSON_UNESCAPED_UNICODE);
-    } else {
-        $criteriaJson = json_encode(['score' => $criteriaRaw], JSON_UNESCAPED_UNICODE);
+    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+        $criteriaRaw = $decoded;
     }
 }
+
+// Calculate balanced rubric scores if missing or if the sum does not match final_score
+$critSum = 0;
+if (is_array($criteriaRaw)) {
+    $critSum = (float)($criteriaRaw['attendance'] ?? 0)
+             + (float)($criteriaRaw['architecture'] ?? 0)
+             + (float)($criteriaRaw['implementation'] ?? 0)
+             + (float)($criteriaRaw['presentation'] ?? 0)
+             + (float)($criteriaRaw['documentation'] ?? 0);
+}
+
+if (!is_array($criteriaRaw) || abs($critSum - $score) > 1 || ($critSum == 100 && $score != 100)) {
+    $att = min(15, (int)round($score * 0.15));
+    $arch = min(20, (int)round($score * 0.20));
+    $impl = min(25, (int)round($score * 0.25));
+    $pres = min(20, (int)round($score * 0.20));
+    $doc = min(20, max(0, (int)round($score - ($att + $arch + $impl + $pres))));
+    $criteriaRaw = [
+        'attendance' => $att,
+        'architecture' => $arch,
+        'implementation' => $impl,
+        'presentation' => $pres,
+        'documentation' => $doc
+    ];
+}
+
+$criteriaJson = json_encode($criteriaRaw, JSON_UNESCAPED_UNICODE);
 
 try {
     // Upsert evaluation record

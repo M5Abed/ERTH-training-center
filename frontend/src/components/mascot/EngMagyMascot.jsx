@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import { X } from 'lucide-react';
 import './EngMagyMascot.css';
 
 // Egyptian dialect, professional engineering lecturer, zero emojis
@@ -71,9 +72,13 @@ export default function EngMagyMascot({ forceShow = false, courseTrack = '' }) {
     const [quoteIndex, setQuoteIndex] = useState(0);
 
     const autoHideTimerRef = useRef(null);
+    const isDismissedRef = useRef(false);
 
     useEffect(() => {
         const handleMouseOver = (e) => {
+            // If user explicitly closed/dismissed the notes, do NOT pop up on hover
+            if (isDismissedRef.current) return;
+
             const target = e.target.closest('[data-magy-tip], [data-magy-key], .nav-tab, .course-tab-btn, input, select, .card');
             if (!target) return;
 
@@ -120,20 +125,44 @@ export default function EngMagyMascot({ forceShow = false, courseTrack = '' }) {
 
         autoHideTimerRef.current = setTimeout(() => {
             setBubbleVisible(false);
-        }, 10000);
+        }, 12000);
+    };
+
+    const handleCloseBubble = (e) => {
+        e?.stopPropagation?.();
+        if (autoHideTimerRef.current) clearTimeout(autoHideTimerRef.current);
+        isDismissedRef.current = true;
+        setBubbleVisible(false);
     };
 
     const handleMascotClick = () => {
         setIsBouncing(true);
         setTimeout(() => setIsBouncing(false), 600);
 
-        const nextQuote = RANDOM_MAGY_QUOTES[quoteIndex % RANDOM_MAGY_QUOTES.length];
-        setQuoteIndex(prev => prev + 1);
+        // User clicked the character: un-dismiss and show notes
+        isDismissedRef.current = false;
 
-        showTip({
-            title: "ملاحظة معملية",
-            text: nextQuote
-        });
+        if (!bubbleVisible) {
+            // Re-open active tip or pick next quote
+            if (activeTip) {
+                showTip(activeTip);
+            } else {
+                const nextQuote = RANDOM_MAGY_QUOTES[quoteIndex % RANDOM_MAGY_QUOTES.length];
+                setQuoteIndex(prev => prev + 1);
+                showTip({
+                    title: "ملاحظة معملية",
+                    text: nextQuote
+                });
+            }
+        } else {
+            // Already open, cycle to next quote
+            const nextQuote = RANDOM_MAGY_QUOTES[quoteIndex % RANDOM_MAGY_QUOTES.length];
+            setQuoteIndex(prev => prev + 1);
+            showTip({
+                title: "ملاحظة معملية",
+                text: nextQuote
+            });
+        }
     };
 
     return (
@@ -144,6 +173,15 @@ export default function EngMagyMascot({ forceShow = false, courseTrack = '' }) {
                         <div className="magy-avatar-title">
                             <strong>{activeTip.title || "المهندسة ماجي"}</strong>
                         </div>
+                        <button 
+                            type="button" 
+                            className="magy-bubble-close-btn"
+                            onClick={handleCloseBubble}
+                            title="إخفاء الملاحظة"
+                            aria-label="Close note"
+                        >
+                            <X size={15} />
+                        </button>
                     </div>
                     <p className="magy-bubble-text">
                         {activeTip.text}
@@ -155,7 +193,7 @@ export default function EngMagyMascot({ forceShow = false, courseTrack = '' }) {
                 <div 
                     className={`magy-figure-wrapper ${isBouncing ? 'magy-bounce' : 'magy-float'}`}
                     onClick={handleMascotClick}
-                    title="المهندسة ماجي - اضغط للحصول على ملاحظة"
+                    title="المهندسة ماجي - اضغط لعرض الملاحظات الهندسية"
                 >
                     <img 
                         src="/assets/maggie-mascot.png" 

@@ -4,7 +4,7 @@ import { useI18n } from '../../contexts/I18nContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getNotifications, markNotificationsRead, clearAllNotifications, changePassword } from '../../services/api';
-import { Menu, Bell, Check, Trash2, Sun, Moon, Languages, FolderKanban, PlusCircle, Users, Star, MapPin, UserCircle, Shield, Activity, LogOut, ChevronDown, X, Loader2, CheckCircle2, Circle, Save, FileText, Trophy, FolderOpen } from 'lucide-react';
+import { Menu, Bell, Check, Trash2, Sun, Moon, Languages, GraduationCap, FolderKanban, PlusCircle, Users, Star, MapPin, UserCircle, Shield, Activity, LogOut, ChevronDown, X, Loader2, CheckCircle2, Circle, Save, FileText, Trophy, FolderOpen, UserCheck } from 'lucide-react';
 import './Topbar.css';
 
 function relTime(dateStr, lang) {
@@ -142,7 +142,7 @@ export default function Topbar({ onMenuClick }) {
     // Build nav items for University Training System
     const navItems = [
         { to: '/dashboard', icon: <Activity size={16} />, label: lang === 'ar' ? 'لوحة التحكم' : 'Dashboard' },
-        { to: '/courses', icon: <FolderKanban size={16} />, label: lang === 'ar' ? 'الدورات التدريبية' : 'Courses' },
+        { to: '/courses', icon: <GraduationCap size={16} />, label: lang === 'ar' ? 'الدورات التدريبية' : 'Courses' },
         { 
             to: '/submitted-projects', 
             icon: <FileText size={16} />, 
@@ -164,7 +164,7 @@ export default function Topbar({ onMenuClick }) {
     if (isAdmin) {
         navItems.push({
             to: '/trainers',
-            icon: <Users size={16} />,
+            icon: <UserCheck size={16} />,
             label: lang === 'ar' ? 'إدارة المدربين' : 'Trainers'
         });
     }

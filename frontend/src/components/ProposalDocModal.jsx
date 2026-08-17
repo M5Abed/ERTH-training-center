@@ -790,7 +790,7 @@ export default function ProposalDocModal({
                         {ideaId && (
                             <a
                                 href={`/api/training/ideas/proposal_docx.php?idea_id=${ideaId}`}
-                                target="_blank" rel="noopener noreferrer"
+                                download
                                 className="pdm-btn-download pdm-btn-docx-primary"
                                 style={{
                                     background: 'linear-gradient(135deg, #c8a951 0%, #e2c875 100%)',

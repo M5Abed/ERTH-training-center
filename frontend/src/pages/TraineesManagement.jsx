@@ -3,7 +3,7 @@ import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
     Users, Search, Filter, FileSpreadsheet, Download,
-    BookOpen, CheckCircle, Lightbulb, Eye, Loader2, UserPlus, X, Upload, FileCheck
+    BookOpen, CheckCircle, Lightbulb, Loader2, UserPlus, X, Upload, FileCheck
 } from 'lucide-react';
 import './TraineesManagement.css';
 
@@ -169,45 +169,51 @@ export default function TraineesManagement() {
                                 <th>{lang === 'ar' ? 'المتدرب' : 'Trainee'}</th>
                                 <th>{lang === 'ar' ? 'الرقم الجامعي' : 'Student ID'}</th>
                                 <th>{lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}</th>
-                                <th>{lang === 'ar' ? 'الدورة المقيد بها' : 'Enrolled Course'}</th>
+                                <th>{lang === 'ar' ? 'الدورات المقيد بها' : 'Enrolled Courses'}</th>
                                 <th>{lang === 'ar' ? 'الأفكار المقترحة' : 'Submitted Ideas'}</th>
-                                <th>{lang === 'ar' ? 'المواضيع المشاهدة' : 'Topics Viewed'}</th>
-                                <th>{lang === 'ar' ? 'تاريخ القيد' : 'Enrolled At'}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {trainees.map((t, idx) => (
-                                <tr key={t.enrollment_id}>
-                                    <td className="tm-num">{(page - 1) * 50 + idx + 1}</td>
-                                    <td>
-                                        <div className="tm-trainee-cell">
-                                            <div className="tm-avatar">
-                                                {t.avatar_url ? <img src={t.avatar_url} alt="" /> : (t.full_name?.charAt(0) || 'U')}
+                            {trainees.map((t, idx) => {
+                                const coursesList = Array.isArray(t.courses) && t.courses.length > 0 
+                                    ? t.courses 
+                                    : (t.course_name ? [{ id: 0, name: t.course_name }] : []);
+
+                                return (
+                                    <tr key={t.trainee_id || t.enrollment_id || idx}>
+                                        <td className="tm-num">{(page - 1) * 50 + idx + 1}</td>
+                                        <td>
+                                            <div className="tm-trainee-cell">
+                                                <div className="tm-avatar">
+                                                    {t.avatar_url ? <img src={t.avatar_url} alt="" /> : (t.full_name?.charAt(0) || 'U')}
+                                                </div>
+                                                <strong>{t.full_name}</strong>
                                             </div>
-                                            <strong>{t.full_name}</strong>
-                                        </div>
-                                    </td>
-                                    <td><span className="tm-sid">{t.student_id || '-'}</span></td>
-                                    <td>{t.email}</td>
-                                    <td>
-                                        <span className="tm-course-badge">
-                                            <BookOpen size={12} />
-                                            {t.course_name}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span className={`tm-stat-badge ${t.idea_count > 0 ? 'active' : ''}`}>
-                                            <Lightbulb size={12} /> {t.idea_count}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span className="tm-stat-badge">
-                                            <Eye size={12} /> {t.topics_viewed}
-                                        </span>
-                                    </td>
-                                    <td className="tm-date">{new Date(t.enrolled_at).toLocaleDateString()}</td>
-                                </tr>
-                            ))}
+                                        </td>
+                                        <td><span className="tm-sid">{t.student_id || '-'}</span></td>
+                                        <td>{t.email}</td>
+                                        <td>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', alignItems: 'center' }}>
+                                                {coursesList.length > 0 ? (
+                                                    coursesList.map((c, cIdx) => (
+                                                        <span key={c.id || cIdx} className="tm-course-badge">
+                                                            <BookOpen size={12} />
+                                                            {c.name || c}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>-</span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span className={`tm-stat-badge ${t.idea_count > 0 ? 'active' : ''}`}>
+                                                <Lightbulb size={12} /> {t.idea_count}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

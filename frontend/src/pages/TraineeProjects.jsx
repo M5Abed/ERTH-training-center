@@ -40,6 +40,7 @@ export default function TraineeProjects() {
     const [dashboardTab, setDashboardTab] = useState('overview'); // 'overview' | 'team' | 'docs'
 
     // Evaluator review & evaluation state
+    const [evalTab, setEvalTab] = useState('proposal'); // 'proposal' | 'deliverables'
     const [feedback, setFeedback] = useState('');
     const [evaluating, setEvaluating] = useState(false);
     const [evalSuccess, setEvalSuccess] = useState('');
@@ -1650,8 +1651,7 @@ export default function TraineeProjects() {
                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                                             <a
                                                 href={`/api/training/ideas/proposal_docx.php?idea_id=${project.id}`}
-                                                target="_blank"
-                                                rel="noreferrer"
+                                                download
                                                 className="btn btn-sm btn-outline-primary"
                                             >
                                                 <Download size={14} />
@@ -1666,6 +1666,7 @@ export default function TraineeProjects() {
                                                     setVoteNotes(project.vote_summary?.my_notes || '');
                                                     setError('');
                                                     setEvalSuccess('');
+                                                    setEvalTab('proposal');
                                                     fetchIdeaDocs(project.id);
                                                 }}
                                             >
@@ -1681,116 +1682,196 @@ export default function TraineeProjects() {
             )}
 
             {/* ═══════════════════════════════════════════════════════════════
-                EVALUATOR REVIEW & EVALUATION MODAL
+                EVALUATOR REVIEW & EVALUATION MODAL (FULL STUDIO)
             ════════════════════════════════════════════════════════════════ */}
             {isEvaluator && activeProject && (
-                <div className="modal-overlay" onClick={() => setActiveProject(null)}>
-                    <div className="modal-box modal-xl" onClick={e => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <div>
-                                <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span>{activeProject.title || activeProject.title_en || activeProject.title_ar}</span>
+                <div className="eval-modal-overlay" onClick={() => setActiveProject(null)}>
+                    <div className="eval-modal-box" onClick={e => e.stopPropagation()}>
+                        <div className="eval-modal-header">
+                            <div className="eval-modal-header-left">
+                                <div className="eval-modal-title-row">
+                                    <h2>{activeProject.title || activeProject.title_en || activeProject.title_ar}</h2>
                                     {getStatusBadge(activeProject.status)}
-                                </h2>
-                                <p className="modal-subtext">
-                                    {activeProject.course_name} — {activeProject.trainee_name} ({activeProject.student_id || activeProject.trainee_email})
-                                </p>
+                                </div>
+                                <div className="eval-modal-meta">
+                                    <span><strong>{lang === 'ar' ? 'المقرر:' : 'Course:'}</strong> {activeProject.course_name}</span>
+                                    <span>•</span>
+                                    <span><strong>{lang === 'ar' ? 'الطالب:' : 'Student:'}</strong> {activeProject.trainee_name} ({activeProject.student_id || activeProject.trainee_email})</span>
+                                    {activeProject.category && (
+                                        <>
+                                            <span>•</span>
+                                            <span className="source-tag">{activeProject.category}</span>
+                                        </>
+                                    )}
+                                </div>
                             </div>
-                            <button className="btn-close" onClick={() => setActiveProject(null)}>
-                                <X size={20} />
-                            </button>
+                            <div className="eval-modal-header-right">
+                                <a
+                                    href={`/api/training/ideas/proposal_docx.php?idea_id=${activeProject.id}`}
+                                    download
+                                    className="btn btn-sm btn-outline-primary"
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                                >
+                                    <Download size={15} />
+                                    <span>Word (.docx)</span>
+                                </a>
+                                <button className="eval-modal-close-btn" onClick={() => setActiveProject(null)}>
+                                    <X size={20} />
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
-                            {evalSuccess && <div className="alert alert-success">{evalSuccess}</div>}
-                            {error && <div className="alert alert-error">{error}</div>}
+                        <div className="eval-modal-split-body">
+                            {/* Main Document / Deliverables Pane */}
+                            <div className="eval-modal-main-pane">
+                                <div className="eval-pane-tabs">
+                                    <button
+                                        type="button"
+                                        className={`eval-pane-tab ${evalTab === 'proposal' ? 'active' : ''}`}
+                                        onClick={() => setEvalTab('proposal')}
+                                    >
+                                        <FileText size={16} />
+                                        {lang === 'ar' ? 'المقترح الأكاديمي والتوثيق' : 'Academic Proposal Document'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`eval-pane-tab ${evalTab === 'deliverables' ? 'active' : ''}`}
+                                        onClick={() => setEvalTab('deliverables')}
+                                    >
+                                        <Paperclip size={16} />
+                                        {lang === 'ar' ? 'التسليمات والملفات المرفوعة' : 'Submitted Deliverables'}
+                                        {projectDocs.length > 0 && <span className="tab-count-badge">{projectDocs.length}</span>}
+                                    </button>
+                                </div>
 
-                            {/* Official Academic Proposal Viewer */}
-                            <ProposalViewer
-                                ideaId={activeProject.id}
-                                documentLabel="proposal"
-                                canEdit={false}
-                                lang={lang}
-                            />
+                                <div className="eval-pane-content">
+                                    {evalTab === 'proposal' && (
+                                        <div className="eval-proposal-wrapper">
+                                            <ProposalViewer
+                                                ideaId={activeProject.id}
+                                                documentLabel="proposal"
+                                                canEdit={false}
+                                                lang={lang}
+                                            />
+                                        </div>
+                                    )}
 
-                            {/* Submitted Documents & Links Section */}
-                            <div className="eval-docs-section" style={{ marginTop: '1.5rem', background: 'var(--bg-subtle, #f8fafc)', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                                <h4 style={{ margin: '0 0 0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Paperclip size={16} /> {lang === 'ar' ? 'التسليمات والروابط المرفوعة للمشروع' : 'Submitted Deliverables & Links'}
-                                </h4>
-                                {projectDocs.length === 0 ? (
-                                    <p className="text-muted">{lang === 'ar' ? 'لم يقم الطالب برفع أي ملفات أو روابط بعد.' : 'No deliverables uploaded yet.'}</p>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {projectDocs.map(d => {
-                                            const isLink = ['link', 'github', 'demo', 'figma', 'video'].includes(d.doc_type) || (d.file_url && d.file_url.startsWith('http') && !d.file_url.includes('/uploads/'));
-                                            return (
-                                                <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.65rem 1rem', background: '#fff', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        {isLink ? <ExternalLink size={16} className="text-primary" /> : <FileText size={16} className="text-primary" />}
-                                                        <strong>{d.file_name}</strong>
-                                                        <span className="source-tag">{d.doc_type}</span>
-                                                    </div>
-                                                    <a href={d.file_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline">
-                                                        {isLink ? (lang === 'ar' ? 'فتح الرابط' : 'Open Link') : (lang === 'ar' ? 'تنزيل' : 'Download')}
-                                                    </a>
+                                    {evalTab === 'deliverables' && (
+                                        <div className="eval-deliverables-wrapper">
+                                            <h4>
+                                                <Paperclip size={18} />
+                                                {lang === 'ar' ? 'ملفات وتسليمات المشروع' : 'Project Files & Deliverables'}
+                                            </h4>
+                                            {projectDocs.length === 0 ? (
+                                                <div className="eval-empty-docs">
+                                                    <FileText size={40} className="text-muted" />
+                                                    <p>{lang === 'ar' ? 'لم يقم الطالب برفع أي ملفات أو روابط إضافية بعد.' : 'No uploaded files or links for this project yet.'}</p>
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+                                            ) : (
+                                                <div className="eval-docs-list">
+                                                    {projectDocs.map(d => {
+                                                        const isLink = ['link', 'github', 'demo', 'figma', 'video'].includes(d.doc_type) || (d.file_url && d.file_url.startsWith('http') && !d.file_url.includes('/uploads/'));
+                                                        return (
+                                                            <div key={d.id} className="eval-doc-card">
+                                                                <div className="eval-doc-card-info">
+                                                                    {isLink ? <ExternalLink size={18} className="text-primary" /> : <FileText size={18} className="text-primary" />}
+                                                                    <div>
+                                                                        <strong className="eval-doc-name">{d.file_name}</strong>
+                                                                        <span className="source-tag">{d.doc_type}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <a href={d.file_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-outline">
+                                                                    {isLink ? (lang === 'ar' ? 'فتح الرابط' : 'Open Link') : (lang === 'ar' ? 'تنزيل' : 'Download')}
+                                                                </a>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
-                            {/* Evaluation Form / Controls */}
-                            <div className="eval-form-box" style={{ marginTop: '1.5rem' }}>
-                                <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.5rem' }}>
-                                    {lang === 'ar' ? 'ملاحظات وتقييم المشرف / المدرب:' : 'Supervisor Feedback & Notes:'}
-                                </label>
-                                <textarea
-                                    rows={3}
-                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)', fontFamily: 'inherit' }}
-                                    placeholder={lang === 'ar' ? 'أدخل ملاحظاتك وتوجيهاتك للطالب...' : 'Enter feedback and guidance for the student...'}
-                                    value={feedback}
-                                    onChange={e => setFeedback(e.target.value)}
-                                />
+                            {/* Supervisor Evaluation Controls Sidebar */}
+                            <div className="eval-modal-side-pane">
+                                <div className="eval-sidebar-card">
+                                    <div className="eval-sidebar-header">
+                                        <Award size={22} className="text-primary" />
+                                        <div>
+                                            <h3>{lang === 'ar' ? 'لوحة تقييم واعتماد المشرف' : 'Supervisor Evaluation'}</h3>
+                                            <p>{lang === 'ar' ? 'اتخاذ القرار الأكاديمي وتوجيه الملاحظات' : 'Review deliverables & decide'}</p>
+                                        </div>
+                                    </div>
 
-                                <div style={{ display: 'flex', gap: '10px', marginTop: '1rem', flexWrap: 'wrap' }}>
-                                    <button
-                                        type="button"
-                                        className="btn btn-success"
-                                        disabled={evaluating}
-                                        onClick={() => handleEvaluate('approved')}
-                                        style={{ background: '#10b981', color: '#fff', fontWeight: 700, gap: '6px' }}
-                                    >
-                                        <CheckCircle2 size={16} /> {lang === 'ar' ? 'اعتماد وقبول المشروع' : 'Approve Project'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="btn btn-primary"
-                                        disabled={evaluating}
-                                        onClick={() => handleEvaluate('completed')}
-                                        style={{ gap: '6px' }}
-                                    >
-                                        <Award size={16} /> {lang === 'ar' ? 'تحديد كمكتمل وناجح' : 'Mark as Completed'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="btn btn-warning"
-                                        disabled={evaluating}
-                                        onClick={() => handleEvaluate('changes_requested')}
-                                        style={{ background: '#f59e0b', color: '#fff', fontWeight: 700, gap: '6px' }}
-                                    >
-                                        <AlertCircle size={16} /> {lang === 'ar' ? 'طلب تعديلات' : 'Request Changes'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="btn btn-danger"
-                                        disabled={evaluating}
-                                        onClick={() => handleEvaluate('rejected')}
-                                        style={{ background: '#ef4444', color: '#fff', fontWeight: 700, gap: '6px' }}
-                                    >
-                                        <XCircle size={16} /> {lang === 'ar' ? 'رفض الفكرة' : 'Reject Idea'}
-                                    </button>
+                                    {evalSuccess && <div className="alert alert-success">{evalSuccess}</div>}
+                                    {error && <div className="alert alert-error">{error}</div>}
+
+                                    <div className="eval-feedback-group">
+                                        <label>
+                                            {lang === 'ar' ? 'ملاحظات وتوجيهات المشرف:' : 'Supervisor Feedback & Notes:'}
+                                        </label>
+                                        <textarea
+                                            rows={5}
+                                            placeholder={lang === 'ar' ? 'أدخل ملاحظاتك وتوجيهاتك للطالب للتعديل أو المتابعة...' : 'Enter feedback, guidance, or revision instructions for the student...'}
+                                            value={feedback}
+                                            onChange={e => setFeedback(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="eval-action-buttons">
+                                        <button
+                                            type="button"
+                                            className="btn-eval-approve"
+                                            disabled={evaluating}
+                                            onClick={() => handleEvaluate('approved')}
+                                        >
+                                            <CheckCircle2 size={20} />
+                                            <div>
+                                                <strong>{lang === 'ar' ? 'اعتماد وقبول المشروع' : 'Approve Project'}</strong>
+                                                <span>{lang === 'ar' ? 'الموافقة على الفكرة والبدء بالتنفيذ' : 'Accept proposal & start work'}</span>
+                                            </div>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            className="btn-eval-complete"
+                                            disabled={evaluating}
+                                            onClick={() => handleEvaluate('completed')}
+                                        >
+                                            <Award size={20} />
+                                            <div>
+                                                <strong>{lang === 'ar' ? 'تحديد كمكتمل وناجح' : 'Mark as Completed'}</strong>
+                                                <span>{lang === 'ar' ? 'اكتمال التدريب واجتياز المتطلبات' : 'Final completion & success'}</span>
+                                            </div>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            className="btn-eval-changes"
+                                            disabled={evaluating}
+                                            onClick={() => handleEvaluate('changes_requested')}
+                                        >
+                                            <AlertCircle size={20} />
+                                            <div>
+                                                <strong>{lang === 'ar' ? 'طلب تعديلات من الطالب' : 'Request Changes'}</strong>
+                                                <span>{lang === 'ar' ? 'إعادة الفكرة للطالب للتعديل' : 'Return for student revision'}</span>
+                                            </div>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            className="btn-eval-reject"
+                                            disabled={evaluating}
+                                            onClick={() => handleEvaluate('rejected')}
+                                        >
+                                            <XCircle size={20} />
+                                            <div>
+                                                <strong>{lang === 'ar' ? 'رفض الفكرة' : 'Reject Idea'}</strong>
+                                                <span>{lang === 'ar' ? 'عدم ملائمة الفكرة للمشروع' : 'Reject proposal'}</span>
+                                            </div>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

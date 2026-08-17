@@ -43,7 +43,8 @@ $courseId = 0;
 if (is_numeric($rawId)) {
     $courseId = (int)$rawId;
     $stmt = $db->prepare("
-        SELECT tc.*, tc.name AS name, tc.description AS description, u.full_name AS creator_name
+        SELECT tc.*, tc.name AS name, tc.description AS description, u.full_name AS creator_name,
+               (SELECT COUNT(*) FROM trainee_enrollments WHERE course_id = tc.id) AS total_trainees
         FROM training_courses tc
         LEFT JOIN users u ON tc.created_by = u.id
         WHERE tc.id = ?
@@ -53,7 +54,8 @@ if (is_numeric($rawId)) {
 } else {
     // String slug lookup e.g. 'robotics'
     $stmt = $db->prepare("
-        SELECT tc.*, tc.name AS name, tc.description AS description, u.full_name AS creator_name
+        SELECT tc.*, tc.name AS name, tc.description AS description, u.full_name AS creator_name,
+               (SELECT COUNT(*) FROM trainee_enrollments WHERE course_id = tc.id) AS total_trainees
         FROM training_courses tc
         LEFT JOIN users u ON tc.created_by = u.id
         WHERE tc.name LIKE ? OR tc.name LIKE ?

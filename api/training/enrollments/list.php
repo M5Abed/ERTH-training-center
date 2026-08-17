@@ -24,13 +24,15 @@ $stmt = $db->prepare("
            (SELECT COUNT(*) FROM trainee_topic_progress ttp 
             JOIN training_topics tt ON ttp.topic_id = tt.id 
             WHERE tt.course_id = ? AND ttp.trainee_id = u.id) AS completed_topics,
-           (SELECT status FROM training_evaluations WHERE trainee_id = u.id AND course_id = ?) AS evaluation_status
+           (SELECT status FROM training_evaluations WHERE trainee_id = u.id AND course_id = ?) AS evaluation_status,
+           (SELECT final_score FROM training_evaluations WHERE trainee_id = u.id AND course_id = ?) AS evaluation_score,
+           (SELECT cert_code FROM training_certificates WHERE trainee_id = u.id AND course_id = ?) AS cert_code
     FROM trainee_enrollments te
     JOIN users u ON te.trainee_id = u.id
     WHERE te.course_id = ?
     ORDER BY u.full_name ASC
 ");
-$stmt->execute([$courseId, $courseId, $courseId]);
+$stmt->execute([$courseId, $courseId, $courseId, $courseId, $courseId]);
 $trainees = $stmt->fetchAll();
 
 respond(['trainees' => $trainees]);

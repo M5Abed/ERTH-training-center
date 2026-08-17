@@ -3,7 +3,7 @@ import { NavLink, useNavigate, Link } from 'react-router-dom';
 import { useI18n } from '../../contexts/I18nContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getNotifications, changePassword } from '../../services/api';
-import { FolderKanban, PlusCircle, Users, Star, MapPin, UserCircle, Shield, LogOut, X, Loader2, Save, Activity, CheckCircle2, Circle, FileText, Trophy, FolderOpen, UserCheck } from 'lucide-react';
+import { GraduationCap, FolderKanban, PlusCircle, Users, Star, MapPin, UserCircle, Shield, LogOut, X, Loader2, Save, Activity, CheckCircle2, Circle, FileText, Trophy, FolderOpen, UserCheck } from 'lucide-react';
 import './Sidebar.css';
 
 export default function Sidebar({ open, onClose }) {
@@ -65,8 +65,8 @@ export default function Sidebar({ open, onClose }) {
     // Courses available to all
     navItems.push({
         to: '/courses',
-        icon: <FolderKanban size={20} />,
-        label: 'Training Courses'
+        icon: <GraduationCap size={20} />,
+        label: lang === 'ar' ? 'الدورات التدريبية' : 'Training Courses'
     });
 
     // Submitted Projects / Ideas available to all

@@ -47,7 +47,8 @@ if ($isAdmin) {
     if (isset($_GET['all']) && $_GET['all'] == '1') {
         $stmt = $db->query("
             SELECT tc.*, tc.name AS name, tc.description AS description,
-                   (SELECT COUNT(*) FROM training_topics WHERE course_id = tc.id) AS total_topics
+                   (SELECT COUNT(*) FROM training_topics WHERE course_id = tc.id) AS total_topics,
+                   (SELECT COUNT(*) FROM trainee_enrollments WHERE course_id = tc.id) AS total_trainees
             FROM training_courses tc
             WHERE tc.status = 'active'
             ORDER BY tc.created_at DESC
@@ -58,6 +59,7 @@ if ($isAdmin) {
             SELECT tc.*, tc.name AS name, tc.description AS description,
                    te.enrolled_at,
                    (SELECT COUNT(*) FROM training_topics WHERE course_id = tc.id) AS total_topics,
+                   (SELECT COUNT(*) FROM trainee_enrollments WHERE course_id = tc.id) AS total_trainees,
                    (SELECT COUNT(*) FROM trainee_topic_progress ttp 
                     JOIN training_topics tt ON ttp.topic_id = tt.id 
                     WHERE tt.course_id = tc.id AND ttp.trainee_id = ?) AS completed_topics
@@ -68,6 +70,20 @@ if ($isAdmin) {
         ");
         $stmt->execute([$uid, $uid]);
         $courses = $stmt->fetchAll();
+
+        // If trainee is not enrolled in any course yet, show all active courses with counts
+        if (empty($courses)) {
+            $allStmt = $db->query("
+                SELECT tc.*, tc.name AS name, tc.description AS description,
+                       (SELECT COUNT(*) FROM training_topics WHERE course_id = tc.id) AS total_topics,
+                       (SELECT COUNT(*) FROM trainee_enrollments WHERE course_id = tc.id) AS total_trainees,
+                       0 AS completed_topics
+                FROM training_courses tc
+                WHERE tc.status = 'active'
+                ORDER BY tc.created_at DESC
+            ");
+            $courses = $allStmt->fetchAll();
+        }
     }
 }
 

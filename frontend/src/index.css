@@ -285,6 +285,8 @@ h1, h2, h3, h4, h5, h6 {
 
 .modal-box--sm, .modal-sm { max-width: 440px; }
 .modal-box--lg, .modal-lg, .modal-box.modal-lg { max-width: 860px; width: 95%; }
+.modal-box--xl, .modal-xl, .modal-box.modal-xl { max-width: 1320px; width: 96%; }
+.modal-box--full, .modal-full, .modal-box.modal-full { max-width: 1540px; width: 98%; }
 
 .modal-close-btn, .modal-close {
   background: rgba(0, 0, 0, 0.04);

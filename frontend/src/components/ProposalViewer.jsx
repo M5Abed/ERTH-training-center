@@ -207,8 +207,7 @@ export default function ProposalViewer({
                     {ideaId && (
                         <a
                             href={`/api/training/ideas/proposal_docx.php?idea_id=${ideaId}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            download
                             className="btn-docx-download"
                         >
                             <Download size={15} />

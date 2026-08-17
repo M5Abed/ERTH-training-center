@@ -27,23 +27,44 @@ $heads = [];
 
 // ── Trainees ──────────────────────────────────────────────────────────────────
 if ($type === 'trainees') {
-    $heads = ['#', 'Student ID', 'Full Name', 'Email', 'Course', 'Source', 'Enrolled At'];
-    $where = $courseId ? "WHERE te.course_id = $courseId" : "";
-    $stmt  = $db->prepare("
-        SELECT te.id, u.student_id, u.full_name, u.email,
-               tc.name AS course_name,
-               te.source, te.enrolled_at
-        FROM trainee_enrollments te
-        JOIN users u ON u.id = te.trainee_id
-        JOIN training_courses tc ON tc.id = te.course_id
-        $where
-        ORDER BY tc.name, u.full_name
-    ");
-    $stmt->execute([]);
+    $heads = ['#', 'Student ID', 'Full Name', 'Email', 'Enrolled Courses', 'Submitted Ideas'];
+    if ($courseId) {
+        $stmt = $db->prepare("
+            SELECT u.id, u.student_id, u.full_name, u.email,
+                   tc.name AS courses,
+                   (SELECT COUNT(*) FROM training_ideas ti WHERE ti.owner_id = u.id AND ti.course_id = ?) AS idea_count
+            FROM trainee_enrollments te
+            JOIN users u ON u.id = te.trainee_id
+            JOIN training_courses tc ON tc.id = te.course_id
+            WHERE te.course_id = ?
+            GROUP BY u.id
+            ORDER BY u.full_name
+        ");
+        $stmt->execute([$courseId, $courseId]);
+    } else {
+        $stmt = $db->prepare("
+            SELECT u.id, u.student_id, u.full_name, u.email,
+                   GROUP_CONCAT(DISTINCT tc.name SEPARATOR ', ') AS courses,
+                   (SELECT COUNT(*) FROM training_ideas ti WHERE ti.owner_id = u.id) AS idea_count
+            FROM trainee_enrollments te
+            JOIN users u ON u.id = te.trainee_id
+            JOIN training_courses tc ON tc.id = te.course_id
+            GROUP BY u.id
+            ORDER BY u.full_name
+        ");
+        $stmt->execute([]);
+    }
     $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
     $i = 1;
     foreach ($data as $r) {
-        $rows[] = [$i++, $r['student_id'] ?? '', $r['full_name'], $r['email'], $r['course_name'], $r['source'], $r['enrolled_at']];
+        $rows[] = [
+            $i++,
+            $r['student_id'] ?? '',
+            $r['full_name'],
+            $r['email'],
+            $r['courses'],
+            (int)($r['idea_count'] ?? 0)
+        ];
     }
 }
 
