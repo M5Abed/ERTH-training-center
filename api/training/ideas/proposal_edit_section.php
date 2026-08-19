@@ -33,6 +33,11 @@ if (!$ideaId || !$sectionKey || !$instruction) {
 $validSections = [
     'abstract', 'introduction_background', 'problem_definition',
     'objectives_scope', 'related_work', 'methodology', 'expected_system_design',
+    'team_contribution_statement', 'success_criteria', 'technology_stack___tools',
+    'anticipated_challenges___risk_mitigation', 'ethical___safety_considerations',
+    'planned_implementation_approach__to_be_expanded_with_real_work_',
+    'test_plan__results_added_once_testing_is_performed_',
+    'starter_reference_list__expand_as_more_sources_are_used_', 'appendix_a',
     // Documentation-stage sections (also allowed for live edit once team has work)
     'implementation', 'testing_results', 'discussion', 'conclusion_future_work',
     'references', 'appendices',

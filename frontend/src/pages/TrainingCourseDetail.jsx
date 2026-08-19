@@ -6,7 +6,8 @@ import {
     BookOpen, Users, Lightbulb, FileText, Award, Plus, Upload, 
     CheckCircle, XCircle, FileSpreadsheet, Sparkles, Download, 
     ExternalLink, Trash2, Edit3, Loader2, ArrowLeft, Video, Link as LinkIcon, X, FileCheck, UserPlus, Code, Send,
-    Play, Cpu, Terminal, Zap, ShieldAlert, Layers, Calendar, MessageSquare, UserCheck, Crown, ChevronDown, ChevronUp, AlertCircle
+    Play, Cpu, Terminal, Zap, ShieldAlert, Layers, Calendar, MessageSquare, UserCheck, Crown, ChevronDown, ChevronUp, AlertCircle,
+    Sliders, RotateCcw, Check, Settings
 } from 'lucide-react';
 import AddStudentModal from '../components/AddStudentModal';
 import CertificateModal from '../components/CertificateModal';
@@ -252,66 +253,171 @@ void loop() {
         }
     };
 
-    // Trainer Evaluation Form state
+    // Course Evaluation Criteria & Dynamic Rubric State
+    const defaultRubrics = [
+        { name: 'Attendance', weight: 15 },
+        { name: 'Architecture', weight: 20 },
+        { name: 'Implementation', weight: 25 },
+        { name: 'Presentation', weight: 20 },
+        { name: 'Documentation', weight: 20 },
+    ];
+    const [courseCriteria, setCourseCriteria] = useState(defaultRubrics.map((d, i) => ({ ...d, order_index: i })));
+    const [loadingCriteria, setLoadingCriteria] = useState(false);
+    const [savingCriteria, setSavingCriteria] = useState(false);
+
+    // Trainer Trainee Evaluation Form state
     const [evalScore, setEvalScore] = useState(100);
     const [evalStatus, setEvalStatus] = useState('pass');
     const [evalFeedback, setEvalFeedback] = useState('');
     const [submittingEval, setSubmittingEval] = useState(false);
+    const [evalCriteriaScores, setEvalCriteriaScores] = useState({});
 
-    // Dynamic criteria state
-    const [courseCriteria, setCourseCriteria] = useState([]); // [{id, name, weight, order_index}]
-    const [criteriaScores, setCriteriaScores] = useState({}); // {criterionName: score}
+    // Dynamic Rubric Calculation & Operations
+    const totalCriteriaWeight = Math.round(courseCriteria.reduce((sum, c) => sum + (parseFloat(c.weight) || 0), 0) * 100) / 100;
+    const isWeightValid = Math.abs(totalCriteriaWeight - 100) < 0.001;
 
-    // Rubric management UI state
-    const [rubricLoading, setRubricLoading] = useState(false);
-    const [rubricSaving, setRubricSaving] = useState(false);
-    const [rubricError, setRubricError] = useState('');
-    const [editingRubric, setEditingRubric] = useState(false); // show rubric editor
-    const [rubricDraft, setRubricDraft] = useState([]); // working copy [{name, weight}]
-
-    // Recalculate total score from criteriaScores + courseCriteria
-    const recalcScore = (scores, criteria) => {
-        const total = (criteria || courseCriteria).reduce((sum, c) => {
-            const s = parseFloat(scores[c.name] ?? 0) || 0;
-            return sum + Math.min(parseFloat(c.weight), Math.max(0, s));
-        }, 0);
-        const rounded = Math.min(100, Math.max(0, Math.round(total * 100) / 100));
-        setEvalScore(rounded);
-        if (rounded >= 60) setEvalStatus('pass');
-        else if (rounded >= 50) setEvalStatus('needs_revision');
-        else setEvalStatus('fail');
-        return rounded;
-    };
-
-    const updateCriteriaScore = (criterionName, val) => {
-        const criterion = courseCriteria.find(c => c.name === criterionName);
-        const maxScore = criterion ? parseFloat(criterion.weight) : 100;
-        const num = Math.min(maxScore, Math.max(0, Number(val) || 0));
-        const next = { ...criteriaScores, [criterionName]: num };
-        setCriteriaScores(next);
-        recalcScore(next, courseCriteria);
-    };
-
-    // Initialise criteriaScores from saved evaluation data
-    const initCriteriaScores = (savedCriteriaJson, criteria, fScore) => {
-        let saved = {};
+    const fetchCourseCriteria = async () => {
+        if (!courseId) return;
+        setLoadingCriteria(true);
         try {
-            saved = typeof savedCriteriaJson === 'string'
-                ? JSON.parse(savedCriteriaJson || '{}')
-                : (savedCriteriaJson || {});
-        } catch (_) {}
-
-        const scores = {};
-        criteria.forEach(c => {
-            const savedVal = parseFloat(saved[c.name] ?? saved[c.name?.toLowerCase()]) || null;
-            if (savedVal !== null && !isNaN(savedVal)) {
-                scores[c.name] = Math.min(parseFloat(c.weight), Math.max(0, savedVal));
+            const res = await fetch(`/api/training/criteria/list.php?course_id=${courseId}`);
+            const data = await res.json();
+            if (res.ok && data.criteria && data.criteria.length > 0) {
+                setCourseCriteria(data.criteria.map((c, i) => ({
+                    id: c.id,
+                    name: c.name,
+                    weight: parseFloat(c.weight) || 0,
+                    order_index: c.order_index ?? i
+                })));
             } else {
-                // Proportional fallback based on final score
-                scores[c.name] = Math.min(parseFloat(c.weight), Math.round(fScore * (parseFloat(c.weight) / 100) * 100) / 100);
+                setCourseCriteria(defaultRubrics.map((d, i) => ({ ...d, order_index: i })));
             }
+        } catch (e) {
+            console.error('Failed to fetch criteria:', e);
+            setCourseCriteria(defaultRubrics.map((d, i) => ({ ...d, order_index: i })));
+        } finally {
+            setLoadingCriteria(false);
+        }
+    };
+
+    const handleAddCriterion = () => {
+        setCourseCriteria(prev => [
+            ...prev,
+            { id: `new_${Date.now()}`, name: '', weight: 0, order_index: prev.length }
+        ]);
+    };
+
+    const handleCriterionFieldChange = (index, field, value) => {
+        setCourseCriteria(prev => {
+            const next = [...prev];
+            if (field === 'weight') {
+                next[index] = { ...next[index], weight: value === '' ? '' : Math.max(0, parseFloat(value) || 0) };
+            } else {
+                next[index] = { ...next[index], [field]: value };
+            }
+            return next;
         });
-        return scores;
+    };
+
+    const handleDeleteCriterion = (index) => {
+        if (courseCriteria.length <= 1) {
+            alert(lang === 'ar' ? 'يجب أن تحتوي الدورة على معيار تقييم واحد على الأقل.' : 'A course must have at least one evaluation criterion.');
+            return;
+        }
+        setCourseCriteria(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleMoveCriterion = (index, direction) => {
+        setCourseCriteria(prev => {
+            const targetIndex = direction === 'up' ? index - 1 : index + 1;
+            if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+            const next = [...prev];
+            const [moved] = next.splice(index, 1);
+            next.splice(targetIndex, 0, moved);
+            return next.map((c, i) => ({ ...c, order_index: i }));
+        });
+    };
+
+    const handleResetToDefaultCriteria = () => {
+        if (!window.confirm(lang === 'ar' ? 'هل تريد استعادة المعايير الافتراضية (5 معايير بإجمالي 100%)؟' : 'Reset to default 5 evaluation criteria (100% total)?')) return;
+        setCourseCriteria(defaultRubrics.map((d, i) => ({ ...d, order_index: i })));
+    };
+
+    const handleSaveCriteria = async () => {
+        if (!isWeightValid) {
+            alert(lang === 'ar' 
+                ? `إجمالي أوزان المعايير يجب أن يساوي 100% بالضبط. الإجمالي الحالي: ${totalCriteriaWeight}%` 
+                : `Total criteria weight must equal exactly 100%. Current total: ${totalCriteriaWeight}%`);
+            return;
+        }
+
+        for (let i = 0; i < courseCriteria.length; i++) {
+            const c = courseCriteria[i];
+            if (!c.name || !c.name.trim()) {
+                alert(lang === 'ar' ? `المعيار رقم (${i + 1}) لا يحتوي على اسم.` : `Criterion #${i + 1} is missing a name.`);
+                return;
+            }
+            if ((parseFloat(c.weight) || 0) <= 0) {
+                alert(lang === 'ar' ? `وزن المعيار (${c.name}) يجب أن يكون أكبر من صفر.` : `Criterion (${c.name}) must have a positive weight.`);
+                return;
+            }
+        }
+
+        setSavingCriteria(true);
+        try {
+            const payload = {
+                course_id: parseInt(courseId, 10),
+                criteria: courseCriteria.map((c, idx) => ({
+                    name: c.name.trim(),
+                    weight: parseFloat(c.weight) || 0,
+                    order_index: idx
+                }))
+            };
+
+            const res = await fetch('/api/training/criteria/save.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert(lang === 'ar' ? 'تم حفظ وتحديث معايير تقييم الدورة بنجاح!' : 'Course evaluation criteria saved successfully!');
+                fetchCourseCriteria();
+            } else {
+                alert(data.error || (lang === 'ar' ? 'فشل حفظ معايير التقييم' : 'Failed to save criteria'));
+            }
+        } catch (e) {
+            console.error(e);
+            alert(lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم' : 'Network error saving criteria');
+        } finally {
+            setSavingCriteria(false);
+        }
+    };
+
+    const handleCriterionScoreChange = (critName, val, maxWeight) => {
+        const rawNum = val === '' ? '' : Math.max(0, Math.min(Number(maxWeight) || 100, parseFloat(val) || 0));
+        
+        setEvalCriteriaScores(prev => {
+            const nextScores = { ...prev, [critName]: rawNum };
+            
+            // Automatically calculate final score from sum
+            let total = 0;
+            courseCriteria.forEach(c => {
+                const s = nextScores[c.name];
+                if (s !== '' && s !== undefined && !isNaN(Number(s))) {
+                    total += Number(s);
+                }
+            });
+            
+            const roundedTotal = Math.min(100, Math.max(0, Math.round(total * 100) / 100));
+            setEvalScore(roundedTotal);
+            
+            if (roundedTotal >= 60) setEvalStatus('pass');
+            else if (roundedTotal >= 50) setEvalStatus('needs_revision');
+            else setEvalStatus('fail');
+            
+            return nextScores;
+        });
     };
 
     // Doc upload
@@ -388,6 +494,7 @@ void loop() {
                 fetchTrainees();
                 fetchIdeas();
                 fetchDocs();
+                fetchCourseCriteria();
             }
         } catch (e) {
             console.error(e);
@@ -404,9 +511,9 @@ void loop() {
         } else if (activeTab === 'docs') {
             fetchDocs();
         } else if (activeTab === 'evaluations') {
+            fetchCourseCriteria();
             fetchEvals();
             fetchTrainees();
-            fetchCourseCriteria();
             const poll = setInterval(() => {
                 fetchEvals();
             }, 5000);
@@ -457,21 +564,6 @@ void loop() {
             const data = await res.json();
             if (res.ok) setDocs(data.docs || []);
         } catch (e) { console.error(e); }
-    };
-
-    const fetchCourseCriteria = async () => {
-        if (!courseId || isNaN(Number(courseId))) return;
-        setRubricLoading(true);
-        try {
-            const res = await fetch(`/api/training/criteria/list.php?course_id=${courseId}`);
-            const data = await res.json();
-            if (res.ok && data.criteria) {
-                setCourseCriteria(data.criteria);
-                setRubricDraft(data.criteria.map(c => ({ name: c.name, weight: parseFloat(c.weight) })));
-                return data.criteria;
-            }
-        } catch (e) { console.error(e); } finally { setRubricLoading(false); }
-        return [];
     };
 
     const fetchEvals = async () => {
@@ -863,41 +955,68 @@ void loop() {
 
     useEffect(() => {
         if (!selectedTraineeForEval || !courseId) return;
+        fetch(`/api/training/evaluations/get.php?course_id=${courseId}&trainee_id=${selectedTraineeForEval}`)
+            .then(r => r.json())
+            .then(d => {
+                const currentCriteria = (courseCriteria && courseCriteria.length > 0) ? courseCriteria : defaultRubrics;
 
-        // Load criteria first (in case not yet loaded), then load the eval
-        const load = async () => {
-            let criteria = courseCriteria;
-            if (criteria.length === 0) {
-                criteria = await fetchCourseCriteria() || [];
-            }
-
-            try {
-                const r = await fetch(`/api/training/evaluations/get.php?course_id=${courseId}&trainee_id=${selectedTraineeForEval}`);
-                const d = await r.json();
                 if (d.evaluation) {
                     const ev = d.evaluation;
                     const fScore = parseFloat(ev.final_score) || 0;
                     setEvalStatus(ev.status || (fScore >= 60 ? 'pass' : (fScore >= 50 ? 'needs_revision' : 'fail')));
                     setEvalFeedback(ev.feedback || '');
-                    const scores = initCriteriaScores(ev.criteria_scores, criteria, fScore);
-                    setCriteriaScores(scores);
-                    recalcScore(scores, criteria);
+                    let stored = {};
+                    try {
+                        stored = typeof ev.criteria_scores === 'string' ? JSON.parse(ev.criteria_scores) : (ev.criteria_scores || {});
+                    } catch (_) {}
+
+                    const newScores = {};
+                    let calculatedSum = 0;
+
+                    currentCriteria.forEach(crit => {
+                        const critName = crit.name;
+                        const maxW = parseFloat(crit.weight) || 0;
+                        let val = undefined;
+                        if (stored[critName] !== undefined) val = Number(stored[critName]);
+                        else if (stored[critName.toLowerCase()] !== undefined) val = Number(stored[critName.toLowerCase()]);
+                        else if (crit.id && stored[crit.id] !== undefined) val = Number(stored[crit.id]);
+
+                        if (val === undefined || isNaN(val)) {
+                            val = Math.min(maxW, Math.round((fScore * (maxW / 100)) * 10) / 10);
+                        } else {
+                            val = Math.min(maxW, Math.max(0, val));
+                        }
+
+                        newScores[critName] = val;
+                        calculatedSum += val;
+                    });
+
+                    setEvalCriteriaScores(newScores);
+                    setEvalScore(Math.min(100, Math.max(0, Math.round(calculatedSum * 100) / 100)));
                 } else {
-                    // No existing evaluation — default all scores to max (100 total)
-                    const scores = {};
-                    criteria.forEach(c => { scores[c.name] = parseFloat(c.weight); });
-                    setCriteriaScores(scores);
-                    recalcScore(scores, criteria);
+                    // New evaluation: default to full points for each configured criterion
+                    const newScores = {};
+                    let calculatedSum = 0;
+                    currentCriteria.forEach(crit => {
+                        const maxW = parseFloat(crit.weight) || 0;
+                        newScores[crit.name] = maxW;
+                        calculatedSum += maxW;
+                    });
+                    setEvalCriteriaScores(newScores);
+                    setEvalScore(Math.min(100, Math.max(0, Math.round(calculatedSum * 100) / 100)));
                     setEvalFeedback('');
+                    setEvalStatus('pass');
                 }
-            } catch (_) {}
-        };
-        load();
-    }, [selectedTraineeForEval, courseId]);
+            })
+            .catch(console.error);
+    }, [selectedTraineeForEval, courseId, courseCriteria]);
 
     const handleSubmitEvaluation = async (e) => {
         e.preventDefault();
-        if (!selectedTraineeForEval) return;
+        if (!selectedTraineeForEval) {
+            alert(lang === 'ar' ? 'يرجى اختيار المتدرب أولاً' : 'Please select a trainee first.');
+            return;
+        }
         setSubmittingEval(true);
 
         try {
@@ -907,21 +1026,20 @@ void loop() {
                 body: JSON.stringify({
                     course_id: courseId,
                     trainee_id: selectedTraineeForEval,
-                    // final_score is NOT sent — backend calculates it independently
+                    final_score: evalScore,
                     status: evalStatus,
                     feedback: evalFeedback,
-                    criteria_scores: criteriaScores
+                    criteria_scores: evalCriteriaScores
                 })
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                const serverScore = data.final_score ?? evalScore;
-                setEvalScore(serverScore);
                 const trObj = trainees.find(t => t.trainee_id == selectedTraineeForEval);
                 const traineeName = trObj ? trObj.full_name : 'Trainee';
+                const confirmedScore = data.final_score ?? evalScore;
                 const successMsg = lang === 'ar'
-                    ? `تم حفظ ونشر التقييم بنجاح للمتدرب (${traineeName})! الدرجة المعتمدة: ${serverScore}/100`
-                    : `Evaluation saved and published successfully for (${traineeName})! Grade: ${serverScore}/100`;
+                    ? `تم حفظ ونشر التقييم بنجاح للمتدرب (${traineeName})! الدرجة المعتمدة: ${confirmedScore}/100`
+                    : `Evaluation saved and published successfully for (${traineeName})! Grade: ${confirmedScore}/100`;
                 fetchEvals();
                 alert(successMsg);
             } else {
@@ -932,49 +1050,6 @@ void loop() {
             alert(lang === 'ar' ? 'حدث خطأ في الاتصال أثناء حفظ التقييم' : 'Network error: could not save evaluation');
         } finally {
             setSubmittingEval(false);
-        }
-    };
-
-    const handleSaveRubric = async () => {
-        setRubricError('');
-        const totalW = rubricDraft.reduce((s, c) => s + (parseFloat(c.weight) || 0), 0);
-        if (Math.abs(totalW - 100) > 0.001) {
-            setRubricError(
-                lang === 'ar'
-                    ? `المجموع الكلي يجب أن يساوي 100%. المجموع الحالي: ${Math.round(totalW * 100) / 100}%`
-                    : `Total weight must equal 100%. Current total: ${Math.round(totalW * 100) / 100}%`
-            );
-            return;
-        }
-        if (rubricDraft.some(c => !c.name.trim())) {
-            setRubricError(lang === 'ar' ? 'جميع المعايير يجب أن تحتوي على اسم' : 'All criteria must have a name');
-            return;
-        }
-        setRubricSaving(true);
-        try {
-            const res = await fetch('/api/training/criteria/save.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ course_id: courseId, criteria: rubricDraft })
-            });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                setCourseCriteria(data.criteria);
-                setRubricDraft(data.criteria.map(c => ({ name: c.name, weight: parseFloat(c.weight) })));
-                setEditingRubric(false);
-                // Reset scores for the new criteria
-                const scores = {};
-                data.criteria.forEach(c => { scores[c.name] = parseFloat(c.weight); });
-                setCriteriaScores(scores);
-                recalcScore(scores, data.criteria);
-                setSelectedTraineeForEval(null);
-            } else {
-                setRubricError(data.error || (lang === 'ar' ? 'فشل حفظ المعايير' : 'Failed to save criteria'));
-            }
-        } catch (_) {
-            setRubricError(lang === 'ar' ? 'خطأ في الاتصال' : 'Network error');
-        } finally {
-            setRubricSaving(false);
         }
     };
 
@@ -1762,40 +1837,44 @@ void loop() {
 
                             {myEval ? (
                                 <div className="eval-details">
-                                    {/* Dynamic Rubric Breakdown */}
+                                    {/* Dynamic Course Rubrics Breakdown */}
                                     {(() => {
-                                        let saved = {};
+                                        let stored = {};
                                         try {
-                                            saved = typeof myEval.criteria_scores === 'string'
-                                                ? JSON.parse(myEval.criteria_scores || '{}')
-                                                : (myEval.criteria_scores || {});
+                                            stored = typeof myEval.criteria_scores === 'string' ? JSON.parse(myEval.criteria_scores || '{}') : (myEval.criteria_scores || {});
                                         } catch (_) {}
 
                                         const finalScore = parseFloat(myEval.final_score) || 0;
+                                        const rubricsList = (courseCriteria && courseCriteria.length > 0) ? courseCriteria : defaultRubrics;
 
-                                        // Build display rubrics: prefer courseCriteria, fall back to saved keys
-                                        let rubrics = [];
-                                        if (courseCriteria.length > 0) {
-                                            rubrics = courseCriteria.map(c => {
-                                                const val = parseFloat(saved[c.name] ?? saved[c.name?.toLowerCase()]) || 0;
-                                                return { label: c.name, max: parseFloat(c.weight), val };
-                                            });
-                                        } else {
-                                            // Fallback: render whatever keys are in criteria_scores
-                                            rubrics = Object.entries(saved).map(([key, val]) => ({
-                                                label: key.charAt(0).toUpperCase() + key.slice(1),
-                                                max: parseFloat(val) > 0 ? parseFloat(val) : 100,
-                                                val: parseFloat(val) || 0
-                                            }));
-                                        }
+                                        const renderedRubrics = rubricsList.map(c => {
+                                            const critName = c.name;
+                                            const maxW = parseFloat(c.weight) || 0;
+                                            let val = undefined;
+                                            if (stored[critName] !== undefined) val = Number(stored[critName]);
+                                            else if (stored[critName.toLowerCase()] !== undefined) val = Number(stored[critName.toLowerCase()]);
+                                            else if (c.id && stored[c.id] !== undefined) val = Number(stored[c.id]);
+
+                                            if (val === undefined || isNaN(val)) {
+                                                val = Math.min(maxW, Math.round((finalScore * (maxW / 100)) * 10) / 10);
+                                            } else {
+                                                val = Math.min(maxW, Math.max(0, val));
+                                            }
+
+                                            return {
+                                                name: critName,
+                                                max: maxW,
+                                                val: val
+                                            };
+                                        });
 
                                         return (
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                                                {rubrics.map((r, idx) => (
+                                                {renderedRubrics.map((r, idx) => (
                                                     <div key={idx} style={{ background: 'var(--bg-subtle, #f8fafc)', border: '1px solid var(--border, #e2e8f0)', borderRadius: '12px', padding: '1rem' }}>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                                                             <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-1)' }}>
-                                                                {r.label}
+                                                                {r.name}
                                                             </span>
                                                             <strong style={{ fontSize: '0.9rem', color: 'var(--primary, #002D56)' }}>
                                                                 {r.val} / {r.max}
@@ -1869,243 +1948,283 @@ void loop() {
                             )}
                         </div>
                     ) : (
-                        <div className="evals-trainer-view" style={{ background: 'var(--bg-1, #ffffff)', border: '1.5px solid var(--border, #e2e8f0)', borderRadius: '16px', padding: '1.75rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-                            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: 800 }}>{lang === 'ar' ? 'تقييم ورصد درجات المتدربين الأكاديمية' : 'Grade & Evaluate Trainees (Academic Rubrics)'}</h3>
-                            <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                {lang === 'ar' ? 'أدر معايير التقييم للدورة ثم حدد متدرباً وأدخل درجاته.' : 'Manage the course evaluation criteria, then select a trainee and enter their scores.'}
-                            </p>
-
-                            {/* ── Rubric Management Panel ─────────────────────────────── */}
-                            <div style={{ marginBottom: '1.75rem', background: 'var(--bg-subtle, #f8fafc)', border: '1px solid var(--border)', borderRadius: '14px', padding: '1.25rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                                    <strong style={{ fontSize: '0.95rem', color: 'var(--text-1)' }}>
-                                        {lang === 'ar' ? '⚙️ معايير التقييم' : '⚙️ Evaluation Criteria'}
-                                    </strong>
-                                    {!editingRubric && (
-                                        <button
-                                            type="button"
-                                            className="btn btn-outline"
-                                            style={{ fontSize: '0.8rem', padding: '0.35rem 0.9rem', borderRadius: '8px' }}
-                                            onClick={() => { setEditingRubric(true); setRubricError(''); }}
-                                        >
-                                            <Edit3 size={13} style={{ marginRight: 4 }} />
-                                            {lang === 'ar' ? 'تعديل المعايير' : 'Edit Criteria'}
-                                        </button>
-                                    )}
-                                </div>
-
-                                {rubricLoading ? (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                        <Loader2 size={15} className="spin" /> {lang === 'ar' ? 'جارٍ التحميل...' : 'Loading criteria...'}
-                                    </div>
-                                ) : editingRubric ? (
-                                    <div>
-                                        {/* Draft rows */}
-                                        {rubricDraft.map((c, idx) => (
-                                            <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                                <input
-                                                    type="text"
-                                                    value={c.name}
-                                                    placeholder={lang === 'ar' ? 'اسم المعيار' : 'Criterion name'}
-                                                    onChange={e => {
-                                                        const d = [...rubricDraft];
-                                                        d[idx] = { ...d[idx], name: e.target.value };
-                                                        setRubricDraft(d);
-                                                    }}
-                                                    style={{ flex: 2, padding: '0.4rem 0.65rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.88rem' }}
-                                                />
-                                                <input
-                                                    type="number"
-                                                    min="1"
-                                                    max="100"
-                                                    value={c.weight}
-                                                    placeholder="%"
-                                                    onChange={e => {
-                                                        const d = [...rubricDraft];
-                                                        d[idx] = { ...d[idx], weight: parseFloat(e.target.value) || 0 };
-                                                        setRubricDraft(d);
-                                                    }}
-                                                    style={{ flex: 0.6, padding: '0.4rem 0.5rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.88rem', textAlign: 'center' }}
-                                                />
-                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', minWidth: 16 }}>%</span>
-                                                <button
-                                                    type="button"
-                                                    title="Delete"
-                                                    onClick={() => setRubricDraft(rubricDraft.filter((_, i) => i !== idx))}
-                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '0.2rem' }}
-                                                >
-                                                    <Trash2 size={15} />
-                                                </button>
-                                            </div>
-                                        ))}
-
-                                        {/* Total indicator */}
-                                        {(() => {
-                                            const tot = Math.round(rubricDraft.reduce((s, c) => s + (parseFloat(c.weight) || 0), 0) * 100) / 100;
-                                            const ok = Math.abs(tot - 100) < 0.01;
-                                            return (
-                                                <div style={{ fontSize: '0.85rem', fontWeight: 700, margin: '0.5rem 0', color: ok ? '#16a34a' : '#dc2626' }}>
-                                                    {lang === 'ar' ? `المجموع: ${tot}%` : `Total: ${tot}%`}
-                                                    {!ok && <span style={{ marginLeft: 6, fontWeight: 400 }}>{lang === 'ar' ? '— يجب أن يساوي 100%' : '— must equal 100%'}</span>}
-                                                </div>
-                                            );
-                                        })()}
-
-                                        {rubricError && (
-                                            <div style={{ color: '#dc2626', fontSize: '0.82rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                <AlertCircle size={14} /> {rubricError}
-                                            </div>
-                                        )}
-
-                                        <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
-                                            <button
-                                                type="button"
-                                                className="btn btn-outline"
-                                                style={{ fontSize: '0.8rem', padding: '0.35rem 0.9rem', borderRadius: '8px' }}
-                                                onClick={() => setRubricDraft([...rubricDraft, { name: '', weight: 0 }])}
-                                            >
-                                                <Plus size={13} style={{ marginRight: 4 }} />
-                                                {lang === 'ar' ? 'إضافة معيار' : '+ Add Criterion'}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="btn btn-primary"
-                                                disabled={rubricSaving}
-                                                style={{ fontSize: '0.8rem', padding: '0.35rem 1.1rem', borderRadius: '8px' }}
-                                                onClick={handleSaveRubric}
-                                            >
-                                                {rubricSaving ? <Loader2 size={13} className="spin" /> : (lang === 'ar' ? 'حفظ التغييرات' : 'Save Changes')}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="btn btn-outline"
-                                                style={{ fontSize: '0.8rem', padding: '0.35rem 0.9rem', borderRadius: '8px' }}
-                                                onClick={() => {
-                                                    setEditingRubric(false);
-                                                    setRubricDraft(courseCriteria.map(c => ({ name: c.name, weight: parseFloat(c.weight) })));
-                                                    setRubricError('');
-                                                }}
-                                            >
-                                                {lang === 'ar' ? 'إلغاء' : 'Cancel'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    /* Read-only rubric table */
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.87rem' }}>
-                                        <thead>
-                                            <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                                                <th style={{ textAlign: lang === 'ar' ? 'right' : 'left', padding: '0.3rem 0.5rem', color: 'var(--text-muted)', fontWeight: 600 }}>{lang === 'ar' ? 'المعيار' : 'Criterion'}</th>
-                                                <th style={{ textAlign: 'center', padding: '0.3rem 0.5rem', color: 'var(--text-muted)', fontWeight: 600 }}>{lang === 'ar' ? 'الوزن (%)' : 'Weight (%)'}</th>
-                                                <th style={{ textAlign: 'center', padding: '0.3rem 0.5rem', color: 'var(--text-muted)', fontWeight: 600 }}>{lang === 'ar' ? 'الدرجة القصوى' : 'Max Score'}</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {courseCriteria.map((c, idx) => (
-                                                <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
-                                                    <td style={{ padding: '0.35rem 0.5rem', fontWeight: 600, color: 'var(--text-1)' }}>{c.name}</td>
-                                                    <td style={{ textAlign: 'center', padding: '0.35rem 0.5rem' }}>{parseFloat(c.weight)}%</td>
-                                                    <td style={{ textAlign: 'center', padding: '0.35rem 0.5rem', color: 'var(--primary)' }}>{parseFloat(c.weight)}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr>
-                                                <td style={{ padding: '0.4rem 0.5rem', fontWeight: 800, fontSize: '0.9rem' }}>{lang === 'ar' ? 'المجموع' : 'Total'}</td>
-                                                <td style={{ textAlign: 'center', fontWeight: 800, fontSize: '0.9rem', color: '#16a34a' }}>100%</td>
-                                                <td style={{ textAlign: 'center', fontWeight: 800, fontSize: '0.9rem', color: '#16a34a' }}>100</td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                )}
+                        <div className="evals-trainer-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                            {/* Header */}
+                            <div>
+                                <h3 style={{ margin: '0 0 0.35rem 0', fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-0, #0f172a)' }}>
+                                    {lang === 'ar' ? 'تقييم ورصد درجات المتدربين (المعايير الأكاديمية)' : 'Grade & Evaluate Trainees (Academic Rubrics)'}
+                                </h3>
+                                <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted, #64748b)' }}>
+                                    {lang === 'ar' 
+                                        ? 'قم بتهيئة معايير تقييم الدورة، ثم اختر المتدرب لرصد درجاته المعتمدة.' 
+                                        : 'Manage the course evaluation criteria, then select a trainee and enter their scores.'}
+                                </p>
                             </div>
 
-                            <div className="eval-form-box">
-                                <form onSubmit={handleSubmitEvaluation}>
-                                    <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                                        <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.4rem' }}>{lang === 'ar' ? 'اختر المتدرب المراد تقييمه:' : 'Select Trainee to Evaluate:'}</label>
-                                        <select
-                                            required
-                                            value={selectedTraineeForEval || ''}
-                                            onChange={e => setSelectedTraineeForEval(e.target.value)}
-                                            style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '0.95rem' }}
-                                        >
-                                            <option value="">{lang === 'ar' ? '-- اختر المتدرب --' : '-- Choose Trainee --'}</option>
-                                            {trainees.map(tr => (
-                                                <option key={tr.trainee_id} value={tr.trainee_id}>
-                                                    {tr.full_name} ({tr.student_id ? `${tr.student_id} - ` : ''}{tr.email})
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
+                            {/* SECTION 1: Simple Evaluation Criteria Card */}
+                            <div style={{
+                                background: 'var(--bg-subtle, #f8fafc)',
+                                border: '1px solid var(--border, #e2e8f0)',
+                                borderRadius: '14px',
+                                padding: '1.5rem',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem', color: 'var(--text-0, #1e293b)' }}>
+                                    <Settings size={18} style={{ color: '#94a3b8' }} />
+                                    <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>
+                                        {lang === 'ar' ? 'معايير التقييم' : 'Evaluation Criteria'}
+                                    </h4>
+                                </div>
 
-                                    {/* Dynamic Criteria Score Inputs */}
-                                    {selectedTraineeForEval && courseCriteria.length > 0 && (
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.25rem', background: 'var(--bg-subtle, #f8fafc)', padding: '1.25rem', borderRadius: '14px', border: '1px solid var(--border)' }}>
-                                            {courseCriteria.map((c, idx) => (
-                                                <div key={idx} className="form-group">
-                                                    <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                        <FileCheck size={14} />
-                                                        {c.name} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({lang === 'ar' ? 'من' : 'max'} {parseFloat(c.weight)})</span>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.15rem' }}>
+                                    {courseCriteria.map((c, idx) => (
+                                        <div key={c.id || idx} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            <input 
+                                                type="text" 
+                                                value={c.name}
+                                                onChange={e => handleCriterionFieldChange(idx, 'name', e.target.value)}
+                                                placeholder={lang === 'ar' ? 'اسم المعيار' : 'Criterion Name'}
+                                                style={{
+                                                    flex: 1,
+                                                    padding: '0.65rem 0.95rem',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid var(--border, #cbd5e1)',
+                                                    background: 'var(--bg-0, #ffffff)',
+                                                    fontSize: '0.92rem',
+                                                    fontWeight: 500,
+                                                    color: 'var(--text-0, #0f172a)',
+                                                    outline: 'none'
+                                                }}
+                                            />
+                                            <input 
+                                                type="number"
+                                                min="1"
+                                                max="100"
+                                                value={c.weight}
+                                                onChange={e => handleCriterionFieldChange(idx, 'weight', e.target.value)}
+                                                style={{
+                                                    width: '75px',
+                                                    textAlign: 'center',
+                                                    padding: '0.65rem 0.5rem',
+                                                    borderRadius: '8px',
+                                                    border: '1px solid var(--border, #cbd5e1)',
+                                                    background: 'var(--bg-0, #ffffff)',
+                                                    fontSize: '0.92rem',
+                                                    fontWeight: 600,
+                                                    color: 'var(--text-0, #0f172a)',
+                                                    outline: 'none'
+                                                }}
+                                            />
+                                            <span style={{ color: 'var(--text-muted, #64748b)', fontWeight: 600, fontSize: '0.95rem', minWidth: '16px' }}>%</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteCriterion(idx)}
+                                                title={lang === 'ar' ? 'حذف المعيار' : 'Delete Criterion'}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: '#ef4444',
+                                                    cursor: 'pointer',
+                                                    padding: '6px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    borderRadius: '6px'
+                                                }}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div style={{ marginBottom: '1.25rem' }}>
+                                    <span style={{
+                                        fontSize: '0.92rem',
+                                        fontWeight: 800,
+                                        color: isWeightValid ? '#16a34a' : '#ef4444'
+                                    }}>
+                                        {lang === 'ar' 
+                                            ? `المجموع: ${totalCriteriaWeight}% ${!isWeightValid ? '(يجب أن يساوي 100%)' : ''}`
+                                            : `Total: ${totalCriteriaWeight}% ${!isWeightValid ? '(Must equal 100%)' : ''}`}
+                                    </span>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                    <button
+                                        type="button"
+                                        onClick={handleAddCriterion}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            padding: '0.55rem 1.15rem',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border, #cbd5e1)',
+                                            background: 'var(--bg-0, #ffffff)',
+                                            color: 'var(--text-0, #0f172a)',
+                                            fontSize: '0.88rem',
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <Plus size={15} />
+                                        {lang === 'ar' ? 'إضافة معيار' : '+ Add Criterion'}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        disabled={savingCriteria || !isWeightValid}
+                                        onClick={handleSaveCriteria}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            padding: '0.55rem 1.35rem',
+                                            borderRadius: '8px',
+                                            border: 'none',
+                                            background: '#8B1E2F',
+                                            color: '#ffffff',
+                                            fontSize: '0.88rem',
+                                            fontWeight: 700,
+                                            cursor: savingCriteria || !isWeightValid ? 'not-allowed' : 'pointer',
+                                            opacity: savingCriteria || !isWeightValid ? 0.6 : 1
+                                        }}
+                                    >
+                                        {savingCriteria ? <Loader2 className="spin" size={15} /> : null}
+                                        {lang === 'ar' ? 'حفظ التعديلات' : 'Save Changes'}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={handleResetToDefaultCriteria}
+                                        style={{
+                                            padding: '0.55rem 1.15rem',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border, #cbd5e1)',
+                                            background: 'var(--bg-0, #ffffff)',
+                                            color: 'var(--text-muted, #64748b)',
+                                            fontSize: '0.88rem',
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* SECTION 2: Grade Trainees Form */}
+                            <div className="evals-trainer-view" style={{ background: 'var(--bg-1, #ffffff)', border: '1.5px solid var(--border, #e2e8f0)', borderRadius: '16px', padding: '1.75rem', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+                                <div style={{ marginBottom: '1.25rem' }}>
+                                    <h3 style={{ margin: '0 0 0.35rem 0', fontSize: '1.25rem', fontWeight: 800 }}>
+                                        {lang === 'ar' ? 'تقييم ورصد درجات المتدربين' : 'Grade & Evaluate Trainees'}
+                                    </h3>
+                                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                        {lang === 'ar' 
+                                            ? 'اختر المتدرب وأدخل الدرجات المخصصة لكل معيار من معايير هذه الدورة. يتم احتساب الدرجة النهائية تلقائياً.' 
+                                            : 'Select a trainee and enter scores for each configured criterion. Final score is automatically calculated.'}
+                                    </p>
+                                </div>
+
+                                <div className="eval-form-box">
+                                    <form onSubmit={handleSubmitEvaluation}>
+                                        <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                                            <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.4rem' }}>
+                                                {lang === 'ar' ? 'اختر المتدرب المراد تقييمه:' : 'Select Trainee to Evaluate:'}
+                                            </label>
+                                            <select 
+                                                required 
+                                                value={selectedTraineeForEval || ''} 
+                                                onChange={e => setSelectedTraineeForEval(e.target.value)}
+                                                style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '0.95rem' }}
+                                            >
+                                                <option value="">{lang === 'ar' ? '-- اختر المتدرب --' : '-- Choose Trainee --'}</option>
+                                                {trainees.map(tr => (
+                                                    <option key={tr.trainee_id} value={tr.trainee_id}>
+                                                        {tr.full_name} ({tr.student_id ? `${tr.student_id} - ` : ''}{tr.email})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Dynamic Rubric Inputs */}
+                                        <div className="dynamic-rubrics-grid">
+                                            {courseCriteria.map((crit, idx) => (
+                                                <div key={crit.id || idx} className="rubric-field-card">
+                                                    <label>
+                                                        <span>{crit.name || `Criterion #${idx + 1}`}</span>
+                                                        <span style={{ fontSize: '0.78rem', color: 'var(--primary, #002D56)', fontWeight: 800 }}>
+                                                            ({crit.weight}%)
+                                                        </span>
                                                     </label>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        max={parseFloat(c.weight)}
+                                                    <input 
+                                                        type="number" 
+                                                        min="0" 
+                                                        max={crit.weight} 
                                                         step="0.5"
-                                                        value={criteriaScores[c.name] ?? parseFloat(c.weight)}
-                                                        onChange={e => updateCriteriaScore(c.name, e.target.value)}
-                                                        style={{ width: '100%', padding: '0.45rem 0.65rem', borderRadius: '8px', border: '1px solid var(--border)', marginTop: '4px' }}
+                                                        value={evalCriteriaScores[crit.name] ?? ''} 
+                                                        onChange={e => handleCriterionScoreChange(crit.name, e.target.value, crit.weight)}
+                                                        placeholder={`0 - ${crit.weight}`}
+                                                        style={{ width: '100%', padding: '0.55rem 0.65rem', borderRadius: '8px', border: '1px solid var(--border)', marginTop: '4px' }}
                                                     />
                                                 </div>
                                             ))}
                                         </div>
-                                    )}
 
-                                    {/* Auto-calculated Final Score (read-only) */}
-                                    <div className="form-row" style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-                                        <div className="form-group" style={{ flex: 1, minWidth: '160px' }}>
-                                            <label style={{ fontWeight: 700 }}>{lang === 'ar' ? 'الدرجة الكلية (محسوبة تلقائياً)' : 'Final Score (auto-calculated)'}</label>
-                                            <div style={{
-                                                width: '100%', padding: '0.65rem', borderRadius: '8px',
-                                                border: '1.5px solid var(--primary, #002D56)',
-                                                fontWeight: 800, fontSize: '1.25rem',
-                                                color: evalScore >= 60 ? '#16a34a' : evalScore >= 50 ? '#d97706' : '#dc2626',
-                                                background: 'var(--bg-subtle, #f8fafc)',
-                                                textAlign: 'center'
-                                            }}>
-                                                {evalScore} / 100
+                                        <div className="form-row" style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                                            <div className="form-group" style={{ flex: 1, minWidth: '160px' }}>
+                                                <label style={{ fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <span>{lang === 'ar' ? 'الدرجة النهائية المحتسبة' : 'Calculated Final Score'}</span>
+                                                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{lang === 'ar' ? '(تلقائي من المعايير)' : '(Auto-calculated)'}</span>
+                                                </label>
+                                                <div style={{
+                                                    width: '100%',
+                                                    padding: '0.65rem 1rem',
+                                                    borderRadius: '8px',
+                                                    border: '1.5px solid var(--primary, #002D56)',
+                                                    background: 'rgba(0, 45, 86, 0.04)',
+                                                    fontWeight: 800,
+                                                    fontSize: '1.15rem',
+                                                    color: 'var(--primary, #002D56)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between'
+                                                }}>
+                                                    <span>{evalScore}</span>
+                                                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>/ 100</span>
+                                                </div>
+                                            </div>
+                                            <div className="form-group" style={{ flex: 1, minWidth: '160px' }}>
+                                                <label style={{ fontWeight: 700 }}>{lang === 'ar' ? 'حالة الاعتماد' : 'Evaluation Status'}</label>
+                                                <select 
+                                                    value={evalStatus} 
+                                                    onChange={e => setEvalStatus(e.target.value)}
+                                                    style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid var(--border)', fontWeight: 700 }}
+                                                >
+                                                    <option value="pass">PASS (ناجح معتمد)</option>
+                                                    <option value="needs_revision">NEEDS REVISION (يحتاج مراجعة)</option>
+                                                    <option value="fail">FAIL (راسب)</option>
+                                                </select>
                                             </div>
                                         </div>
-                                        <div className="form-group" style={{ flex: 1, minWidth: '160px' }}>
-                                            <label style={{ fontWeight: 700 }}>{lang === 'ar' ? 'حالة الاعتماد' : 'Evaluation Status'}</label>
-                                            <select
-                                                value={evalStatus}
-                                                onChange={e => setEvalStatus(e.target.value)}
-                                                style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid var(--border)', fontWeight: 700 }}
-                                            >
-                                                <option value="pass">PASS (ناجح معتمد)</option>
-                                                <option value="needs_revision">NEEDS REVISION (يحتاج مراجعة)</option>
-                                                <option value="fail">FAIL (راسب)</option>
-                                            </select>
+
+                                        <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                                            <label style={{ fontWeight: 700 }}>{lang === 'ar' ? 'ملاحظات وتوجيهات المشرف الأكاديمي' : 'Trainer Feedback & Notes'}</label>
+                                            <textarea 
+                                                rows="3" 
+                                                value={evalFeedback} 
+                                                onChange={e => setEvalFeedback(e.target.value)} 
+                                                placeholder={lang === 'ar' ? 'أدخل ملاحظات بناءة وتوجيهات للطالب حول مشروعه وأدائه...' : 'Constructive feedback for the trainee...'} 
+                                                style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid var(--border)' }}
+                                            />
                                         </div>
-                                    </div>
 
-                                    <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                                        <label style={{ fontWeight: 700 }}>{lang === 'ar' ? 'ملاحظات وتوجيهات المشرف الأكاديمي' : 'Trainer Feedback & Notes'}</label>
-                                        <textarea
-                                            rows="3"
-                                            value={evalFeedback}
-                                            onChange={e => setEvalFeedback(e.target.value)}
-                                            placeholder={lang === 'ar' ? 'أدخل ملاحظات بناءة وتوجيهات للطالب حول مشروعه وأدائه...' : 'Constructive feedback for the trainee...'}
-                                            style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid var(--border)' }}
-                                        />
-                                    </div>
-
-                                    <button type="submit" className="btn btn-primary" disabled={submittingEval || !selectedTraineeForEval} style={{ padding: '0.75rem 2rem', fontWeight: 700, borderRadius: '10px' }}>
-                                        {submittingEval ? <Loader2 className="spin" size={16} /> : (lang === 'ar' ? 'حفظ ونشر التقييم النهائي' : 'Save & Publish Grade')}
-                                    </button>
-                                </form>
+                                        <button type="submit" className="btn btn-primary" disabled={submittingEval || !selectedTraineeForEval} style={{ padding: '0.75rem 2rem', fontWeight: 700, borderRadius: '10px' }}>
+                                            {submittingEval ? <Loader2 className="spin" size={16} /> : (lang === 'ar' ? 'حفظ ونشر التقييم النهائي' : 'Save & Publish Grade')}
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     )}

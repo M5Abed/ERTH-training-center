@@ -304,19 +304,6 @@ function _autoMigrate(): void
         if (empty($tiCols)) {
             db()->exec("ALTER TABLE training_ideas ADD COLUMN catalog_project_id INT NULL AFTER course_id");
         }
-
-        // 9. Ensure course_eval_criteria table exists (dynamic rubric per course)
-        db()->exec("
-            CREATE TABLE IF NOT EXISTS course_eval_criteria (
-              id          INT AUTO_INCREMENT PRIMARY KEY,
-              course_id   INT NOT NULL,
-              name        VARCHAR(150) NOT NULL,
-              weight      DECIMAL(5,2) NOT NULL,
-              order_index INT NOT NULL DEFAULT 0,
-              created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-              INDEX idx_cec_course (course_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        ");
     } catch (\Exception $e) {
         // silently skip if user lacks CREATE privileges
         error_log("Auto-migration failed: " . $e->getMessage());
@@ -430,7 +417,6 @@ function body(): array
     if (!is_array($data))
         return [];
     // Reject non-scalar values at top level to prevent NoSQL-style object injection
-    // Only whitelisted fields may be arrays/objects
     $allowedArrayFields = [
         'skills',
         'enrolled_courses',
@@ -440,7 +426,10 @@ function body(): array
         'preferred_project_type',
         'teammate_ids',
         'team_members',
+        'criteria',
+        'course_criteria',
         'criteria_scores',
+        'criteria_weights',
         'proposal_json',
         'sections',
         'proposal',
@@ -455,8 +444,8 @@ function body(): array
         'params',
         'context',
         'rubric',
-        'grades',
-        'criteria'
+        'rubrics',
+        'grades'
     ];
     foreach ($data as $key => $value) {
         if (is_array($value) && !in_array($key, $allowedArrayFields, true)) {

@@ -76,17 +76,12 @@ try {
     $stmtIdeas = $db->prepare("DELETE FROM training_ideas WHERE course_id = ?");
     $stmtIdeas->execute([$courseId]);
 
-    // 7. Delete evaluations & certificates & criteria
+    // 7. Delete evaluations & certificates
     $stmtEvals = $db->prepare("DELETE FROM training_evaluations WHERE course_id = ?");
     $stmtEvals->execute([$courseId]);
 
     $stmtCerts = $db->prepare("DELETE FROM training_certificates WHERE course_id = ?");
     $stmtCerts->execute([$courseId]);
-
-    try {
-        $stmtCrit = $db->prepare("DELETE FROM course_eval_criteria WHERE course_id = ?");
-        $stmtCrit->execute([$courseId]);
-    } catch (Throwable $e) {}
 
     // 8. Delete registration requests for this course
     $stmtReqs = $db->prepare("DELETE FROM registration_requests WHERE course_id = ?");

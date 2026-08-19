@@ -2,12 +2,12 @@
 // =========================================================
 // NMU TRAINING — List / Auto-seed Course Evaluation Criteria
 // GET /api/training/criteria/list.php?course_id=X
-// Access: Trainee, Trainer, or Admin
+// Access: Trainer or Admin
 // =========================================================
 
 require_once __DIR__ . '/../../config.php';
 
-$user = requireRole(['trainee', 'trainer', 'admin']);
+requireRole(['trainee', 'trainer', 'admin']);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);

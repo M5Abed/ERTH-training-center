@@ -114,7 +114,9 @@ if ($trainingIdeaId) {
             UPDATE training_ideas 
             SET catalog_project_id = ?,
                 title = ?,
+                title_en = ?,
                 description = ?,
+                description_en = ?,
                 status = 'submitted',
                 feedback = NULL,
                 reviewed_by = NULL,
@@ -125,6 +127,8 @@ if ($trainingIdeaId) {
         $updCatStmt->execute([
             $catalogProjectId,
             $catProject['title'],
+            $catProject['title'],
+            'Selected from the project catalog: ' . $catProject['title'],
             'Selected from the project catalog: ' . $catProject['title'],
             $ideaId,
             $uid
@@ -132,14 +136,16 @@ if ($trainingIdeaId) {
     } else {
         // Create new idea row in 'submitted' (under review) status
         $insStmt = $db->prepare("
-            INSERT INTO training_ideas (owner_id, course_id, catalog_project_id, title, description, status)
-            VALUES (?, ?, ?, ?, ?, 'submitted')
+            INSERT INTO training_ideas (owner_id, course_id, catalog_project_id, title, title_en, description, description_en, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'submitted')
         ");
         $insStmt->execute([
             $uid,
             $courseId,
             $catalogProjectId,
             $catProject['title'],
+            $catProject['title'],
+            'Selected from the project catalog: ' . $catProject['title'],
             'Selected from the project catalog: ' . $catProject['title'],
         ]);
         $ideaId = (int)$db->lastInsertId();
@@ -300,7 +306,9 @@ $proposalJson = [
 $saveStmt = $db->prepare("
     UPDATE training_ideas
     SET title              = ?,
+        title_en           = ?,
         description        = ?,
+        description_en     = ?,
         tech_stack         = ?,
         catalog_project_id = ?,
         proposal_json      = ?,
@@ -309,7 +317,9 @@ $saveStmt = $db->prepare("
 ");
 $saveStmt->execute([
     $catProject['title'],
+    $catProject['title'],
     $sections[0]['content'] ?? '',   // abstract as short description
+    $sections[0]['content'] ?? '',
     $catProject['skills'],
     $catalogProjectId,
     json_encode($proposalJson, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),

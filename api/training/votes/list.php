@@ -17,13 +17,19 @@ $limit    = min((int)($_GET['limit'] ?? 50), 100);
 
 $db = db();
 
-$where = $courseId ? "WHERE ti.course_id = $courseId" : "";
+$where = "";
+$params = [];
+if ($courseId) {
+    $where = "WHERE ti.course_id = ?";
+    $params[] = $courseId;
+}
+$params[] = $limit;
 
 $stmt = $db->prepare("
     SELECT 
         ti.id,
-        ti.title_en AS title,
-        ti.description_en AS description,
+        ti.title,
+        ti.description,
         ti.status,
         ti.course_id,
         tc.name AS course_name,
@@ -38,11 +44,11 @@ $stmt = $db->prepare("
     LEFT JOIN training_courses  tc ON tc.id        = ti.course_id
     LEFT JOIN users             u  ON u.id         = ti.owner_id
     $where
-    GROUP BY ti.id
+    GROUP BY ti.id, ti.title, ti.description, ti.status, ti.course_id, tc.name, ti.owner_id, u.full_name, u.student_id, ti.created_at
     ORDER BY avg_rating DESC, vote_count DESC, ti.created_at ASC
     LIMIT ?
 ");
-$stmt->execute([$limit]);
+$stmt->execute($params);
 $ideas = $stmt->fetchAll();
 
 foreach ($ideas as &$i) {

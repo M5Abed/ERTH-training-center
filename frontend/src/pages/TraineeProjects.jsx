@@ -592,10 +592,10 @@ export default function TraineeProjects() {
                     fetchProjects();
                 }, 2400);
             } else {
-                setError(data.error || 'Failed to select catalog idea');
+                setError(data.error || (lang === 'ar' ? 'فشل اختيار فكرة المشروع من الكتالوج' : 'Failed to select catalog idea'));
             }
         } catch (e) {
-            setError('Error connecting to catalog service');
+            setError(e?.message || (lang === 'ar' ? 'حدث خطأ في الاتصال بخدمة الكتالوج' : 'Error connecting to catalog service'));
         } finally {
             setSelectingCatalog(false);
         }

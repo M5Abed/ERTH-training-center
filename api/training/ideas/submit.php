@@ -190,7 +190,9 @@ try {
         $uStmt = $db->prepare("
             UPDATE training_ideas 
             SET title             = ?,
+                title_en          = ?,
                 description       = ?,
+                description_en    = ?,
                 tech_stack        = ?,
                 problem_statement = ?,
                 expected_output   = ?,
@@ -204,6 +206,8 @@ try {
         ");
         $uStmt->execute([
             $title,
+            $title,
+            $description,
             $description,
             $techStack ?: null,
             $problemStmt ?: null,
@@ -214,14 +218,16 @@ try {
     } else {
         $iStmt = $db->prepare("
             INSERT INTO training_ideas 
-                (owner_id, course_id, title, description, tech_stack, problem_statement, expected_output, proposal_json, status)
+                (owner_id, course_id, title, title_en, description, description_en, tech_stack, problem_statement, expected_output, proposal_json, status)
             VALUES 
-                (?, ?, ?, ?, ?, ?, ?, ?, 'submitted')
+                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted')
         ");
         $iStmt->execute([
             $uid,
             $courseId,
             $title,
+            $title,
+            $description,
             $description,
             $techStack ?: null,
             $problemStmt ?: null,

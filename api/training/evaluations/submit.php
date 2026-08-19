@@ -54,50 +54,47 @@ $configuredCriteria = $cStmt->fetchAll();
 $finalScore     = 0.0;
 $criteriaScores = [];
 
-if (!empty($configuredCriteria)) {
-    // Build a lookup: name (lowercase) → weight
-    $lookup = [];
-    foreach ($configuredCriteria as $c) {
-        $lookup[strtolower(trim($c['name']))] = (float)$c['weight'];
-    }
-
-    foreach ($criteriaInput as $rawName => $rawScore) {
-        $key   = strtolower(trim($rawName));
-        $score = (float)$rawScore;
-
-        if (!isset($lookup[$key])) {
-            // Unknown criterion — skip gracefully (do not error on stale data)
-            continue;
-        }
-
-        $maxScore = $lookup[$key];
-        // Clamp score to [0, maxScore]
-        $score = max(0.0, min($maxScore, $score));
-
-        $criteriaScores[$rawName] = $score;
-        $finalScore += $score;
-    }
-
-    // Clamp total to [0, 100]
-    $finalScore = max(0.0, min(100.0, round($finalScore, 2)));
-
-} else {
-    // ── Legacy fallback: no criteria configured, use hard-coded 5 defaults ──
-    $att  = min(15, max(0, (float)($criteriaInput['attendance']     ?? 0)));
-    $arch = min(20, max(0, (float)($criteriaInput['architecture']   ?? 0)));
-    $impl = min(25, max(0, (float)($criteriaInput['implementation'] ?? 0)));
-    $pres = min(20, max(0, (float)($criteriaInput['presentation']   ?? 0)));
-    $doc  = min(20, max(0, (float)($criteriaInput['documentation']  ?? 0)));
-
-    $finalScore = round($att + $arch + $impl + $pres + $doc, 2);
-    $criteriaScores = [
-        'attendance'     => $att,
-        'architecture'   => $arch,
-        'implementation' => $impl,
-        'presentation'   => $pres,
-        'documentation'  => $doc,
+if (empty($configuredCriteria)) {
+    // Auto-seed defaults for this course
+    $defaults = [
+        ['Attendance',      15.00, 0],
+        ['Architecture',    20.00, 1],
+        ['Implementation',  25.00, 2],
+        ['Presentation',    20.00, 3],
+        ['Documentation',   20.00, 4],
     ];
+    $ins = $db->prepare("INSERT INTO course_eval_criteria (course_id, name, weight, order_index) VALUES (?, ?, ?, ?)");
+    foreach ($defaults as [$name, $weight, $idx]) {
+        $ins->execute([$courseId, $name, $weight, $idx]);
+    }
+    $cStmt->execute([$courseId]);
+    $configuredCriteria = $cStmt->fetchAll();
 }
+
+// Build a lookup: name (lowercase), id, and slug -> [weight, canonicalName]
+$lookup = [];
+foreach ($configuredCriteria as $c) {
+    $canonical = trim($c['name']);
+    $w = (float)$c['weight'];
+    $lookup[strtolower($canonical)] = [$w, $canonical];
+    $lookup[(string)$c['id']] = [$w, $canonical];
+}
+
+foreach ($criteriaInput as $rawKey => $rawScore) {
+    $lookupKey = strtolower(trim((string)$rawKey));
+    $score = (float)$rawScore;
+
+    if (!isset($lookup[$lookupKey])) {
+        continue;
+    }
+
+    [$maxScore, $canonicalName] = $lookup[$lookupKey];
+    $score = max(0.0, min($maxScore, $score));
+    $criteriaScores[$canonicalName] = round($score, 2);
+    $finalScore += $score;
+}
+
+$finalScore = max(0.0, min(100.0, round($finalScore, 2)));
 
 // Validate range
 if ($finalScore < 0 || $finalScore > 100) {

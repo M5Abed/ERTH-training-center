@@ -31,7 +31,7 @@ if (!$ideaId || !$sectionKey) {
     respondError('idea_id and section_key are required');
 }
 
-// All 30 NMU template section keys
+// All NMU template & 64-catalog section keys
 $validSections = [
     'approval', 'declaration', 'acknowledgment', 'abstract',
     'figures_tables', 'abbreviations',
@@ -45,6 +45,16 @@ $validSections = [
     'programming', 'application_scenario',
     'test_plan', 'results', 'discussion',
     'conclusion', 'references', 'appendices',
+    // 64-catalog specific keys
+    'team_contribution_statement',
+    'success_criteria',
+    'technology_stack___tools',
+    'anticipated_challenges___risk_mitigation',
+    'ethical___safety_considerations',
+    'planned_implementation_approach__to_be_expanded_with_real_work_',
+    'test_plan__results_added_once_testing_is_performed_',
+    'starter_reference_list__expand_as_more_sources_are_used_',
+    'appendix_a',
 ];
 
 if (!in_array($sectionKey, $validSections, true)) {
