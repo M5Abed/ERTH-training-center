@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -11,6 +11,9 @@ import './IdeaLeaderboard.css';
 export default function IdeaLeaderboard() {
     const { lang } = useI18n();
     const { user } = useAuth();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const initialCourse = searchParams.get('course_id') || searchParams.get('course') || '';
+
     const role = (user?.role || '').toLowerCase();
     const isTrainer = role === 'trainer' || !!(user?.is_admin);
 
@@ -18,7 +21,7 @@ export default function IdeaLeaderboard() {
     const [top5Voted, setTop5Voted]     = useState([]);
     const [courses, setCourses]         = useState([]);
     const [loading, setLoading]         = useState(true);
-    const [courseFilter, setCourseFilter] = useState('');
+    const [courseFilter, setCourseFilter] = useState(initialCourse);
     const [votingStatus, setVotingStatus] = useState('not_started');
     const [courseInfo, setCourseInfo]   = useState(null);
 

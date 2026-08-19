@@ -7,7 +7,7 @@ import {
     CheckCircle, XCircle, FileSpreadsheet, Sparkles, Download, 
     ExternalLink, Trash2, Edit3, Loader2, ArrowLeft, Video, Link as LinkIcon, X, FileCheck, UserPlus, Code, Send,
     Play, Cpu, Terminal, Zap, ShieldAlert, Layers, Calendar, MessageSquare, UserCheck, Crown, ChevronDown, ChevronUp, AlertCircle,
-    Sliders, RotateCcw, Check, Settings
+    Sliders, RotateCcw, Check, Settings, Vote, Trophy, CheckCircle2
 } from 'lucide-react';
 import AddStudentModal from '../components/AddStudentModal';
 import CertificateModal from '../components/CertificateModal';
@@ -420,6 +420,107 @@ void loop() {
         });
     };
 
+    // End-of-Course Voting State
+    const [votingProjects, setVotingProjects] = useState([]);
+    const [votingTop5, setVotingTop5] = useState([]);
+    const [courseVotingStatus, setCourseVotingStatus] = useState('not_started');
+    const [canUserVote, setCanUserVote] = useState(false);
+    const [myVotedProjectIds, setMyVotedProjectIds] = useState([]);
+    const [loadingVoting, setLoadingVoting] = useState(false);
+    const [submittingVotes, setSubmittingVotes] = useState(false);
+    const [updatingVotingStatus, setUpdatingVotingStatus] = useState(false);
+
+    const fetchCourseVotingData = async () => {
+        if (!courseId) return;
+        setLoadingVoting(true);
+        try {
+            const res = await fetch(`/api/training/votes/course_votes.php?course_id=${courseId}`);
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setVotingProjects(data.projects || []);
+                setVotingTop5(data.top_5 || []);
+                setCourseVotingStatus(data.voting_status || 'not_started');
+                setCanUserVote(data.can_vote || false);
+                setMyVotedProjectIds(data.my_votes || []);
+            }
+        } catch (e) {
+            console.error('Failed to fetch course voting data:', e);
+        } finally {
+            setLoadingVoting(false);
+        }
+    };
+
+    const handleToggleVote = (projectId) => {
+        if (courseVotingStatus !== 'open') return;
+        const pId = Number(projectId);
+        setMyVotedProjectIds(prev => {
+            if (prev.includes(pId)) {
+                return prev.filter(id => id !== pId);
+            }
+            if (prev.length >= 5) {
+                alert(lang === 'ar' ? 'يمكنك اختيار حتى 5 مشاريع كحد أقصى.' : 'You can select up to 5 projects.');
+                return prev;
+            }
+            return [...prev, pId];
+        });
+    };
+
+    const handleSubmitVotes = async () => {
+        if (courseVotingStatus !== 'open') {
+            alert(lang === 'ar' ? 'التصويت مغلق حالياً' : 'Voting is currently closed');
+            return;
+        }
+        setSubmittingVotes(true);
+        try {
+            const res = await fetch('/api/training/votes/course_votes_submit.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    course_id: parseInt(courseId, 10),
+                    project_ids: myVotedProjectIds
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert(lang === 'ar' ? 'تم تسجيل وتأكيد تصويتك بنجاح!' : 'Your votes have been submitted successfully.');
+                fetchCourseVotingData();
+            } else {
+                alert(data.error || (lang === 'ar' ? 'فشل حفظ التصويت' : 'Failed to submit votes'));
+            }
+        } catch (e) {
+            console.error(e);
+            alert(lang === 'ar' ? 'حدث خطأ في الاتصال أثناء حفظ التصويت' : 'Network error submitting votes');
+        } finally {
+            setSubmittingVotes(false);
+        }
+    };
+
+    const handleUpdateCourseVotingStatus = async (newStatus) => {
+        setUpdatingVotingStatus(true);
+        try {
+            const res = await fetch('/api/training/courses/voting_status.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    course_id: parseInt(courseId, 10),
+                    voting_status: newStatus
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setCourseVotingStatus(newStatus);
+                fetchCourseVotingData();
+            } else {
+                alert(data.error || 'Failed to update voting status');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Network error updating voting status');
+        } finally {
+            setUpdatingVotingStatus(false);
+        }
+    };
+
     // Doc upload
     const [docType, setDocType] = useState('srs');
     const [docFile, setDocFile] = useState(null);
@@ -518,6 +619,8 @@ void loop() {
                 fetchEvals();
             }, 5000);
             return () => clearInterval(poll);
+        } else if (activeTab === 'voting') {
+            fetchCourseVotingData();
         }
     }, [activeTab]);
 
@@ -1268,6 +1371,12 @@ void loop() {
                 <button className={`tab-btn ${activeTab === 'evaluations' ? 'active' : ''}`} onClick={() => setActiveTab('evaluations')} data-magy-key="evaluations">
                     <Award size={16} /> {lang === 'ar' ? 'التقييم والدرجات' : 'Evaluations'}
                 </button>
+                <button className={`tab-btn ${activeTab === 'voting' ? 'active' : ''}`} onClick={() => setActiveTab('voting')} data-magy-key="voting">
+                    <Vote size={16} /> {lang === 'ar' ? 'تصويت الـ Top 5' : 'Top 5 Voting'}
+                </button>
+                <Link to={`/leaderboard?course_id=${courseId}`} className="tab-btn" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <Trophy size={16} style={{ color: '#F59E0B' }} /> {lang === 'ar' ? 'لوحة الترتيب' : 'Leaderboard'}
+                </Link>
                 {isAdmin && (
                     <button className={`tab-btn ${activeTab === 'trainers' ? 'active' : ''}`} onClick={() => setActiveTab('trainers')} data-magy-key="trainers">
                         <Users size={16} /> {lang === 'ar' ? 'المدربين' : 'Manage Trainers'}
@@ -2228,6 +2337,402 @@ void loop() {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Tab: End-of-Course Top 5 Project Voting */}
+            {activeTab === 'voting' && (
+                <div className="tab-content">
+                    {/* Voting Header & Status Bar */}
+                    <div className="card p-4" style={{ 
+                        background: 'var(--bg-0, #ffffff)', 
+                        border: '1px solid var(--border, #e2e8f0)', 
+                        borderRadius: '16px', 
+                        padding: '1.75rem', 
+                        marginBottom: '1.75rem',
+                        boxShadow: '0 2px 10px rgba(0,0,0,0.03)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                            <div style={{ flex: 1, minWidth: '280px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.4rem' }}>
+                                    <Vote size={24} style={{ color: 'var(--primary, #002D56)' }} />
+                                    <h3 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800 }}>
+                                        {lang === 'ar' ? 'تصويت نهاية الدورة لاختيار أفضل 5 مشاريع' : 'End-of-Course Top 5 Project Voting'}
+                                    </h3>
+                                </div>
+                                <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted, #64748b)' }}>
+                                    {lang === 'ar'
+                                        ? 'نظام تصويت مستقل ومخصص للمشرفين والمدربين لاختيار أفضل 5 أفكار مشاريع في ختام الدورة التدريبية. يحق لكل مصوت اختيار حتى 5 مشاريع.'
+                                        : 'Independent faculty & trainer voting system to select the Top 5 standout projects. Each authorized voter may select up to 5 projects.'}
+                                </p>
+                            </div>
+
+                            {/* Status and Admin/Trainer Controls */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.6rem' }}>
+                                <div style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '0.4rem 0.9rem',
+                                    borderRadius: '20px',
+                                    fontSize: '0.84rem',
+                                    fontWeight: 700,
+                                    background: courseVotingStatus === 'open' ? 'rgba(22, 163, 74, 0.12)' : courseVotingStatus === 'closed' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(100, 116, 139, 0.12)',
+                                    color: courseVotingStatus === 'open' ? '#16a34a' : courseVotingStatus === 'closed' ? '#b45309' : '#64748b',
+                                    border: `1px solid ${courseVotingStatus === 'open' ? 'rgba(22, 163, 74, 0.3)' : courseVotingStatus === 'closed' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(100, 116, 139, 0.3)'}`
+                                }}>
+                                    {courseVotingStatus === 'open' && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#16a34a', display: 'inline-block' }}></span>}
+                                    {courseVotingStatus === 'open' ? (lang === 'ar' ? 'التصويت مفتوح حالياً' : 'Voting is Open') :
+                                     courseVotingStatus === 'closed' ? (lang === 'ar' ? 'اكتمل التصويت — تم اعتماد الـ Top 5' : 'Voting Closed — Top 5 Finalized') :
+                                     (lang === 'ar' ? 'التصويت لم يبدأ بعد' : 'Voting Not Started')}
+                                </div>
+
+                                {isTrainer && (
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                        {courseVotingStatus !== 'open' && (
+                                            <button 
+                                                type="button" 
+                                                className="btn btn-primary btn-sm"
+                                                disabled={updatingVotingStatus}
+                                                onClick={() => handleUpdateCourseVotingStatus('open')}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', padding: '0.45rem 0.85rem' }}
+                                            >
+                                                {updatingVotingStatus ? <Loader2 className="spin" size={14} /> : <Vote size={14} />}
+                                                {courseVotingStatus === 'closed' ? (lang === 'ar' ? 'إعادة فتح التصويت' : 'Re-open Voting') : (lang === 'ar' ? 'فتح باب التصويت' : 'Open Voting')}
+                                            </button>
+                                        )}
+                                        {courseVotingStatus === 'open' && (
+                                            <button 
+                                                type="button" 
+                                                className="btn btn-sm"
+                                                disabled={updatingVotingStatus}
+                                                onClick={() => handleUpdateCourseVotingStatus('closed')}
+                                                style={{ 
+                                                    display: 'inline-flex', 
+                                                    alignItems: 'center', 
+                                                    gap: '5px', 
+                                                    fontSize: '0.82rem', 
+                                                    padding: '0.45rem 0.85rem',
+                                                    background: '#8B1E2F',
+                                                    color: '#ffffff',
+                                                    border: 'none',
+                                                    borderRadius: '8px',
+                                                    fontWeight: 700
+                                                }}
+                                            >
+                                                {updatingVotingStatus ? <Loader2 className="spin" size={14} /> : <CheckCircle2 size={14} />}
+                                                {lang === 'ar' ? 'إغلاق التصويت واعتماد الـ 5 الأفضل' : 'Close Voting & Finalize Top 5'}
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Live Voter Selection & Submission Bar when Open */}
+                        {courseVotingStatus === 'open' && canUserVote && (
+                            <div style={{
+                                marginTop: '1.25rem',
+                                paddingTop: '1.25rem',
+                                borderTop: '1px solid var(--border, #e2e8f0)',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                flexWrap: 'wrap',
+                                gap: '1rem',
+                                background: 'rgba(0, 45, 86, 0.03)',
+                                padding: '1rem',
+                                borderRadius: '10px'
+                            }}>
+                                <div>
+                                    <span style={{ fontSize: '0.95rem', fontWeight: 800, color: myVotedProjectIds.length === 5 ? '#16a34a' : 'var(--text-0, #0f172a)' }}>
+                                        {lang === 'ar' 
+                                            ? `المشاريع المحددة للتصويت: ${myVotedProjectIds.length} / 5` 
+                                            : `Selected Projects for Vote: ${myVotedProjectIds.length} / 5`}
+                                    </span>
+                                    <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted, #64748b)' }}>
+                                        {lang === 'ar' 
+                                            ? 'اختر حتى 5 مشاريع من القائمة أدناه ثم اضغط على زر حفظ وتأكيد التصويت.' 
+                                            : 'Select up to 5 standout projects below, then click Submit Votes.'}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleSubmitVotes}
+                                    disabled={submittingVotes || myVotedProjectIds.length === 0}
+                                    className="btn btn-primary"
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '0.6rem 1.4rem',
+                                        fontWeight: 700,
+                                        borderRadius: '8px'
+                                    }}
+                                >
+                                    {submittingVotes ? <Loader2 className="spin" size={16} /> : <CheckCircle2 size={16} />}
+                                    {lang === 'ar' ? 'حفظ وتأكيد التصويت' : 'Submit My Votes'}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Trainee Informative Note */}
+                        {courseVotingStatus === 'open' && !canUserVote && (
+                            <div style={{
+                                marginTop: '1rem',
+                                padding: '0.85rem 1rem',
+                                background: 'rgba(0, 45, 86, 0.04)',
+                                borderRadius: '8px',
+                                fontSize: '0.85rem',
+                                color: 'var(--text-muted)'
+                            }}>
+                                ℹ️ {lang === 'ar' 
+                                    ? 'التصويت متاح لأعضاء هيئة التدريس والمدربين المشرفين. سيتم إعلان المشاريع الـ 5 الفائزة فور اكتمال وإغلاق التصويت.' 
+                                    : 'Voting is conducted by faculty and supervising trainers. Top 5 winning projects will be published here once voting closes.'}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Top 5 Showcase (if voting closed or results ready) */}
+                    {votingTop5.length > 0 && (
+                        <div style={{
+                            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.02) 100%)',
+                            border: '1.5px solid rgba(245, 158, 11, 0.4)',
+                            borderRadius: '16px',
+                            padding: '1.75rem',
+                            marginBottom: '2rem'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Trophy size={22} style={{ color: '#F59E0B' }} />
+                                    <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#92400e' }}>
+                                        {lang === 'ar' ? '🏆 المشاريع الـ 5 الأفضل في تصويت نهاية الدورة' : '🏆 Top 5 Projects Selected by End-of-Course Voting'}
+                                    </h4>
+                                </div>
+                                <span style={{
+                                    fontSize: '0.8rem',
+                                    fontWeight: 700,
+                                    padding: '0.25rem 0.75rem',
+                                    borderRadius: '12px',
+                                    background: '#F59E0B',
+                                    color: '#ffffff'
+                                }}>
+                                    {votingTop5.length} {lang === 'ar' ? 'مشاريع متصدرة' : 'Top Projects'}
+                                </span>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                                {votingTop5.map(tp => (
+                                    <div key={tp.id} style={{
+                                        background: 'var(--bg-0, #ffffff)',
+                                        border: '1.5px solid #F59E0B',
+                                        borderRadius: '12px',
+                                        padding: '1.15rem',
+                                        boxShadow: '0 2px 8px rgba(245, 158, 11, 0.08)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        justifyContent: 'space-between'
+                                    }}>
+                                        <div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                <span style={{
+                                                    background: '#F59E0B',
+                                                    color: '#ffffff',
+                                                    fontWeight: 800,
+                                                    fontSize: '0.78rem',
+                                                    padding: '0.2rem 0.55rem',
+                                                    borderRadius: '6px'
+                                                }}>
+                                                    #{tp.vote_rank} in Votes
+                                                </span>
+                                                <span style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    fontSize: '0.82rem',
+                                                    fontWeight: 700,
+                                                    color: 'var(--primary, #002D56)'
+                                                }}>
+                                                    <Vote size={13} /> {tp.vote_count} {lang === 'ar' ? 'أصوات' : 'votes'}
+                                                </span>
+                                            </div>
+                                            <h5 style={{ margin: '0 0 0.4rem 0', fontSize: '1rem', fontWeight: 800, color: 'var(--text-0, #0f172a)' }}>
+                                                {tp.title}
+                                            </h5>
+                                            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted, #64748b)' }}>
+                                                <User size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '3px' }} />
+                                                {tp.trainee_name}
+                                                {tp.team_members && tp.team_members.length > 1 && (
+                                                    <span> ({tp.team_members.length} {lang === 'ar' ? 'أعضاء' : 'members'})</span>
+                                                )}
+                                            </p>
+                                        </div>
+
+                                        {tp.evaluation_score !== null && (
+                                            <div style={{ marginTop: '0.85rem', paddingTop: '0.65rem', borderTop: '1px solid var(--border, #f1f5f9)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                                {lang === 'ar' ? 'الدرجة الأكاديمية:' : 'Academic Score:'} <strong style={{ color: 'var(--text-0)' }}>{tp.evaluation_score}/100</strong>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Eligible Projects Voting Grid */}
+                    <div style={{ marginBottom: '1.25rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>
+                                {lang === 'ar' ? 'مشاريع الدورة التدريبية المؤهلة للتصويت' : 'Eligible Course Projects'} ({votingProjects.length})
+                            </h4>
+                            <Link to={`/leaderboard?course_id=${courseId}`} className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                <Trophy size={14} style={{ color: '#F59E0B' }} />
+                                {lang === 'ar' ? 'عرض لوحة الترتيب الأكاديمي الكاملة' : 'View Full Academic Leaderboard'}
+                            </Link>
+                        </div>
+
+                        {loadingVoting ? (
+                            <div style={{ textAlign: 'center', padding: '3rem' }}>
+                                <Loader2 className="spin" size={32} />
+                            </div>
+                        ) : votingProjects.length === 0 ? (
+                            <div className="card p-4" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                                <Lightbulb size={40} strokeWidth={1.5} style={{ marginBottom: '0.5rem' }} />
+                                <p style={{ margin: 0 }}>{lang === 'ar' ? 'لا توجد مشاريع مسجلة في هذه الدورة بعد.' : 'No submitted projects found in this course yet.'}</p>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
+                                {votingProjects.map(proj => {
+                                    const isSelected = myVotedProjectIds.includes(Number(proj.id));
+                                    const canSelectMore = myVotedProjectIds.length < 5;
+
+                                    return (
+                                        <div 
+                                            key={proj.id}
+                                            style={{
+                                                background: 'var(--bg-0, #ffffff)',
+                                                border: isSelected 
+                                                    ? '2px solid #16a34a' 
+                                                    : proj.is_top_5 
+                                                    ? '2px solid #F59E0B' 
+                                                    : '1px solid var(--border, #e2e8f0)',
+                                                borderRadius: '14px',
+                                                padding: '1.25rem',
+                                                boxShadow: isSelected ? '0 4px 14px rgba(22, 163, 74, 0.12)' : '0 2px 8px rgba(0,0,0,0.03)',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'space-between',
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                        >
+                                            <div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                                                    <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-0, #0f172a)' }}>
+                                                        {proj.title}
+                                                    </h4>
+                                                    {proj.is_top_5 && (
+                                                        <span style={{
+                                                            background: 'rgba(245, 158, 11, 0.15)',
+                                                            color: '#b45309',
+                                                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                                                            fontWeight: 800,
+                                                            fontSize: '0.75rem',
+                                                            padding: '0.15rem 0.5rem',
+                                                            borderRadius: '6px',
+                                                            whiteSpace: 'nowrap'
+                                                        }}>
+                                                            🏆 Top 5 (#{proj.vote_rank})
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.84rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.45 }}>
+                                                    {proj.description ? proj.description.substring(0, 110) + '…' : (lang === 'ar' ? 'مشروع تدريبي مقدم ضمن الدورة.' : 'Training project idea.')}
+                                                </p>
+
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.75rem', fontSize: '0.82rem', color: 'var(--text-1, #334155)' }}>
+                                                    <User size={13} className="text-primary" />
+                                                    <strong>{proj.trainee_name}</strong>
+                                                    {proj.student_id && <span style={{ color: 'var(--text-muted)' }}>({proj.student_id})</span>}
+                                                    {proj.team_members && proj.team_members.length > 1 && (
+                                                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: '4px' }}>
+                                                            + {proj.team_members.length - 1} {lang === 'ar' ? 'أعضاء' : 'teammates'}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                                                    {/* Academic Score Pill */}
+                                                    <span style={{
+                                                        fontSize: '0.78rem',
+                                                        fontWeight: 700,
+                                                        padding: '0.2rem 0.55rem',
+                                                        borderRadius: '6px',
+                                                        background: 'rgba(0, 45, 86, 0.06)',
+                                                        color: 'var(--primary, #002D56)'
+                                                    }}>
+                                                        {lang === 'ar' ? 'الدرجة الأكاديمية:' : 'Eval Score:'} {proj.evaluation_score !== null ? `${proj.evaluation_score}/100` : (lang === 'ar' ? 'قيد التقييم' : 'Pending')}
+                                                    </span>
+
+                                                    {/* Votes Count Pill */}
+                                                    <span style={{
+                                                        fontSize: '0.78rem',
+                                                        fontWeight: 700,
+                                                        padding: '0.2rem 0.55rem',
+                                                        borderRadius: '6px',
+                                                        background: proj.vote_count > 0 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(100, 116, 139, 0.08)',
+                                                        color: proj.vote_count > 0 ? '#b45309' : '#64748b',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
+                                                    }}>
+                                                        <Vote size={12} /> {proj.vote_count} {lang === 'ar' ? 'أصوات' : 'votes'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Action Button for Authorized Voters when Open */}
+                                            {courseVotingStatus === 'open' && canUserVote && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleToggleVote(proj.id)}
+                                                    disabled={!isSelected && !canSelectMore}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '0.65rem 1rem',
+                                                        borderRadius: '8px',
+                                                        fontSize: '0.88rem',
+                                                        fontWeight: 700,
+                                                        cursor: !isSelected && !canSelectMore ? 'not-allowed' : 'pointer',
+                                                        border: isSelected ? 'none' : '1.5px solid var(--border, #cbd5e1)',
+                                                        background: isSelected ? '#16a34a' : 'var(--bg-0, #ffffff)',
+                                                        color: isSelected ? '#ffffff' : 'var(--text-0, #0f172a)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '6px',
+                                                        transition: 'all 0.15s ease'
+                                                    }}
+                                                >
+                                                    {isSelected ? (
+                                                        <>
+                                                            <CheckCircle2 size={16} />
+                                                            {lang === 'ar' ? 'تم الاختيار للتصويت ✓' : 'Selected for Vote ✓'}
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Plus size={16} />
+                                                            {lang === 'ar' ? 'اختيار هذا المشروع' : 'Vote for this Project'}
+                                                        </>
+                                                    )}
+                                                </button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
