@@ -22,12 +22,10 @@ $where = $courseId ? "WHERE ti.course_id = $courseId" : "";
 $stmt = $db->prepare("
     SELECT 
         ti.id,
-        ti.title,
-        ti.title,
-        ti.description,
+        ti.title_en AS title,
+        ti.description_en AS description,
         ti.status,
         ti.course_id,
-        tc.name AS course_name,
         tc.name AS course_name,
         ti.owner_id AS trainee_id,
         u.full_name AS trainee_name,

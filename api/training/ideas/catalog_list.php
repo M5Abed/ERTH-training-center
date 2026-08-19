@@ -41,8 +41,9 @@ if ($count === 0) {
                 skills TEXT NULL,
                 display_order INT DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+        $db->exec("
             CREATE TABLE IF NOT EXISTS proposals_pregenerated (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 catalog_project_id INT NOT NULL,
@@ -51,7 +52,7 @@ if ($count === 0) {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE KEY idx_pregen_proj_section (catalog_project_id, section_key),
                 INDEX idx_pregen_proj (catalog_project_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ");
 
         $catalog = getCatalog64();
@@ -105,7 +106,7 @@ $takenSql = "
     SELECT 
         ti.id AS idea_id,
         ti.catalog_project_id,
-        ti.title AS idea_title,
+        ti.title_en AS idea_title,
         ti.owner_id,
         ti.course_id,
         ti.status,
