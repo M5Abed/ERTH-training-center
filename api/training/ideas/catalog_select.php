@@ -103,11 +103,16 @@ if ($trainingIdeaId) {
     }
 
     // Check if trainee already has an idea for this course
-    $existStmt = $db->prepare("SELECT id FROM training_ideas WHERE owner_id = ? AND course_id = ?");
+    $existStmt = $db->prepare("SELECT id, status FROM training_ideas WHERE owner_id = ? AND course_id = ?");
     $existStmt->execute([$uid, $courseId]);
-    $existingId = (int)$existStmt->fetchColumn();
+    $existingRow = $existStmt->fetch();
+    $existingId = $existingRow ? (int)$existingRow['id'] : 0;
+    $existingStatus = strtolower($existingRow['status'] ?? '');
 
     if ($existingId) {
+        if (($existingStatus === 'approved' || $existingStatus === 'completed') && !$isEvaluator) {
+            respondError("This project idea has been officially approved by the supervisor and cannot be replaced. You can only add team members or upload files until training is complete.", 403);
+        }
         $ideaId = $existingId;
         // Update catalog_project_id, title, and reset to submitted
         $updCatStmt = $db->prepare("

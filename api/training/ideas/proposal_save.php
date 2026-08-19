@@ -65,11 +65,11 @@ $db = db();
 
 // Access control — trainees can only edit their own / team ideas
 if ($isEval) {
-    $stmt = $db->prepare("SELECT id, owner_id, proposal_json FROM training_ideas WHERE id = ?");
+    $stmt = $db->prepare("SELECT id, owner_id, status, proposal_json FROM training_ideas WHERE id = ?");
     $stmt->execute([$ideaId]);
 } else {
     $stmt = $db->prepare("
-        SELECT id, owner_id, proposal_json FROM training_ideas
+        SELECT id, owner_id, status, proposal_json FROM training_ideas
         WHERE id = ? AND (
             owner_id = ?
             OR EXISTS (
@@ -84,6 +84,11 @@ if ($isEval) {
 $idea = $stmt->fetch();
 if (!$idea) {
     respondError('Idea not found or access denied', 404);
+}
+
+$ideaStatus = strtolower($idea['status'] ?? '');
+if (!$isEval && ($ideaStatus === 'approved' || $ideaStatus === 'completed')) {
+    respondError("This project idea has been officially approved by the supervisor and the proposal is finalized and locked. You can still add team members and upload deliverables until training is complete.", 403);
 }
 
 // Parse existing proposal_json

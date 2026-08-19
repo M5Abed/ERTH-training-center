@@ -9,13 +9,16 @@ require_once __DIR__ . '/../../config.php';
 
 $user = requireRole(['trainee', 'trainer', 'admin']);
 $uid  = (int)$user['id'];
+$userRole = strtolower($user['role'] ?? 'trainee');
+$isAdmin = !empty($user['is_admin']) || $userRole === 'admin';
+$isTrainer = $userRole === 'trainer' || $isAdmin;
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);
 }
 
 $courseId = isset($_GET['course_id']) && $_GET['course_id'] !== '' ? (int)$_GET['course_id'] : null;
-$limit    = min((int)($_GET['limit'] ?? 100), 200);
+$limit    = min((int)($_GET['limit'] ?? 200), 500);
 
 $db = db();
 
@@ -29,6 +32,7 @@ if ($courseId) {
 $where = $courseId ? "WHERE ti.course_id = ?" : "";
 $params = $courseId ? [$courseId] : [];
 
+// 1. Projects Leaderboard Query
 $sql = "
     SELECT 
         ti.id,
@@ -68,7 +72,7 @@ $stmt = $db->prepare($sql);
 $stmt->execute($params);
 $projects = $stmt->fetchAll();
 
-// Attach team members
+// Attach team members to projects
 if (!empty($projects)) {
     $projectIds = array_column($projects, 'id');
     $inClause = implode(',', array_fill(0, count($projectIds), '?'));
@@ -103,18 +107,21 @@ if (!empty($projects)) {
     } catch (Exception $e) {}
 }
 
-// Calculate Top 5 by Votes per course
+// Calculate Top 5 Projects by Evaluation & Votes
 $projectsByCourse = [];
 foreach ($projects as $p) {
     $projectsByCourse[$p['course_id']][] = $p;
 }
 
-$top5Map = []; // [projectId => rank]
+$top5Map = [];
 $top5VotedList = [];
 
 foreach ($projectsByCourse as $cId => $cProjects) {
-    // Sort by vote_count DESC, ti.id ASC
+    // Determine Top 5: by academic score DESC, then vote_count DESC
     usort($cProjects, function($a, $b) {
+        $aScore = $a['evaluation_score'] !== null ? (float)$a['evaluation_score'] : -1;
+        $bScore = $b['evaluation_score'] !== null ? (float)$b['evaluation_score'] : -1;
+        if ($bScore !== $aScore) return $bScore <=> $aScore;
         $vDiff = (int)$b['vote_count'] - (int)$a['vote_count'];
         if ($vDiff !== 0) return $vDiff;
         return (int)$a['id'] - (int)$b['id'];
@@ -122,7 +129,7 @@ foreach ($projectsByCourse as $cId => $cProjects) {
     
     $vRank = 1;
     foreach ($cProjects as $cp) {
-        if ($vRank <= 5 && (int)$cp['vote_count'] > 0) {
+        if ($vRank <= 5) {
             $top5Map[$cp['id']] = $vRank;
             if ($courseId === null || $courseId === (int)$cId) {
                 $top5VotedList[] = [
@@ -143,21 +150,92 @@ foreach ($projectsByCourse as $cId => $cProjects) {
     }
 }
 
-// Format final output and attach is_top_5 flag
+// Format final projects output and attach is_top_5 flag
 $academicRank = 1;
 foreach ($projects as &$p) {
     $p['academic_rank']    = $academicRank++;
     $p['evaluation_score'] = $p['evaluation_score'] !== null ? round((float)$p['evaluation_score'], 2) : null;
     $p['vote_count']       = (int)$p['vote_count'];
-    $p['is_top_5']         = isset($top5Map[$p['id']]);
-    $p['vote_rank']        = $top5Map[$p['id']] ?? null;
+    $p['is_top_5']         = isset($top5Map[$p['id']]) || $p['academic_rank'] <= 5;
+    $p['top5_rank']        = $top5Map[$p['id']] ?? ($p['academic_rank'] <= 5 ? $p['academic_rank'] : null);
 }
 unset($p);
+
+// 2. Students / People Leaderboard Query
+$studentWhere = $courseId ? "WHERE te_enr.course_id = ?" : "";
+$studentParams = $courseId ? [$courseId] : [];
+
+$studentSql = "
+    SELECT 
+        u.id AS trainee_id,
+        u.full_name,
+        u.full_name_en,
+        u.student_id,
+        u.email,
+        u.avatar_url,
+        u.major,
+        u.college_key,
+        te_enr.course_id,
+        tc.name AS course_name,
+        te.final_score AS evaluation_score,
+        te.status AS evaluation_status,
+        te.feedback,
+        te.evaluated_at,
+        ANY_VALUE(COALESCE(ti_owned.id, ti_member.id)) AS project_id,
+        ANY_VALUE(COALESCE(ti_owned.title, ti_member.title, 'No Project')) AS project_title
+    FROM users u
+    JOIN trainee_enrollments te_enr ON te_enr.trainee_id = u.id
+    JOIN training_courses tc ON tc.id = te_enr.course_id
+    LEFT JOIN training_evaluations te ON (te.trainee_id = u.id AND te.course_id = te_enr.course_id)
+    LEFT JOIN training_ideas ti_owned ON (ti_owned.owner_id = u.id AND ti_owned.course_id = te_enr.course_id)
+    LEFT JOIN training_idea_members tim ON (tim.user_id = u.id)
+    LEFT JOIN training_ideas ti_member ON (ti_member.id = tim.idea_id AND ti_member.course_id = te_enr.course_id)
+    $studentWhere
+    GROUP BY u.id, te_enr.course_id, te.id
+    ORDER BY 
+        CASE WHEN te.final_score IS NOT NULL THEN 0 ELSE 1 END,
+        te.final_score DESC,
+        u.full_name ASC
+    LIMIT $limit
+";
+
+$sStmt = $db->prepare($studentSql);
+$sStmt->execute($studentParams);
+$students = $sStmt->fetchAll();
+
+$studentRank = 1;
+foreach ($students as &$s) {
+    $s['rank'] = $studentRank++;
+    $s['evaluation_score'] = $s['evaluation_score'] !== null ? round((float)$s['evaluation_score'], 2) : null;
+}
+unset($s);
+
+// If user is a student / trainee, sanitize all evaluation scores for privacy
+if (!$isTrainer) {
+    foreach ($projects as &$p) {
+        $p['evaluation_score'] = null;
+        $p['evaluation_status'] = null;
+    }
+    unset($p);
+
+    foreach ($students as &$s) {
+        $s['evaluation_score'] = null;
+        $s['evaluation_status'] = null;
+        $s['feedback'] = null;
+    }
+    unset($s);
+
+    foreach ($top5VotedList as &$tp) {
+        $tp['evaluation_score'] = null;
+    }
+    unset($tp);
+}
 
 respond([
     'success'       => true,
     'course'        => $courseInfo,
     'voting_status' => $courseInfo['voting_status'] ?? ($projects[0]['voting_status'] ?? 'not_started'),
     'projects'      => $projects,
+    'students'      => $students,
     'top_5_voted'   => $top5VotedList
 ]);

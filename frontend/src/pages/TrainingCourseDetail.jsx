@@ -32,12 +32,16 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
 
     const [searchParams] = useSearchParams();
     const urlTab = searchParams.get('tab');
-    const [activeTab, setActiveTab] = useState(urlTab || 'topics');
+    const [activeTab, setActiveTab] = useState(urlTab === 'voting' && !isTrainer ? 'topics' : (urlTab || 'topics'));
 
     useEffect(() => {
         const t = searchParams.get('tab');
+        if (t === 'voting' && !isTrainer) {
+            setActiveTab('topics');
+            return;
+        }
         if (t) setActiveTab(t);
-    }, [searchParams]);
+    }, [searchParams, isTrainer]);
 
     const [course, setCourse] = useState(null);
     const [topics, setTopics] = useState([]);
@@ -463,6 +467,31 @@ void loop() {
             }
             return [...prev, pId];
         });
+    };
+
+    const handleAddVote = (projectId) => {
+        if (courseVotingStatus !== 'open') return;
+        const pId = Number(projectId);
+        if (myVotedProjectIds.includes(pId)) return;
+        if (myVotedProjectIds.length >= 5) {
+            alert(lang === 'ar' ? 'لقد بلغت الحد الأقصى للتصويت (5 مشاريع). يمكنك حذف مشروع محدد لإضافة غيره.' : 'You reached the max limit (5 projects). Remove a project to add another.');
+            return;
+        }
+        setMyVotedProjectIds(prev => [...prev, pId]);
+    };
+
+    const handleDeleteVote = (projectId) => {
+        if (courseVotingStatus !== 'open') return;
+        const pId = Number(projectId);
+        setMyVotedProjectIds(prev => prev.filter(id => id !== pId));
+    };
+
+    const handleClearAllVotes = () => {
+        if (courseVotingStatus !== 'open') return;
+        if (myVotedProjectIds.length === 0) return;
+        if (window.confirm(lang === 'ar' ? 'هل أنت متأكد من رغبتك في مسح كافة اختيارات التصويت المحددة؟' : 'Are you sure you want to clear all selected votes?')) {
+            setMyVotedProjectIds([]);
+        }
     };
 
     const handleSubmitVotes = async () => {
@@ -1371,9 +1400,11 @@ void loop() {
                 <button className={`tab-btn ${activeTab === 'evaluations' ? 'active' : ''}`} onClick={() => setActiveTab('evaluations')} data-magy-key="evaluations">
                     <Award size={16} /> {lang === 'ar' ? 'التقييم والدرجات' : 'Evaluations'}
                 </button>
-                <button className={`tab-btn ${activeTab === 'voting' ? 'active' : ''}`} onClick={() => setActiveTab('voting')} data-magy-key="voting">
-                    <Vote size={16} /> {lang === 'ar' ? 'تصويت الـ Top 5' : 'Top 5 Voting'}
-                </button>
+                {isTrainer && (
+                    <button className={`tab-btn ${activeTab === 'voting' ? 'active' : ''}`} onClick={() => setActiveTab('voting')} data-magy-key="voting">
+                        <Vote size={16} /> {lang === 'ar' ? 'تصويت الـ Top 5' : 'Top 5 Voting'}
+                    </button>
+                )}
                 <Link to={`/leaderboard?course_id=${courseId}`} className="tab-btn" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                     <Trophy size={16} style={{ color: '#F59E0B' }} /> {lang === 'ar' ? 'لوحة الترتيب' : 'Leaderboard'}
                 </Link>
@@ -2341,7 +2372,7 @@ void loop() {
             )}
 
             {/* Tab: End-of-Course Top 5 Project Voting */}
-            {activeTab === 'voting' && (
+            {activeTab === 'voting' && isTrainer && (
                 <div className="tab-content">
                     {/* Voting Header & Status Bar */}
                     <div className="card p-4" style={{ 
@@ -2362,8 +2393,8 @@ void loop() {
                                 </div>
                                 <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted, #64748b)' }}>
                                     {lang === 'ar'
-                                        ? 'نظام تصويت مستقل ومخصص للمشرفين والمدربين لاختيار أفضل 5 أفكار مشاريع في ختام الدورة التدريبية. يحق لكل مصوت اختيار حتى 5 مشاريع.'
-                                        : 'Independent faculty & trainer voting system to select the Top 5 standout projects. Each authorized voter may select up to 5 projects.'}
+                                        ? 'نظام تصويت مخصص للمشرفين والمدربين لإضافة وتعديل وحذف اختياراتهم حتى 5 مشاريع متميزة في ختام الدورة التدريبية.'
+                                        : 'Dedicated voting system for faculty & trainers to add, edit, and remove their selections (up to 5 standout projects).'}
                                 </p>
                             </div>
 
@@ -2429,50 +2460,105 @@ void loop() {
                             </div>
                         </div>
 
-                        {/* Live Voter Selection & Submission Bar when Open */}
+                        {/* Active Voter Selection / Management Bar (Add, Edit, Delete, Clear, Submit) */}
                         {courseVotingStatus === 'open' && canUserVote && (
                             <div style={{
                                 marginTop: '1.25rem',
                                 paddingTop: '1.25rem',
                                 borderTop: '1px solid var(--border, #e2e8f0)',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                flexWrap: 'wrap',
-                                gap: '1rem',
                                 background: 'rgba(0, 45, 86, 0.03)',
-                                padding: '1rem',
-                                borderRadius: '10px'
+                                padding: '1.25rem',
+                                borderRadius: '12px'
                             }}>
-                                <div>
-                                    <span style={{ fontSize: '0.95rem', fontWeight: 800, color: myVotedProjectIds.length === 5 ? '#16a34a' : 'var(--text-0, #0f172a)' }}>
-                                        {lang === 'ar' 
-                                            ? `المشاريع المحددة للتصويت: ${myVotedProjectIds.length} / 5` 
-                                            : `Selected Projects for Vote: ${myVotedProjectIds.length} / 5`}
-                                    </span>
-                                    <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted, #64748b)' }}>
-                                        {lang === 'ar' 
-                                            ? 'اختر حتى 5 مشاريع من القائمة أدناه ثم اضغط على زر حفظ وتأكيد التصويت.' 
-                                            : 'Select up to 5 standout projects below, then click Submit Votes.'}
-                                    </p>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.85rem' }}>
+                                    <div>
+                                        <span style={{ fontSize: '1rem', fontWeight: 800, color: myVotedProjectIds.length === 5 ? '#16a34a' : 'var(--text-0, #0f172a)' }}>
+                                            {lang === 'ar' 
+                                                ? `المشاريع المحددة لتصويتك: ${myVotedProjectIds.length} من أصل 5` 
+                                                : `Your Selected Votes: ${myVotedProjectIds.length} / 5`}
+                                        </span>
+                                        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginLeft: '8px', marginRight: '8px' }}>
+                                            ({5 - myVotedProjectIds.length} {lang === 'ar' ? 'متبقية' : 'remaining'})
+                                        </span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                        {myVotedProjectIds.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={handleClearAllVotes}
+                                                disabled={submittingVotes}
+                                                className="btn btn-sm btn-outline"
+                                                style={{ borderColor: '#ef4444', color: '#ef4444', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}
+                                            >
+                                                <Trash2 size={13} />
+                                                {lang === 'ar' ? 'مسح كافة الاختيارات' : 'Clear All'}
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={handleSubmitVotes}
+                                            disabled={submittingVotes || myVotedProjectIds.length === 0}
+                                            className="btn btn-primary btn-sm"
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.5rem 1.25rem', fontWeight: 700, borderRadius: '8px' }}
+                                        >
+                                            {submittingVotes ? <Loader2 className="spin" size={14} /> : <CheckCircle2 size={14} />}
+                                            {lang === 'ar' ? 'حفظ وتأكيد التصويت' : 'Submit / Save Votes'}
+                                        </button>
+                                    </div>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={handleSubmitVotes}
-                                    disabled={submittingVotes || myVotedProjectIds.length === 0}
-                                    className="btn btn-primary"
-                                    style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        padding: '0.6rem 1.4rem',
-                                        fontWeight: 700,
-                                        borderRadius: '8px'
-                                    }}
-                                >
-                                    {submittingVotes ? <Loader2 className="spin" size={16} /> : <CheckCircle2 size={16} />}
-                                    {lang === 'ar' ? 'حفظ وتأكيد التصويت' : 'Submit My Votes'}
-                                </button>
+
+                                {/* Active Selected Project Chips (with instant Delete button per vote) */}
+                                {myVotedProjectIds.length === 0 ? (
+                                    <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-muted, #64748b)' }}>
+                                        ℹ️ {lang === 'ar' 
+                                            ? 'لم تختر أي مشروع بعد. اضغط على زر "+ إضافة للتصويت" في بطاقات المشاريع أدناه لإضافتها.' 
+                                            : 'No projects selected yet. Click "+ Add Vote" on any project below to select it.'}
+                                    </p>
+                                ) : (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                        {myVotedProjectIds.map((pId, idx) => {
+                                            const proj = votingProjects.find(p => Number(p.id) === Number(pId));
+                                            return (
+                                                <div 
+                                                    key={pId} 
+                                                    style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        background: '#ffffff',
+                                                        border: '1.5px solid #16a34a',
+                                                        borderRadius: '20px',
+                                                        padding: '0.3rem 0.75rem',
+                                                        fontSize: '0.82rem',
+                                                        fontWeight: 700,
+                                                        boxShadow: '0 2px 6px rgba(22, 163, 74, 0.15)'
+                                                    }}
+                                                >
+                                                    <span style={{ color: '#16a34a' }}>#{idx + 1}</span>
+                                                    <span>{proj?.title || `Project #${pId}`}</span>
+                                                    {proj?.trainee_name && <span style={{ color: 'var(--text-muted)', fontSize: '0.76rem' }}>({proj.trainee_name})</span>}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteVote(pId)}
+                                                        title={lang === 'ar' ? 'حذف هذا الصوت' : 'Remove this vote'}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: '#ef4444',
+                                                            cursor: 'pointer',
+                                                            padding: '0 2px',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center'
+                                                        }}
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -2570,7 +2656,7 @@ void loop() {
                         </div>
                     )}
 
-                    {/* Eligible Projects Voting Grid */}
+                    {/* Eligible Projects Voting Grid with Add/Edit/Delete Vote controls */}
                     <div style={{ marginBottom: '1.25rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                             <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>
@@ -2680,39 +2766,60 @@ void loop() {
 
                                             {/* Action Button for Authorized Voters when Open */}
                                             {courseVotingStatus === 'open' && canUserVote && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleToggleVote(proj.id)}
-                                                    disabled={!isSelected && !canSelectMore}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '0.65rem 1rem',
-                                                        borderRadius: '8px',
-                                                        fontSize: '0.88rem',
-                                                        fontWeight: 700,
-                                                        cursor: !isSelected && !canSelectMore ? 'not-allowed' : 'pointer',
-                                                        border: isSelected ? 'none' : '1.5px solid var(--border, #cbd5e1)',
-                                                        background: isSelected ? '#16a34a' : 'var(--bg-0, #ffffff)',
-                                                        color: isSelected ? '#ffffff' : 'var(--text-0, #0f172a)',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        gap: '6px',
-                                                        transition: 'all 0.15s ease'
-                                                    }}
-                                                >
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                     {isSelected ? (
-                                                        <>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDeleteVote(proj.id)}
+                                                            style={{
+                                                                flex: 1,
+                                                                padding: '0.65rem 1rem',
+                                                                borderRadius: '8px',
+                                                                fontSize: '0.88rem',
+                                                                fontWeight: 700,
+                                                                cursor: 'pointer',
+                                                                border: '1.5px solid #16a34a',
+                                                                background: '#16a34a',
+                                                                color: '#ffffff',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                gap: '6px',
+                                                                boxShadow: '0 2px 8px rgba(22, 163, 74, 0.25)',
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                        >
                                                             <CheckCircle2 size={16} />
-                                                            {lang === 'ar' ? 'تم الاختيار للتصويت ✓' : 'Selected for Vote ✓'}
-                                                        </>
+                                                            {lang === 'ar' ? '✓ تم التصويت (اضغط للحذف)' : '✓ Voted (Click to Remove)'}
+                                                        </button>
                                                     ) : (
-                                                        <>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleAddVote(proj.id)}
+                                                            disabled={!canSelectMore}
+                                                            style={{
+                                                                flex: 1,
+                                                                padding: '0.65rem 1rem',
+                                                                borderRadius: '8px',
+                                                                fontSize: '0.88rem',
+                                                                fontWeight: 700,
+                                                                cursor: !canSelectMore ? 'not-allowed' : 'pointer',
+                                                                border: '1.5px solid var(--border, #cbd5e1)',
+                                                                background: 'var(--bg-0, #ffffff)',
+                                                                color: !canSelectMore ? 'var(--text-muted)' : 'var(--text-0, #0f172a)',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                gap: '6px',
+                                                                opacity: !canSelectMore ? 0.6 : 1,
+                                                                transition: 'all 0.15s ease'
+                                                            }}
+                                                        >
                                                             <Plus size={16} />
-                                                            {lang === 'ar' ? 'اختيار هذا المشروع' : 'Vote for this Project'}
-                                                        </>
+                                                            {lang === 'ar' ? '+ إضافة للتصويت' : '+ Add Vote'}
+                                                        </button>
                                                     )}
-                                                </button>
+                                                </div>
                                             )}
                                         </div>
                                     );

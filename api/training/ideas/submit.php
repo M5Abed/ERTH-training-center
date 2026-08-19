@@ -81,11 +81,16 @@ if ($existingMemberRow) {
 }
 
 // Check if submitter already owns an idea for this course
-$fStmt = $db->prepare("SELECT id, proposal_json FROM training_ideas WHERE owner_id = ? AND course_id = ?");
+$fStmt = $db->prepare("SELECT id, status, proposal_json FROM training_ideas WHERE owner_id = ? AND course_id = ?");
 $fStmt->execute([$uid, $courseId]);
 $existingRow = $fStmt->fetch();
 $existingIdeaId = $existingRow ? (int) $existingRow['id'] : 0;
+$existingStatus = strtolower($existingRow['status'] ?? '');
 $existingProposalJson = $existingRow['proposal_json'] ?? null;
+
+if ($existingIdeaId && ($existingStatus === 'approved' || $existingStatus === 'completed') && !$isAdmin) {
+    respondError("This project idea has been officially approved by the supervisor and cannot be modified. You can only add team members or upload files until training is complete.", 403);
+}
 
 // Validate all selected teammates
 if (!empty($teammateIds)) {

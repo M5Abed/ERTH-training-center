@@ -27,7 +27,7 @@ try {
     $db = db();
 
     // Verify idea exists & check authorization
-    $stmt = $db->prepare("SELECT id, owner_id, course_id FROM training_ideas WHERE id = ?");
+    $stmt = $db->prepare("SELECT id, owner_id, course_id, status FROM training_ideas WHERE id = ?");
     $stmt->execute([$ideaId]);
     $idea = $stmt->fetch();
 
@@ -37,11 +37,17 @@ try {
 
     $ideaOwnerId = (int)($idea['owner_id'] ?? 0);
     $courseId = (int)($idea['course_id'] ?? 0);
+    $ideaStatus = strtolower($idea['status'] ?? 'submitted');
 
     if (!$isAdmin) {
         if ($isTrainer) {
             verifyCourseAccess($courseId, $user);
         } else {
+            // Trainee cannot delete an approved idea
+            if ($ideaStatus === 'approved' || $ideaStatus === 'completed') {
+                respondError('This project idea has been officially approved by the supervisor and cannot be deleted. You can only add team members or upload deliverables until training is complete.', 403);
+            }
+
             // Trainee: must be owner or leader in training_idea_members
             $isOwner = ($uid > 0 && $uid === $ideaOwnerId);
             if (!$isOwner) {

@@ -345,7 +345,7 @@ export default function Landing() {
                 <div className="lp-footer-in">
                     <div className="lp-footer-brand">
                         <img src="/assets/university_logo.png" alt="NMU" height="32" style={{ objectFit: 'contain' }} />
-                        <span><strong>NMU Faculty of CS &amp; Engineering</strong> · ERTH Platform</span>
+                        <span><strong>NMU Faculty of CS &amp; Engineering</strong></span>
                     </div>
                     <div className="lp-footer-links">
                         <a href="#tracks" className="lp-nl">Program</a>

@@ -940,7 +940,17 @@ export default function TraineeProjects() {
                                 </div>
 
                                 <div className="hero-banner-actions">
-                                    {(isOwner || isEvaluator) && (
+                                    {isEvaluator ? (
+                                        <button
+                                            type="button"
+                                            className="btn-hero-action btn-hero-delete"
+                                            onClick={(e) => handleDeleteIdea(e, activeProject.id)}
+                                            title={lang === 'ar' ? 'حذف فكرة المشروع (صلاحية المشرف)' : 'Delete Project Proposal (Supervisor Action)'}
+                                        >
+                                            <Trash2 size={15} />
+                                            <span>{lang === 'ar' ? 'حذف الفكرة' : 'Delete Idea'}</span>
+                                        </button>
+                                    ) : (isOwner && activeProject.status !== 'approved' && activeProject.status !== 'completed') ? (
                                         <button
                                             type="button"
                                             className="btn-hero-action btn-hero-delete"
@@ -950,7 +960,12 @@ export default function TraineeProjects() {
                                             <Trash2 size={15} />
                                             <span>{lang === 'ar' ? 'حذف واختيار فكرة أخرى' : 'Delete & Restart'}</span>
                                         </button>
-                                    )}
+                                    ) : (activeProject.status === 'approved' || activeProject.status === 'completed') ? (
+                                        <span className="approved-lock-chip" title={lang === 'ar' ? 'تم اعتماد الفكرة رسمياً - لا يمكن تعديلها أو حذفها' : 'Idea approved - locked from edits/deletion'}>
+                                            <Lock size={14} />
+                                            <span>{lang === 'ar' ? 'فكرة معتمدة ومقفلة' : 'Approved & Locked'}</span>
+                                        </span>
+                                    ) : null}
                                 </div>
                             </div>
 
