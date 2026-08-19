@@ -304,6 +304,19 @@ function _autoMigrate(): void
         if (empty($tiCols)) {
             db()->exec("ALTER TABLE training_ideas ADD COLUMN catalog_project_id INT NULL AFTER course_id");
         }
+
+        // 9. Ensure course_eval_criteria table exists (dynamic rubric per course)
+        db()->exec("
+            CREATE TABLE IF NOT EXISTS course_eval_criteria (
+              id          INT AUTO_INCREMENT PRIMARY KEY,
+              course_id   INT NOT NULL,
+              name        VARCHAR(150) NOT NULL,
+              weight      DECIMAL(5,2) NOT NULL,
+              order_index INT NOT NULL DEFAULT 0,
+              created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              INDEX idx_cec_course (course_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
     } catch (\Exception $e) {
         // silently skip if user lacks CREATE privileges
         error_log("Auto-migration failed: " . $e->getMessage());
@@ -442,7 +455,8 @@ function body(): array
         'params',
         'context',
         'rubric',
-        'grades'
+        'grades',
+        'criteria'
     ];
     foreach ($data as $key => $value) {
         if (is_array($value) && !in_array($key, $allowedArrayFields, true)) {

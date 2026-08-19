@@ -1,0 +1,163 @@
+<?php
+// =========================================================
+// NMU TRAINING — Academic Leaderboard & End-of-Course Voting Results
+// GET /api/training/leaderboard/list.php?course_id=X
+// Access: Trainee, Trainer, or Admin
+// =========================================================
+
+require_once __DIR__ . '/../../config.php';
+
+$user = requireRole(['trainee', 'trainer', 'admin']);
+$uid  = (int)$user['id'];
+
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    respondError('Method not allowed', 405);
+}
+
+$courseId = isset($_GET['course_id']) && $_GET['course_id'] !== '' ? (int)$_GET['course_id'] : null;
+$limit    = min((int)($_GET['limit'] ?? 100), 200);
+
+$db = db();
+
+$courseInfo = null;
+if ($courseId) {
+    $cStmt = $db->prepare("SELECT id, name, name AS name_ar, voting_status FROM training_courses WHERE id = ?");
+    $cStmt->execute([$courseId]);
+    $courseInfo = $cStmt->fetch();
+}
+
+$where = $courseId ? "WHERE ti.course_id = ?" : "";
+$params = $courseId ? [$courseId] : [];
+
+$sql = "
+    SELECT 
+        ti.id,
+        COALESCE(ti.title, 'Untitled Project') AS title,
+        COALESCE(ti.description, '') AS description,
+        ti.tech_stack,
+        ti.status,
+        ti.course_id,
+        tc.name AS course_name,
+        tc.voting_status,
+        ti.owner_id AS trainee_id,
+        u.full_name AS trainee_name,
+        u.student_id,
+        u.email AS trainee_email,
+        u.avatar_url AS trainee_avatar,
+        te.final_score AS evaluation_score,
+        te.status AS evaluation_status,
+        te.evaluated_at,
+        COUNT(DISTINCT cpv.id) AS vote_count,
+        ti.created_at
+    FROM training_ideas ti
+    JOIN training_courses tc ON tc.id = ti.course_id
+    JOIN users u ON u.id = ti.owner_id
+    LEFT JOIN training_evaluations te ON (te.trainee_id = ti.owner_id AND te.course_id = ti.course_id)
+    LEFT JOIN course_project_votes cpv ON (cpv.project_id = ti.id AND cpv.course_id = ti.course_id)
+    $where
+    GROUP BY ti.id
+    ORDER BY 
+        CASE WHEN te.final_score IS NOT NULL THEN 0 ELSE 1 END,
+        te.final_score DESC,
+        vote_count DESC,
+        ti.id ASC
+    LIMIT $limit
+";
+
+$stmt = $db->prepare($sql);
+$stmt->execute($params);
+$projects = $stmt->fetchAll();
+
+// Attach team members
+if (!empty($projects)) {
+    $projectIds = array_column($projects, 'id');
+    $inClause = implode(',', array_fill(0, count($projectIds), '?'));
+    
+    try {
+        $mStmt = $db->prepare("
+            SELECT tim.idea_id, tim.user_id, tim.role, 
+                   u.full_name, u.student_id, u.email
+            FROM training_idea_members tim
+            JOIN users u ON tim.user_id = u.id
+            WHERE tim.idea_id IN ($inClause)
+            ORDER BY CASE WHEN tim.role = 'leader' THEN 0 ELSE 1 END, u.full_name ASC
+        ");
+        $mStmt->execute($projectIds);
+        $members = $mStmt->fetchAll();
+        
+        $membersByIdea = [];
+        foreach ($members as $m) {
+            $membersByIdea[$m['idea_id']][] = [
+                'user_id'    => (int)$m['user_id'],
+                'role'       => $m['role'],
+                'full_name'  => $m['full_name'],
+                'student_id' => $m['student_id'],
+                'email'      => $m['email']
+            ];
+        }
+        
+        foreach ($projects as &$p) {
+            $p['team_members'] = $membersByIdea[$p['id']] ?? [];
+        }
+        unset($p);
+    } catch (Exception $e) {}
+}
+
+// Calculate Top 5 by Votes per course
+$projectsByCourse = [];
+foreach ($projects as $p) {
+    $projectsByCourse[$p['course_id']][] = $p;
+}
+
+$top5Map = []; // [projectId => rank]
+$top5VotedList = [];
+
+foreach ($projectsByCourse as $cId => $cProjects) {
+    // Sort by vote_count DESC, ti.id ASC
+    usort($cProjects, function($a, $b) {
+        $vDiff = (int)$b['vote_count'] - (int)$a['vote_count'];
+        if ($vDiff !== 0) return $vDiff;
+        return (int)$a['id'] - (int)$b['id'];
+    });
+    
+    $vRank = 1;
+    foreach ($cProjects as $cp) {
+        if ($vRank <= 5 && (int)$cp['vote_count'] > 0) {
+            $top5Map[$cp['id']] = $vRank;
+            if ($courseId === null || $courseId === (int)$cId) {
+                $top5VotedList[] = [
+                    'id'               => $cp['id'],
+                    'title'            => $cp['title'],
+                    'trainee_name'     => $cp['trainee_name'],
+                    'student_id'       => $cp['student_id'],
+                    'team_members'     => $cp['team_members'] ?? [],
+                    'course_id'        => $cp['course_id'],
+                    'course_name'      => $cp['course_name'],
+                    'vote_count'       => (int)$cp['vote_count'],
+                    'vote_rank'        => $vRank,
+                    'evaluation_score' => $cp['evaluation_score'] !== null ? round((float)$cp['evaluation_score'], 2) : null
+                ];
+            }
+        }
+        $vRank++;
+    }
+}
+
+// Format final output and attach is_top_5 flag
+$academicRank = 1;
+foreach ($projects as &$p) {
+    $p['academic_rank']    = $academicRank++;
+    $p['evaluation_score'] = $p['evaluation_score'] !== null ? round((float)$p['evaluation_score'], 2) : null;
+    $p['vote_count']       = (int)$p['vote_count'];
+    $p['is_top_5']         = isset($top5Map[$p['id']]);
+    $p['vote_rank']        = $top5Map[$p['id']] ?? null;
+}
+unset($p);
+
+respond([
+    'success'       => true,
+    'course'        => $courseInfo,
+    'voting_status' => $courseInfo['voting_status'] ?? ($projects[0]['voting_status'] ?? 'not_started'),
+    'projects'      => $projects,
+    'top_5_voted'   => $top5VotedList
+]);

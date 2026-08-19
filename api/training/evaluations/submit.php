@@ -12,24 +12,23 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respondError('Method not allowed', 405);
 }
 
-$data = body();
-$traineeId = (int)($data['trainee_id'] ?? 0);
-$courseId  = (int)($data['course_id'] ?? 0);
-$score     = (float)($data['final_score'] ?? 0);
-$status    = trim($data['status'] ?? 'pass'); // pass, fail, needs_revision
-$feedback  = sanitizeString($data['feedback'] ?? '');
-$criteria  = isset($data['criteria_scores']) ? json_encode($data['criteria_scores']) : null;
+$data          = body();
+$traineeId     = (int)($data['trainee_id'] ?? 0);
+$courseId      = (int)($data['course_id']  ?? 0);
+$status        = trim($data['status']   ?? 'pass');  // pass | fail | needs_revision
+$feedback      = sanitizeString($data['feedback'] ?? '');
+$criteriaInput = $data['criteria_scores'] ?? null;
 
 if (!$traineeId || !$courseId) {
     respondError('Trainee ID and Course ID are required');
 }
 
-if ($score < 0 || $score > 100) {
-    respondError('Score must be between 0 and 100');
-}
-
 if (!in_array($status, ['pass', 'fail', 'needs_revision'], true)) {
     respondError('Invalid evaluation status. Allowed: pass, fail, needs_revision');
+}
+
+if (!is_array($criteriaInput) || count($criteriaInput) === 0) {
+    respondError('criteria_scores must be a non-empty object of {name: score} pairs');
 }
 
 $db = db();
@@ -37,46 +36,80 @@ $db = db();
 // Enforce Object-Level Authorization
 verifyCourseAccess($courseId, $evaluator);
 
-// Ensure criteria_scores column exists in training_evaluations table
-try {
-    $db->exec("ALTER TABLE training_evaluations ADD COLUMN criteria_scores JSON DEFAULT NULL");
-} catch (Throwable $e) {}
+// ── Load this course's configured criteria ────────────────────────────────
+$cStmt = $db->prepare("
+    SELECT id, name, weight
+    FROM course_eval_criteria
+    WHERE course_id = ?
+    ORDER BY order_index ASC, id ASC
+");
+$cStmt->execute([$courseId]);
+$configuredCriteria = $cStmt->fetchAll();
 
-// Process and balance criteria_scores into a robust valid JSON string matching final_score
-$criteriaRaw = $data['criteria_scores'] ?? null;
-if (is_string($criteriaRaw)) {
-    $decoded = json_decode($criteriaRaw, true);
-    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-        $criteriaRaw = $decoded;
+// ── Calculate final score from submitted scores ───────────────────────────
+// Each criterion's maximum score equals its weight (so sum of all maxes = 100).
+// Final score = SUM of individual scores (already out-of-weight).
+// The backend independently recalculates — submitted final_score is ignored.
+
+$finalScore     = 0.0;
+$criteriaScores = [];
+
+if (!empty($configuredCriteria)) {
+    // Build a lookup: name (lowercase) → weight
+    $lookup = [];
+    foreach ($configuredCriteria as $c) {
+        $lookup[strtolower(trim($c['name']))] = (float)$c['weight'];
     }
-}
 
-// Calculate balanced rubric scores if missing or if the sum does not match final_score
-$critSum = 0;
-if (is_array($criteriaRaw)) {
-    $critSum = (float)($criteriaRaw['attendance'] ?? 0)
-             + (float)($criteriaRaw['architecture'] ?? 0)
-             + (float)($criteriaRaw['implementation'] ?? 0)
-             + (float)($criteriaRaw['presentation'] ?? 0)
-             + (float)($criteriaRaw['documentation'] ?? 0);
-}
+    foreach ($criteriaInput as $rawName => $rawScore) {
+        $key   = strtolower(trim($rawName));
+        $score = (float)$rawScore;
 
-if (!is_array($criteriaRaw) || abs($critSum - $score) > 1 || ($critSum == 100 && $score != 100)) {
-    $att = min(15, (int)round($score * 0.15));
-    $arch = min(20, (int)round($score * 0.20));
-    $impl = min(25, (int)round($score * 0.25));
-    $pres = min(20, (int)round($score * 0.20));
-    $doc = min(20, max(0, (int)round($score - ($att + $arch + $impl + $pres))));
-    $criteriaRaw = [
-        'attendance' => $att,
-        'architecture' => $arch,
+        if (!isset($lookup[$key])) {
+            // Unknown criterion — skip gracefully (do not error on stale data)
+            continue;
+        }
+
+        $maxScore = $lookup[$key];
+        // Clamp score to [0, maxScore]
+        $score = max(0.0, min($maxScore, $score));
+
+        $criteriaScores[$rawName] = $score;
+        $finalScore += $score;
+    }
+
+    // Clamp total to [0, 100]
+    $finalScore = max(0.0, min(100.0, round($finalScore, 2)));
+
+} else {
+    // ── Legacy fallback: no criteria configured, use hard-coded 5 defaults ──
+    $att  = min(15, max(0, (float)($criteriaInput['attendance']     ?? 0)));
+    $arch = min(20, max(0, (float)($criteriaInput['architecture']   ?? 0)));
+    $impl = min(25, max(0, (float)($criteriaInput['implementation'] ?? 0)));
+    $pres = min(20, max(0, (float)($criteriaInput['presentation']   ?? 0)));
+    $doc  = min(20, max(0, (float)($criteriaInput['documentation']  ?? 0)));
+
+    $finalScore = round($att + $arch + $impl + $pres + $doc, 2);
+    $criteriaScores = [
+        'attendance'     => $att,
+        'architecture'   => $arch,
         'implementation' => $impl,
-        'presentation' => $pres,
-        'documentation' => $doc
+        'presentation'   => $pres,
+        'documentation'  => $doc,
     ];
 }
 
-$criteriaJson = json_encode($criteriaRaw, JSON_UNESCAPED_UNICODE);
+// Validate range
+if ($finalScore < 0 || $finalScore > 100) {
+    respondError('Calculated score is out of range (0–100)');
+}
+
+$criteriaJson = json_encode($criteriaScores, JSON_UNESCAPED_UNICODE);
+
+// Ensure criteria_scores column exists
+try {
+    $db->exec("ALTER TABLE training_evaluations ADD COLUMN criteria_scores JSON DEFAULT NULL");
+} catch (Throwable $e) {}
 
 try {
     // Upsert evaluation record
@@ -86,37 +119,37 @@ try {
         VALUES
             (?, ?, ?, ?, ?, ?, ?, NOW())
         ON DUPLICATE KEY UPDATE
-            evaluator_id = VALUES(evaluator_id),
-            status = VALUES(status),
-            final_score = VALUES(final_score),
-            feedback = VALUES(feedback),
+            evaluator_id    = VALUES(evaluator_id),
+            status          = VALUES(status),
+            final_score     = VALUES(final_score),
+            feedback        = VALUES(feedback),
             criteria_scores = VALUES(criteria_scores),
-            evaluated_at = NOW()
+            evaluated_at    = NOW()
     ");
     $stmt->execute([
         $traineeId,
         $courseId,
         $evaluator['id'],
         $status,
-        $score,
+        $finalScore,
         $feedback ?: null,
         $criteriaJson
     ]);
 
-    // Send notification to trainee
+    // Notify trainee
     $nStmt = $db->prepare("
         INSERT INTO notifications (user_id, type, message_en, message_ar)
         VALUES (?, 'training_evaluation', ?, ?)
     ");
-    $msgEn = "Your training evaluation for course has been submitted. Status: " . strtoupper($status) . " (Score: $score/100).";
-    $msgAr = "تم رصد تقييمك للتدريب الصيفي. الحالة: " . strtoupper($status) . " (الدرجة: $score/100).";
+    $msgEn = "Your training evaluation has been submitted. Status: " . strtoupper($status) . " (Score: $finalScore/100).";
+    $msgAr = "تم رصد تقييمك للتدريب الصيفي. الحالة: " . strtoupper($status) . " (الدرجة: $finalScore/100).";
     $nStmt->execute([$traineeId, $msgEn, $msgAr]);
 
     respond([
-        'success' => true,
-        'message' => 'Trainee evaluation submitted successfully',
-        'status' => $status,
-        'final_score' => $score
+        'success'     => true,
+        'message'     => 'Trainee evaluation submitted successfully',
+        'status'      => $status,
+        'final_score' => $finalScore,
     ]);
 } catch (Throwable $e) {
     respondError('Database error saving evaluation: ' . $e->getMessage(), 500);
