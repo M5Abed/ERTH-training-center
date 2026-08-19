@@ -479,7 +479,7 @@ export default function Admin() {
                                             <td>{getCollegeName(u.college_key)}</td>
                                             <td>{u.academic_year ? `Y${u.academic_year}` : '—'}</td>
                                             <td>{(u.user_skills || u.skills || []).length}</td>
-                                            <td>{u.avg_rating ? `★ ${Number(u.avg_rating).toFixed(1)}` : '—'}</td>
+                                            <td>{u.avg_rating ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Star size={12} fill="#eab308" color="#eab308" /> {Number(u.avg_rating).toFixed(1)}</span> : '—'}</td>
                                             <td style={{ color: 'var(--muted)' }}>{u.created_at ? formatDate(u.created_at) : '—'}</td>
                                             <td>
                                                 <button

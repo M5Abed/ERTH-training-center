@@ -7,7 +7,7 @@ import {
     Zap, ArrowRight, BookOpen, Lightbulb, CheckCircle2, Shield,
     Clock, Upload, ExternalLink, TrendingUp,
     Cpu, ChevronRight, Download, BarChart3, Award,
-    UserCheck, Crown, User, ThumbsUp, Sparkles, AlertCircle
+    UserCheck, Crown, User, ThumbsUp, Sparkles, AlertCircle, Check
 } from 'lucide-react';
 import './Dashboard.css';
 
@@ -209,7 +209,7 @@ export default function Dashboard() {
                                                         <span>{lang === 'ar' ? ms.descAr : ms.descEn}</span>
                                                     </div>
                                                     <div className={`dash-ms-status ${ms.done ? 'done' : ''}`}>
-                                                        {ms.done ? '✓' : <Clock size={11}/>}
+                                                        {ms.done ? <Check size={11}/> : <Clock size={11}/>}
                                                     </div>
                                                 </div>
                                             ))}

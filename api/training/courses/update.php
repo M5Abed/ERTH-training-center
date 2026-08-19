@@ -13,20 +13,23 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = body();
-$courseId      = (int)($data['course_id'] ?? 0);
-$name          = sanitizeString($data['name'] ?? '');
-$description   = sanitizeString($data['description'] ?? '');
+$courseId      = (int)($data['course_id'] ?? $data['id'] ?? 0);
+$nameEn        = sanitizeString($data['name_en'] ?? $data['name'] ?? '');
+$nameAr        = sanitizeString($data['name_ar'] ?? '');
+$descriptionEn = sanitizeString($data['description_en'] ?? $data['description'] ?? '');
+$descriptionAr = sanitizeString($data['description_ar'] ?? '');
 $startDate     = trim($data['start_date'] ?? '');
 $endDate       = trim($data['end_date'] ?? '');
 $durationHours = (int)($data['duration_hours'] ?? 40);
 if ($durationHours <= 0) $durationHours = 40;
 $category      = sanitizeString($data['category'] ?? '');
 $level         = sanitizeString($data['level'] ?? '');
+$courseType    = sanitizeString($data['course_type'] ?? '');
 
 if (!$courseId) {
     respondError('Course ID is required');
 }
-if (!$name) {
+if (!$nameEn) {
     respondError('Course name is required');
 }
 if (!$category) {
@@ -52,17 +55,32 @@ verifyCourseAccess($courseId, $user);
 try {
     $updateStmt = $db->prepare("
         UPDATE training_courses 
-        SET name = ?, category = ?, level = ?, description = ?, start_date = ?, end_date = ?, duration_hours = ?
+        SET name_en = ?, 
+            name_ar = CASE WHEN ? != '' THEN ? ELSE name_ar END, 
+            category = ?, 
+            level = ?, 
+            description_en = ?, 
+            description_ar = CASE WHEN ? != '' THEN ? ELSE description_ar END, 
+            start_date = ?, 
+            end_date = ?, 
+            duration_hours = ?,
+            course_type = CASE WHEN ? != '' THEN ? ELSE course_type END
         WHERE id = ?
     ");
     $updateStmt->execute([
-        $name,
+        $nameEn,
+        $nameAr,
+        $nameAr,
         $category,
         $level,
-        $description ?: null,
+        $descriptionEn ?: null,
+        $descriptionAr,
+        $descriptionAr,
         $startDate ?: null,
         $endDate ?: null,
         $durationHours,
+        $courseType,
+        $courseType,
         $courseId
     ]);
 

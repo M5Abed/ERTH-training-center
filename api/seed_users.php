@@ -80,6 +80,10 @@ $stmt = $db->prepare("
 ");
 $stmt->execute([$traineePass]);
 
+// 4. Update all other trainee accounts
+$stmt = $db->prepare("UPDATE users SET password_hash = ?, email_verified = 1, approval_status = 'approved' WHERE role = 'trainee'");
+$stmt->execute([$traineePass]);
+
 // Clear rate limits
 $db->query("DELETE FROM otp_rate_limits");
 

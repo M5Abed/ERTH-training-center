@@ -376,8 +376,8 @@ export default function Profile() {
                             <div className="profile-completion-header">
                                 <span>{lang === 'ar' ? 'اكتمال الملف الشخصي' : 'Profile Completion'}</span>
                                 {completionPct >= 100 ? (
-                                    <span className="profile-completion-done">
-                                        ✓ {lang === 'ar' ? 'مكتمل' : 'Complete'}
+                                    <span className="profile-completion-done" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                        <Check size={12} /> {lang === 'ar' ? 'مكتمل' : 'Complete'}
                                     </span>
                                 ) : (
                                     <span style={{ color: completionColor, fontWeight: 700 }}>{completionPct}%</span>

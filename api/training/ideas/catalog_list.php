@@ -86,6 +86,25 @@ if ($count === 0) {
 $courseId = isset($_GET['course_id']) && $_GET['course_id'] !== '' ? (int)$_GET['course_id'] : 0;
 $uid      = (int)($_SESSION['user_id'] ?? 0);
 
+// Strict Isolation: External students must NEVER access the 64 internal catalog ideas
+if ($uid) {
+    $uRoleStmt = $db->prepare("SELECT role, is_admin FROM users WHERE id = ?");
+    $uRoleStmt->execute([$uid]);
+    $uRole = $uRoleStmt->fetch();
+    $isAdminOrTrainer = $uRole && (!empty($uRole['is_admin']) || $uRole['role'] === 'admin' || $uRole['role'] === 'trainer');
+
+    if (!$isAdminOrTrainer) {
+        if ($courseId > 0) {
+            $enrCheck = $db->prepare("SELECT training_type FROM trainee_enrollments WHERE trainee_id = ? AND course_id = ?");
+            $enrCheck->execute([$uid, $courseId]);
+            $enrRow = $enrCheck->fetch();
+            if ($enrRow && $enrRow['training_type'] === 'external') {
+                respondError('External students must submit their own project idea and cannot access internal catalog ideas.', 403);
+            }
+        }
+    }
+}
+
 // Resolve ideas that the current user belongs to (as owner or team member)
 $myIdeaIds = [];
 if ($uid) {

@@ -29,6 +29,7 @@ export default function TrainingCourses() {
     const [endDate, setEndDate] = useState('');
     const [category, setCategory] = useState('');
     const [level, setLevel] = useState('');
+    const [courseType, setCourseType] = useState('both');
     const [durationHours, setDurationHours] = useState(40);
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState('');
@@ -70,6 +71,7 @@ export default function TrainingCourses() {
                     end_date: endDate,
                     category: category,
                     level: level,
+                    course_type: courseType,
                     duration_hours: parseInt(durationHours) || 40
                 })
             });
@@ -84,6 +86,7 @@ export default function TrainingCourses() {
                 setName(''); setDesc('');
                 setStartDate(''); setEndDate('');
                 setCategory(''); setLevel('');
+                setCourseType('both');
                 setDurationHours(40);
                 fetchCourses();
             } else {
@@ -329,13 +332,26 @@ export default function TrainingCourses() {
                                     />
                                 </div>
                             </div>
+                            <div className="form-group">
+                                <label>{lang === 'ar' ? 'نوع التدريب المتاح بالدورة:' : 'Supported Training Mode:'}</label>
+                                <select
+                                    className="form-control"
+                                    value={courseType}
+                                    onChange={e => setCourseType(e.target.value)}
+                                    style={{ width: '100%', padding: '0.5rem', borderRadius: '6px' }}
+                                >
+                                    <option value="both">{lang === 'ar' ? 'تدريب داخلي وخارجي معاً (Internal & External)' : 'Both Internal & External'}</option>
+                                    <option value="internal">{lang === 'ar' ? 'تدريب داخلي فقط (Internal Training Only)' : 'Internal Training Only'}</option>
+                                    <option value="external">{lang === 'ar' ? 'تدريب خارجي فقط (External Training Only)' : 'External Training Only'}</option>
+                                </select>
+                            </div>
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>Start Date</label>
+                                    <label>{lang === 'ar' ? 'تاريخ البدء' : 'Start Date'}</label>
                                     <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
                                 </div>
                                 <div className="form-group">
-                                    <label>End Date</label>
+                                    <label>{lang === 'ar' ? 'تاريخ الانتهاء' : 'End Date'}</label>
                                     <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
                                 </div>
                             </div>

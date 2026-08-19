@@ -18,16 +18,36 @@ if (!$courseId) {
     respondError('Course ID is required');
 }
 
+$providerIdParam = isset($_GET['provider_id']) ? $_GET['provider_id'] : null;
+
 $db = db();
-$stmt = $db->prepare("
+
+$query = "
     SELECT tt.*,
+           p.name AS provider_name,
+           p.name_ar AS provider_name_ar,
            (SELECT COUNT(*) FROM topic_content WHERE topic_id = tt.id) AS material_count,
-           (SELECT COUNT(*) FROM trainee_topic_progress WHERE topic_id = tt.id AND trainee_id = ?) AS is_completed
+           (SELECT COUNT(*) FROM trainee_topic_progress WHERE topic_id = tt.id AND trainee_id = ?) AS is_completed,
+           (SELECT COUNT(*) FROM trainee_enrollments te WHERE te.track_id = tt.id AND te.course_id = tt.course_id) AS trainee_count
     FROM training_topics tt
+    LEFT JOIN external_training_providers p ON tt.provider_id = p.id
     WHERE tt.course_id = ?
-    ORDER BY tt.order_index ASC, tt.id ASC
-");
-$stmt->execute([$uid, $courseId]);
+";
+$params = [$uid, $courseId];
+
+if ($providerIdParam !== null) {
+    if ($providerIdParam === 'internal' || $providerIdParam === '0' || $providerIdParam === '') {
+        $query .= " AND tt.provider_id IS NULL";
+    } else {
+        $query .= " AND tt.provider_id = ?";
+        $params[] = (int)$providerIdParam;
+    }
+}
+
+$query .= " ORDER BY tt.provider_id ASC, tt.order_index ASC, tt.id ASC";
+
+$stmt = $db->prepare($query);
+$stmt->execute($params);
 $topics = $stmt->fetchAll();
 
 respond(['topics' => $topics]);

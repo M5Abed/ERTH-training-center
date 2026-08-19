@@ -304,9 +304,91 @@ function _autoMigrate(): void
         if (empty($tiCols)) {
             db()->exec("ALTER TABLE training_ideas ADD COLUMN catalog_project_id INT NULL AFTER course_id");
         }
-    } catch (\Exception $e) {
-        // silently skip if user lacks CREATE privileges
-        error_log("Auto-migration failed: " . $e->getMessage());
+
+        // 9. Ensure external_training_providers table exists
+        db()->exec("
+            CREATE TABLE IF NOT EXISTS external_training_providers (
+              id            INT AUTO_INCREMENT PRIMARY KEY,
+              name          VARCHAR(255) NOT NULL,
+              name_ar       VARCHAR(255) DEFAULT NULL,
+              website_url   VARCHAR(255) DEFAULT NULL,
+              linkedin_url  VARCHAR(255) DEFAULT NULL,
+              is_contracted TINYINT(1) NOT NULL DEFAULT 1,
+              status        ENUM('active','inactive') DEFAULT 'active',
+              created_by    INT DEFAULT NULL,
+              created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+              INDEX idx_etp_status (status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
+
+        // Seed initial contracted providers if table is empty
+        $pCount = (int)db()->query("SELECT COUNT(*) FROM external_training_providers")->fetchColumn();
+        if ($pCount === 0) {
+            db()->exec("
+                INSERT INTO external_training_providers (name, name_ar, website_url, linkedin_url, is_contracted, status) VALUES
+                ('Information Technology Institute (ITI)', 'معهد تكنولوجيا المعلومات (ITI)', 'https://iti.gov.eg', 'https://www.linkedin.com/school/information-technology-institute-iti', 1, 'active'),
+                ('National Telecommunication Institute (NTI)', 'المعهد القومي للاتصالات (NTI)', 'https://nti.sci.eg', 'https://www.linkedin.com/school/national-telecommunication-institute', 1, 'active'),
+                ('Creativa Innovation Hubs', 'مراكز إبداع مصر الرقمية (كرياتيفا)', 'https://creativa.gov.eg', 'https://www.linkedin.com/company/creativainnovationhubs', 1, 'active'),
+                ('Digital Egypt Pioneers Initiative (DEPI)', 'مبادرة رواد مصر الرقمية', 'https://depi.gov.eg', 'https://www.linkedin.com/company/digital-egypt-pioneers', 1, 'active');
+            ");
+        }
+
+        // 10. Ensure course_external_providers table exists
+        db()->exec("
+            CREATE TABLE IF NOT EXISTS course_external_providers (
+              id            INT AUTO_INCREMENT PRIMARY KEY,
+              course_id     INT NOT NULL,
+              provider_id   INT NOT NULL,
+              created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE KEY idx_cep_course_provider (course_id, provider_id),
+              INDEX idx_cep_course (course_id),
+              INDEX idx_cep_provider (provider_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
+
+        // 11. Ensure training_topics has provider_id for provider-specific tracks
+        $ttProv = db()->query("SHOW COLUMNS FROM training_topics LIKE 'provider_id'")->fetchAll();
+        if (empty($ttProv)) {
+            db()->exec("ALTER TABLE training_topics ADD COLUMN provider_id INT NULL DEFAULT NULL AFTER course_id");
+            db()->exec("ALTER TABLE training_topics ADD INDEX idx_tt_provider (provider_id)");
+        }
+
+        // 12. Ensure training_courses has course_type
+        $ctCols = db()->query("SHOW COLUMNS FROM training_courses LIKE 'course_type'")->fetchAll();
+        if (empty($ctCols)) {
+            db()->exec("ALTER TABLE training_courses ADD COLUMN course_type ENUM('internal', 'external', 'both') NOT NULL DEFAULT 'both' AFTER status");
+        }
+
+        // 13. Ensure trainee_enrollments has external training & verification fields
+        $teType = db()->query("SHOW COLUMNS FROM trainee_enrollments LIKE 'training_type'")->fetchAll();
+        if (empty($teType)) {
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN training_type ENUM('internal', 'external') NOT NULL DEFAULT 'internal' AFTER course_id");
+        }
+        $teProv = db()->query("SHOW COLUMNS FROM trainee_enrollments LIKE 'provider_id'")->fetchAll();
+        if (empty($teProv)) {
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN provider_id INT NULL AFTER training_type");
+        }
+        $teTrack = db()->query("SHOW COLUMNS FROM trainee_enrollments LIKE 'track_id'")->fetchAll();
+        if (empty($teTrack)) {
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN track_id INT NULL AFTER provider_id");
+        }
+        $teCustName = db()->query("SHOW COLUMNS FROM trainee_enrollments LIKE 'custom_provider_name'")->fetchAll();
+        if (empty($teCustName)) {
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN custom_provider_name VARCHAR(255) NULL AFTER track_id");
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN custom_provider_website VARCHAR(255) NULL AFTER custom_provider_name");
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN custom_provider_linkedin VARCHAR(255) NULL AFTER custom_provider_website");
+        }
+        $teVerifDoc = db()->query("SHOW COLUMNS FROM trainee_enrollments LIKE 'verification_doc_url'")->fetchAll();
+        if (empty($teVerifDoc)) {
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN verification_doc_url VARCHAR(255) NULL AFTER custom_provider_linkedin");
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN verification_status ENUM('none', 'pending', 'approved', 'rejected') NOT NULL DEFAULT 'none' AFTER verification_doc_url");
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN verification_feedback TEXT NULL AFTER verification_status");
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN verification_reviewed_by INT NULL AFTER verification_feedback");
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN verification_reviewed_at DATETIME NULL AFTER verification_reviewed_by");
+        }
+    } catch (Throwable $e) {
+        error_log('Auto-migration warning: ' . $e->getMessage());
     }
 }
 _autoMigrate();

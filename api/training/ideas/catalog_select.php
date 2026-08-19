@@ -66,10 +66,14 @@ if ($trainingIdeaId) {
     $role        = strtolower($user['role'] ?? '');
     $isEvaluator = (bool)($user['is_admin'] || $role === 'admin' || $role === 'trainer');
     if (!$isEvaluator) {
-        $enrStmt = $db->prepare("SELECT id FROM trainee_enrollments WHERE trainee_id = ? AND course_id = ?");
+        $enrStmt = $db->prepare("SELECT id, training_type FROM trainee_enrollments WHERE trainee_id = ? AND course_id = ?");
         $enrStmt->execute([$uid, $courseId]);
-        if (!$enrStmt->fetch()) {
-            respondError('You are not enrolled in this course');
+        $enrRow = $enrStmt->fetch();
+        if (!$enrRow) {
+            respondError('You are not enrolled in this course', 403);
+        }
+        if ($enrRow['training_type'] === 'external') {
+            respondError('External students must submit their own project idea and cannot select catalog ideas.', 403);
         }
     }
 

@@ -170,10 +170,26 @@ if ($role === 'trainee' && !$isAdmin) {
                owner.email AS trainee_email,
                owner.email AS owner_email,
                owner.student_id AS student_id,
-               owner.student_id AS owner_student_id
+               owner.student_id AS owner_student_id,
+               te.training_type,
+               te.provider_id,
+               te.track_id,
+               te.custom_provider_name,
+               te.custom_provider_website,
+               te.custom_provider_linkedin,
+               te.verification_doc_url,
+               te.verification_status,
+               te.verification_feedback,
+               p.name AS provider_name,
+               p.name_ar AS provider_name_ar,
+               p.is_contracted AS provider_is_contracted,
+               tt.title AS track_name
         FROM training_ideas ti
         JOIN users owner ON ti.owner_id = owner.id
         LEFT JOIN users u ON ti.reviewed_by = u.id
+        LEFT JOIN trainee_enrollments te ON (te.trainee_id = ti.owner_id AND te.course_id = ti.course_id)
+        LEFT JOIN external_training_providers p ON te.provider_id = p.id
+        LEFT JOIN training_topics tt ON te.track_id = tt.id
         WHERE ti.course_id = ?
           AND (ti.owner_id = ? OR EXISTS (
               SELECT 1 FROM training_idea_members tim WHERE tim.idea_id = ti.id AND tim.user_id = ?
@@ -196,10 +212,21 @@ if ($role === 'trainee' && !$isAdmin) {
                u.full_name AS trainee_name, 
                u.email AS trainee_email, 
                u.student_id,
-               rev.full_name AS reviewer_name
+               rev.full_name AS reviewer_name,
+               te.training_type,
+               te.provider_id,
+               te.track_id,
+               te.custom_provider_name,
+               te.verification_status,
+               p.name AS provider_name,
+               p.name_ar AS provider_name_ar,
+               tt.title AS track_name
         FROM training_ideas ti
         JOIN users u ON ti.owner_id = u.id
         LEFT JOIN users rev ON ti.reviewed_by = rev.id
+        LEFT JOIN trainee_enrollments te ON (te.trainee_id = ti.owner_id AND te.course_id = ti.course_id)
+        LEFT JOIN external_training_providers p ON te.provider_id = p.id
+        LEFT JOIN training_topics tt ON te.track_id = tt.id
         WHERE ti.course_id = ?
         ORDER BY ti.updated_at DESC
     ");

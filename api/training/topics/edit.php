@@ -34,20 +34,37 @@ if (!$topic) {
 
 verifyCourseAccess((int)$topic['course_id'], $user);
 
-$stmt = $db->prepare("
-    UPDATE training_topics 
-    SET title = ?, description = ?, due_date = ?
-    WHERE id = ?
-");
-$stmt->execute([
-    $titleEn,
-    $descriptionEn ?: null,
-    $dueDate ?: null,
-    $topicId
-]);
+$providerId = isset($data['provider_id']) ? ($data['provider_id'] === '' || $data['provider_id'] === '0' || $data['provider_id'] === null ? null : (int)$data['provider_id']) : null;
 
-respond([
-    'success' => true,
-    'message' => 'Topic updated successfully',
-    'topic_id' => $topicId
-]);
+try {
+    $stmt = $db->prepare("
+        UPDATE training_topics 
+        SET title_en = ?, 
+            title_ar = CASE WHEN ? != '' THEN ? ELSE title_ar END,
+            description_en = ?, 
+            description_ar = CASE WHEN ? != '' THEN ? ELSE description_ar END,
+            due_date = ?, 
+            provider_id = ?
+        WHERE id = ?
+    ");
+    $stmt->execute([
+        $titleEn,
+        $titleAr,
+        $titleAr,
+        $descriptionEn ?: null,
+        $descriptionAr,
+        $descriptionAr,
+        $dueDate ?: null,
+        $providerId,
+        $topicId
+    ]);
+
+    respond([
+        'success' => true,
+        'message' => 'Track updated successfully',
+        'topic_id' => $topicId
+    ]);
+} catch (Throwable $e) {
+    error_log('Failed to update topic/track: ' . $e->getMessage());
+    respondError('Failed to update track: ' . $e->getMessage(), 500);
+}

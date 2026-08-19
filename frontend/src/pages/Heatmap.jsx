@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useI18n } from '../contexts/I18nContext';
 import { getSkillHeatmap } from '../services/api';
 import { COLLEGES, SKILLS_CATALOG } from '../data/constants';
-import { MapPin, TrendingDown, BarChart3, Users, Zap } from 'lucide-react';
+import { MapPin, TrendingDown, BarChart3, Users, Zap, Star } from 'lucide-react';
 import {
     Chart as ChartJS, CategoryScale, LinearScale, BarElement,
     ArcElement, Tooltip, Legend,
@@ -261,8 +261,8 @@ export default function Heatmap() {
                                         <div className="heatmap-gap-meta">
                                             <span className="heatmap-gap-count">{g.count} {lang === 'ar' ? 'طالب' : 'students'}</span>
                                             {g.avgProf > 0 && (
-                                                <span className="heatmap-gap-prof" style={{ color: profColor(g.avgProf) }}>
-                                                    ★ {g.avgProf.toFixed(1)}
+                                                <span className="heatmap-gap-prof" style={{ color: profColor(g.avgProf), display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                                    <Star size={11} fill="currentColor" /> {g.avgProf.toFixed(1)}
                                                 </span>
                                             )}
                                         </div>

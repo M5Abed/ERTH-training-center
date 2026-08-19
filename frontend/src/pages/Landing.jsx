@@ -6,7 +6,7 @@ import {
     ArrowRight, BookOpen, Users, Award,
     Shield, CheckCircle2,
     Code, Activity, Sparkles,
-    Check, ArrowUpRight
+    Check, ArrowUpRight, Star
 } from 'lucide-react';
 import './Landing.css';
 
@@ -307,7 +307,7 @@ export default function Landing() {
                                         <span className="lp-icf-lbl">Specialized Modules</span>
                                     </div>
                                     <div className="lp-icf-m">
-                                        <span className="lp-icf-val">4.9★</span>
+                                        <span className="lp-icf-val" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}><Star size={15} fill="currentColor" /> 4.9</span>
                                         <span className="lp-icf-lbl">Trainer Rating</span>
                                     </div>
                                 </div>

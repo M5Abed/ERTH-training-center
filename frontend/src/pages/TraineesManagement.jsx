@@ -494,7 +494,7 @@ export default function TraineesManagement() {
 
                         {editSuccess && (
                             <div className="alert alert-success" style={{ marginBottom: '1rem' }}>
-                                {lang === 'ar' ? '✓ تم حفظ التعديلات بنجاح' : '✓ Trainee details saved successfully'}
+                                {lang === 'ar' ? 'تم حفظ التعديلات بنجاح' : 'Trainee details saved successfully'}
                             </div>
                         )}
 

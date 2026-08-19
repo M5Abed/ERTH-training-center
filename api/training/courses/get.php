@@ -73,9 +73,9 @@ if (!$course && strtolower($rawId) === 'robotics') {
     $course = [
         'id' => 'robotics',
         'name' => 'Robotics & Autonomous Systems Engineering',
-        'name' => 'هندسة الروبوتات والأنظمة الذاتية',
+        'name_ar' => 'هندسة الروبوتات والأنظمة الذاتية',
         'description' => 'Comprehensive hands-on course covering microcontrollers, ROS2 nodes, motor PWM control, IMU sensor fusion, computer vision, and capstone autonomous navigation.',
-        'description' => 'كورس تطبيقي شامل يغطي المتحكمات المدمجة، العقد المدمجة بروس 2، تحكم المحركات، دمج الحساسات، الرؤية الحاسوبية، والتحكم الذاتي.',
+        'description_ar' => 'كورس تطبيقي شامل يغطي المتحكمات المدمجة، العقد المدمجة بروس 2، تحكم المحركات، دمج الحساسات، الرؤية الحاسوبية، والتحكم الذاتي.',
         'track' => 'robotics',
         'duration_hours' => 60,
         'status' => 'active',
@@ -121,10 +121,53 @@ $trainers = $trStmt->fetchAll();
 // Fetch summary metrics
 $traineeCount = $db->prepare("SELECT COUNT(*) FROM trainee_enrollments WHERE course_id = ?");
 $traineeCount->execute([$courseId]);
+$totalTrainees = (int)$traineeCount->fetchColumn();
+
+$internalCount = $db->prepare("SELECT COUNT(*) FROM trainee_enrollments WHERE course_id = ? AND training_type = 'internal'");
+$internalCount->execute([$courseId]);
+$totalInternal = (int)$internalCount->fetchColumn();
+
+$externalCount = $db->prepare("SELECT COUNT(*) FROM trainee_enrollments WHERE course_id = ? AND training_type = 'external'");
+$externalCount->execute([$courseId]);
+$totalExternal = (int)$externalCount->fetchColumn();
+
+// Fetch course external providers
+$pStmt = $db->prepare("
+    SELECT p.*,
+           (SELECT COUNT(*) FROM training_topics tt WHERE tt.course_id = ? AND tt.provider_id = p.id) AS track_count,
+           (SELECT COUNT(*) FROM trainee_enrollments te WHERE te.course_id = ? AND te.provider_id = p.id) AS student_count
+    FROM external_training_providers p
+    JOIN course_external_providers cep ON cep.provider_id = p.id
+    WHERE cep.course_id = ? AND (p.status = 'active' OR ? = 1)
+    ORDER BY p.is_contracted DESC, p.name ASC
+");
+$pStmt->execute([$courseId, $courseId, $courseId, $isAdmin ? 1 : 0]);
+$externalProviders = $pStmt->fetchAll();
+
+// Fetch my enrollment if trainee
+$myEnrollment = null;
+if ($role === 'trainee') {
+    $meStmt = $db->prepare("
+        SELECT te.*,
+               p.name AS provider_name, p.name_ar AS provider_name_ar, p.is_contracted AS provider_is_contracted,
+               p.website_url AS provider_website_url, p.linkedin_url AS provider_linkedin_url,
+               tt.title AS track_name
+        FROM trainee_enrollments te
+        LEFT JOIN external_training_providers p ON te.provider_id = p.id
+        LEFT JOIN training_topics tt ON te.track_id = tt.id
+        WHERE te.trainee_id = ? AND te.course_id = ?
+    ");
+    $meStmt->execute([$uid, $courseId]);
+    $myEnrollment = $meStmt->fetch() ?: null;
+}
 
 respond([
     'course' => $course,
     'topics' => $topics,
     'trainers' => $trainers,
-    'total_trainees' => (int)$traineeCount->fetchColumn()
+    'external_providers' => $externalProviders,
+    'total_trainees' => $totalTrainees,
+    'total_internal' => $totalInternal,
+    'total_external' => $totalExternal,
+    'my_enrollment' => $myEnrollment
 ]);

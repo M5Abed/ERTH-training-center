@@ -199,7 +199,7 @@ export default function IdeaLeaderboard() {
                             </strong>
                             <p style={{ margin: 0, fontSize: '0.82rem', opacity: 0.9 }}>
                                 {votingStatus === 'open' && (lang === 'ar' ? 'يحق للمشرفين والمدربين اختيار حتى 5 مشاريع متميزة من الجدول أدناه.' : 'Authorized trainers & faculty can select up to 5 preferred projects from the table below.')}
-                                {votingStatus === 'closed' && (lang === 'ar' ? 'المشاريع الفائزة في تصويت الدورة تحمل شارة 🏆 Top 5 ادناه.' : 'Winning projects from the voting process receive the 🏆 Top 5 badge below.')}
+                                {votingStatus === 'closed' && (lang === 'ar' ? 'المشاريع الفائزة في تصويت الدورة تحمل شارة أفضل 5 مشاريع أدناه.' : 'Winning projects from the voting process receive the Top 5 badge below.')}
                                 {votingStatus === 'not_started' && (lang === 'ar' ? 'سيبدأ التصويت على أفضل المشاريع في نهاية فترة التدريب.' : 'Voting for top projects will open at the conclusion of the training period.')}
                             </p>
                         </div>
@@ -324,8 +324,8 @@ export default function IdeaLeaderboard() {
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                             <strong style={{ fontSize: '0.98rem' }}>{proj.title}</strong>
                                                             {isGoldTop5 && (
-                                                                <span className="top5-badge" title="Top 5 Project">
-                                                                    🏆 Top {idx + 1}
+                                                                <span className="top5-badge" title="Top 5 Project" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                                    <Trophy size={12} /> Top {idx + 1}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -433,7 +433,7 @@ export default function IdeaLeaderboard() {
                                                                     transition: 'all 0.15s ease'
                                                                 }}
                                                             >
-                                                                {myVotes.includes(Number(proj.id)) ? (lang === 'ar' ? '✓ مصوّت له' : '✓ Voted') : (lang === 'ar' ? '+ تصويت' : '+ Vote')}
+                                                                {myVotes.includes(Number(proj.id)) ? (lang === 'ar' ? 'مصوّت له' : 'Voted') : (lang === 'ar' ? '+ تصويت' : '+ Vote')}
                                                             </button>
                                                         )}
                                                     </div>
@@ -513,8 +513,9 @@ export default function IdeaLeaderboard() {
                                                 </div>
                                             </div>
 
-                                            <span className={`member-role-badge ${isLeader ? 'leader' : 'member'}`}>
-                                                {isLeader ? (lang === 'ar' ? '👑 قائد الفريق' : '👑 Team Leader') : (lang === 'ar' ? '👤 عضو' : '👤 Member')}
+                                            <span className={`member-role-badge ${isLeader ? 'leader' : 'member'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                {isLeader ? <Crown size={12} /> : <User size={12} />}
+                                                <span>{isLeader ? (lang === 'ar' ? 'قائد الفريق' : 'Team Leader') : (lang === 'ar' ? 'عضو' : 'Member')}</span>
                                             </span>
                                         </div>
                                     );

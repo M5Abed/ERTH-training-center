@@ -13,16 +13,22 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = body();
-$name          = sanitizeString($data['name'] ?? $data['name_en'] ?? $data['title'] ?? '');
-$description   = sanitizeString($data['description'] ?? $data['description_en'] ?? '');
+$nameEn        = sanitizeString($data['name_en'] ?? $data['name'] ?? $data['title'] ?? '');
+$nameAr        = sanitizeString($data['name_ar'] ?? '') ?: null;
+$descriptionEn = sanitizeString($data['description_en'] ?? $data['description'] ?? '');
+$descriptionAr = sanitizeString($data['description_ar'] ?? '') ?: null;
 $startDate     = trim($data['start_date'] ?? '');
 $endDate       = trim($data['end_date'] ?? '');
 $durationHours = (int)($data['duration_hours'] ?? $data['duration'] ?? 40);
 if ($durationHours <= 0) $durationHours = 40;
 $category      = sanitizeString($data['category'] ?? '') ?: 'Software / AI';
 $level         = sanitizeString($data['level'] ?? '') ?: 'All Levels';
+$courseType    = sanitizeString($data['course_type'] ?? 'both');
+if (!in_array($courseType, ['internal', 'external', 'both'])) {
+    $courseType = 'both';
+}
 
-if (!$name) {
+if (!$nameEn) {
     respondError('Course name is required');
 }
 
@@ -30,17 +36,20 @@ $db = db();
 
 try {
     $stmt = $db->prepare("
-        INSERT INTO training_courses (name, category, level, description, start_date, end_date, duration_hours, status, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)
+        INSERT INTO training_courses (name_en, name_ar, category, level, description_en, description_ar, start_date, end_date, duration_hours, course_type, status, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
     ");
     $stmt->execute([
-        $name,
+        $nameEn,
+        $nameAr,
         $category,
         $level,
-        $description ?: null,
+        $descriptionEn ?: null,
+        $descriptionAr,
         $startDate ?: null,
         $endDate ?: null,
         $durationHours,
+        $courseType,
         $admin['id']
     ]);
     $courseId = (int)$db->lastInsertId();

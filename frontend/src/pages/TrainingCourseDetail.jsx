@@ -7,7 +7,8 @@ import {
     CheckCircle, XCircle, FileSpreadsheet, Sparkles, Download, 
     ExternalLink, Trash2, Edit3, Loader2, ArrowLeft, Video, Link as LinkIcon, X, FileCheck, UserPlus, Code, Send,
     Play, Cpu, Terminal, Zap, ShieldAlert, Layers, Calendar, MessageSquare, UserCheck, Crown, ChevronDown, ChevronUp, AlertCircle,
-    Sliders, RotateCcw, Check, Settings, Vote, Trophy, CheckCircle2
+    Sliders, RotateCcw, Check, Settings, Vote, Trophy, CheckCircle2,
+    Building2, Globe, Linkedin, ShieldCheck, CheckSquare, Eye, GraduationCap, Target, Info
 } from 'lucide-react';
 import AddStudentModal from '../components/AddStudentModal';
 import CertificateModal from '../components/CertificateModal';
@@ -73,6 +74,35 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
     const [editCourseForm, setEditCourseForm] = useState({
         name: '', description: '', start_date: '', end_date: '', duration_hours: 40, category: '', level: ''
     });
+
+    // External Training & Providers State
+    const [totalInternal, setTotalInternal] = useState(0);
+    const [totalExternal, setTotalExternal] = useState(0);
+    const [courseExternalProviders, setCourseExternalProviders] = useState([]);
+    const [allGlobalProviders, setAllGlobalProviders] = useState([]);
+    const [verificationRequests, setVerificationRequests] = useState([]);
+    const [loadingVerifications, setLoadingVerifications] = useState(false);
+
+    // External Modals
+    const [showAddProviderModal, setShowAddProviderModal] = useState(false);
+    const [newProviderForm, setNewProviderForm] = useState({ name: '', name_ar: '', website_url: '', linkedin_url: '', is_contracted: 1 });
+    const [savingProvider, setSavingProvider] = useState(false);
+
+    const [showAssociateProviderModal, setShowAssociateProviderModal] = useState(false);
+    const [associatingProviderId, setAssociatingProviderId] = useState('');
+
+    const [showAddTrackModal, setShowAddTrackModal] = useState(false);
+    const [newTrackForm, setNewTrackForm] = useState({ title: '', description: '', provider_id: '' });
+    const [savingTrack, setSavingTrack] = useState(false);
+
+    const [showReassignStudentModal, setShowReassignStudentModal] = useState(false);
+    const [reassignStudent, setReassignStudent] = useState(null);
+    const [reassignForm, setReassignForm] = useState({ training_type: 'internal', provider_id: '', track_id: '', custom_provider_name: '', custom_provider_website: '', custom_provider_linkedin: '' });
+    const [savingReassign, setSavingReassign] = useState(false);
+
+    const [reviewingVerif, setReviewingVerif] = useState(null);
+    const [verifFeedback, setVerifFeedback] = useState('');
+    const [submittingVerifReview, setSubmittingVerifReview] = useState(false);
 
     // Delete Course state
     const [showDeleteCourseModal, setShowDeleteCourseModal] = useState(false);
@@ -621,10 +651,15 @@ void loop() {
                 
                 setTopics(loadedTopics);
                 setTrainers(data.trainers || []);
+                setTotalInternal(data.total_internal || 0);
+                setTotalExternal(data.total_external || 0);
+                setCourseExternalProviders(data.external_providers || []);
                 fetchTrainees();
                 fetchIdeas();
                 fetchDocs();
                 fetchCourseCriteria();
+                fetchExternalProviders();
+                fetchVerificationRequests();
             }
         } catch (e) {
             console.error(e);
@@ -633,9 +668,205 @@ void loop() {
         }
     };
 
+    const fetchExternalProviders = async () => {
+        try {
+            const res = await fetch(`/api/training/providers/list.php?course_id=${courseId}`);
+            const data = await res.json();
+            if (res.ok && data.providers) {
+                setCourseExternalProviders(data.providers);
+            }
+        } catch (e) {
+            console.error('Failed to fetch course external providers:', e);
+        }
+    };
+
+    const fetchAllGlobalProviders = async () => {
+        try {
+            const res = await fetch('/api/training/providers/list.php?all=1');
+            const data = await res.json();
+            if (res.ok && data.providers) {
+                setAllGlobalProviders(data.providers);
+            }
+        } catch (e) {
+            console.error('Failed to fetch all providers:', e);
+        }
+    };
+
+    const fetchVerificationRequests = async () => {
+        setLoadingVerifications(true);
+        try {
+            const res = await fetch(`/api/training/verification/list.php?course_id=${courseId}`);
+            const data = await res.json();
+            if (res.ok && data.verifications) {
+                setVerificationRequests(data.verifications);
+            }
+        } catch (e) {
+            console.error('Failed to fetch verifications:', e);
+        } finally {
+            setLoadingVerifications(false);
+        }
+    };
+
+    const handleCreateProviderSubmit = async (e) => {
+        e.preventDefault();
+        setSavingProvider(true);
+        try {
+            const res = await fetch('/api/training/providers/create.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    course_id: courseId,
+                    ...newProviderForm
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert(lang === 'ar' ? 'تمت إضافة جهة التدريب وربطها بالدورة بنجاح!' : 'Provider created and associated successfully!');
+                setShowAddProviderModal(false);
+                setNewProviderForm({ name: '', name_ar: '', website_url: '', linkedin_url: '', is_contracted: 1 });
+                fetchExternalProviders();
+            } else {
+                alert(data.error || 'Failed to create provider');
+            }
+        } catch (e) {
+            alert('Connection error');
+        } finally {
+            setSavingProvider(false);
+        }
+    };
+
+    const handleAssociateProviderSubmit = async (e) => {
+        e.preventDefault();
+        if (!associatingProviderId) return;
+        try {
+            const res = await fetch('/api/training/providers/assign_course.php', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    course_id: parseInt(courseId, 10),
+                    provider_id: parseInt(associatingProviderId, 10),
+                    action: 'add'
+                })
+            });
+            let data = {};
+            try { data = await res.json(); } catch(err){}
+            if (res.ok && data.success) {
+                setShowAssociateProviderModal(false);
+                setAssociatingProviderId('');
+                fetchExternalProviders();
+            } else {
+                alert(data.error || 'Failed to associate provider');
+            }
+        } catch (e) {
+            alert('Connection error');
+        }
+    };
+
+    const handleCreateTrackSubmit = async (e) => {
+        e.preventDefault();
+        setSavingTrack(true);
+        try {
+            const res = await fetch('/api/training/topics/create.php', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    course_id: parseInt(courseId, 10),
+                    provider_id: newTrackForm.provider_id ? parseInt(newTrackForm.provider_id, 10) : null,
+                    title: newTrackForm.title,
+                    description: newTrackForm.description
+                })
+            });
+            let data = {};
+            try { data = await res.json(); } catch(err){}
+            if (res.ok && data.success) {
+                setShowAddTrackModal(false);
+                setNewTrackForm({ title: '', description: '', provider_id: '' });
+                loadCourseDetail();
+                fetchExternalProviders();
+            } else {
+                alert(data.error || 'Failed to create track');
+            }
+        } catch (e) {
+            console.error('Error creating track:', e);
+            alert('Connection error');
+        } finally {
+            setSavingTrack(false);
+        }
+    };
+
+    const handleReviewVerificationSubmit = async (decision) => {
+        if (!reviewingVerif) return;
+        setSubmittingVerifReview(true);
+        try {
+            const res = await fetch('/api/training/verification/review.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    course_id: parseInt(courseId, 10),
+                    trainee_id: reviewingVerif.trainee_id,
+                    decision: decision,
+                    feedback: verifFeedback
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert(decision === 'approved' 
+                    ? (lang === 'ar' ? 'تمت الموافقة على وثيقة التدريب بنجاح!' : 'Verification approved!') 
+                    : (lang === 'ar' ? 'تم تسجيل رفض الوثيقة وإرسال السبب للطالب.' : 'Verification rejected.')
+                );
+                setReviewingVerif(null);
+                setVerifFeedback('');
+                fetchVerificationRequests();
+                fetchTrainees();
+            } else {
+                alert(data.error || 'Failed to submit review');
+            }
+        } catch (e) {
+            alert('Connection error');
+        } finally {
+            setSubmittingVerifReview(false);
+        }
+    };
+
+    const handleReassignStudentSubmit = async (e) => {
+        e.preventDefault();
+        if (!reassignStudent) return;
+        setSavingReassign(true);
+        try {
+            const res = await fetch('/api/training/enrollments/assign_external.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    course_id: parseInt(courseId, 10),
+                    trainee_id: reassignStudent.trainee_id,
+                    ...reassignForm
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setShowReassignStudentModal(false);
+                setReassignStudent(null);
+                fetchTrainees();
+                loadCourseDetail();
+            } else {
+                alert(data.error || 'Failed to update assignment');
+            }
+        } catch (e) {
+            alert('Connection error');
+        } finally {
+            setSavingReassign(false);
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'trainees') {
             fetchTrainees();
+        } else if (activeTab === 'external') {
+            fetchExternalProviders();
+            fetchVerificationRequests();
+            fetchAllGlobalProviders();
         } else if (activeTab === 'idea') {
             fetchIdeas();
         } else if (activeTab === 'docs') {
@@ -1353,7 +1584,17 @@ void loop() {
 
             <div className="course-header-card">
                 <div>
-                    <h1>{course.name}</h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
+                        <h1 style={{ margin: 0 }}>{course.name}</h1>
+                        <span className="badge" style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', fontSize: '0.8rem', padding: '3px 10px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                            <GraduationCap size={13} />
+                            {lang === 'ar' ? `داخلي: ${totalInternal}` : `Internal: ${totalInternal}`}
+                        </span>
+                        <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.25)', fontSize: '0.8rem', padding: '3px 10px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                            <Building2 size={13} />
+                            {lang === 'ar' ? `خارجي: ${totalExternal}` : `External: ${totalExternal}`}
+                        </span>
+                    </div>
                     <p>{course.description}</p>
                 </div>
                 {isTrainer && (
@@ -1382,6 +1623,11 @@ void loop() {
                 <button className={`tab-btn ${activeTab === 'topics' ? 'active' : ''}`} onClick={() => setActiveTab('topics')} data-magy-key="topics">
                     <BookOpen size={16} /> {lang === 'ar' ? 'المحتوى والمواد التدريبية' : 'Course Content & Materials'}
                 </button>
+                {isTrainer && (
+                    <button className={`tab-btn ${activeTab === 'external' ? 'active' : ''}`} onClick={() => setActiveTab('external')} data-magy-key="external">
+                        <Building2 size={16} /> {lang === 'ar' ? 'التدريب الخارجي والجهات' : 'External Training & Providers'}
+                    </button>
+                )}
                 {isRoboticsCourse && (
                     <button className={`tab-btn ${activeTab === 'simulator' ? 'active' : ''}`} onClick={() => setActiveTab('simulator')} data-magy-key="simulator">
                         <Code size={16} /> {lang === 'ar' ? 'مختبر كود المحاكاة' : 'ROS2 Code Simulator'}
@@ -1528,6 +1774,303 @@ void loop() {
                 </div>
             )}
 
+            {/* Tab: External Training & Providers Hub */}
+            {activeTab === 'external' && isTrainer && (
+                <div className="tab-content external-training-container">
+                    {/* Header Banner */}
+                    <div className="external-header-banner">
+                        <div>
+                            <h3 style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Building2 size={20} className="text-primary" />
+                                {lang === 'ar' ? 'إدارة التدريب الميداني الخارجي والجهات المعتمدة' : 'External Training & Industry Providers Hub'}
+                            </h3>
+                            <p style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-2)' }}>
+                                {lang === 'ar' 
+                                    ? 'هيكلية التدريب الخارجي: الجهة المعتمدة ← المسار التدريبي (Track) ← المتدربون المسجلون ← اعتماد وثائق التدريب.'
+                                    : 'External training structure: Provider → Track → Enrolled Students → Verification Document Approvals.'}
+                            </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {isAdmin && (
+                                <>
+                                    <button className="btn btn-primary btn-sm" onClick={() => setShowAddProviderModal(true)}>
+                                        <Plus size={15} /> {lang === 'ar' ? 'إنشاء جهة تدريب جديدة' : 'Create Provider'}
+                                    </button>
+                                    <button className="btn btn-outline btn-sm" onClick={() => setShowAssociateProviderModal(true)}>
+                                        <Building2 size={15} /> {lang === 'ar' ? 'ربط جهة تدريب بالدورة' : 'Link Provider to Course'}
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Stats Summary Pills */}
+                    <div className="external-stats-pills">
+                        <div className="external-stat-pill">
+                            <GraduationCap size={14} />
+                            <span>{lang === 'ar' ? 'الطلاب بالتدريب الداخلي:' : 'Internal Students:'} <strong>{totalInternal}</strong></span>
+                        </div>
+                        <div className="external-stat-pill" style={{ borderColor: 'rgba(59, 130, 246, 0.4)', background: 'rgba(59, 130, 246, 0.05)' }}>
+                            <Building2 size={14} />
+                            <span>{lang === 'ar' ? 'الطلاب بالتدريب الخارجي:' : 'External Students:'} <strong>{totalExternal}</strong></span>
+                        </div>
+                        <div className="external-stat-pill">
+                            <ShieldCheck size={14} />
+                            <span>{lang === 'ar' ? 'الجهات المعتمدة المرتبطة:' : 'Linked Providers:'} <strong>{courseExternalProviders.length}</strong></span>
+                        </div>
+                        <div className="external-stat-pill">
+                            <FileText size={14} />
+                            <span>{lang === 'ar' ? 'طلبات التحقق المعلقة:' : 'Pending Verifications:'} <strong>{verificationRequests.filter(v => v.verification_status === 'pending').length}</strong></span>
+                        </div>
+                    </div>
+
+                    {/* 1. Contracted Providers Section */}
+                    <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                            <h4 style={{ margin: 0, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <ShieldCheck size={18} style={{ color: '#22c55e' }} />
+                                {lang === 'ar' ? 'الجهات والمؤسسات المعتمدة والمتعاقد معها' : 'Official Contracted Providers'}
+                            </h4>
+                        </div>
+
+                        {courseExternalProviders.length === 0 ? (
+                            <div className="empty-tab" style={{ padding: '2rem 1rem' }}>
+                                <Building2 size={36} />
+                                <p>{lang === 'ar' ? 'لم يتم ربط أي جهات تدريب معتمدة بهذه الدورة بعد.' : 'No external providers associated with this course yet.'}</p>
+                                {isAdmin && (
+                                    <button className="btn btn-outline btn-sm" onClick={() => setShowAssociateProviderModal(true)} style={{ marginTop: '0.75rem' }}>
+                                        <Plus size={14} /> {lang === 'ar' ? 'ربط جهة تدريب الآن' : 'Link a Provider Now'}
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="provider-cards-grid">
+                                {courseExternalProviders.map(p => {
+                                    const providerTracks = topics.filter(t => t.provider_id === p.id);
+                                    const providerStudents = trainees.filter(t => t.provider_id === p.id);
+
+                                    return (
+                                        <div key={p.id} className="provider-card">
+                                            <div className="provider-card-header">
+                                                <div className="provider-title-group">
+                                                    <h4>{p.name}</h4>
+                                                    {p.name_ar && p.name_ar !== p.name && (
+                                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.name_ar}</span>
+                                                    )}
+                                                    <div className="provider-links-row" style={{ marginTop: '0.35rem' }}>
+                                                        {p.website_url && (
+                                                            <a href={p.website_url} target="_blank" rel="noopener noreferrer" className="provider-link">
+                                                                <Globe size={13} /> {lang === 'ar' ? 'الموقع الرسمي' : 'Website'}
+                                                            </a>
+                                                        )}
+                                                        {p.linkedin_url && (
+                                                            <a href={p.linkedin_url} target="_blank" rel="noopener noreferrer" className="provider-link">
+                                                                <Linkedin size={13} /> LinkedIn
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                                    <span className="badge badge-approved" style={{ fontSize: '0.72rem', padding: '2px 6px' }}>
+                                                        {p.is_contracted ? (lang === 'ar' ? 'معتمد رسمياً' : 'Contracted') : (lang === 'ar' ? 'جهة مخصصة' : 'Custom')}
+                                                    </span>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                        {providerStudents.length} {lang === 'ar' ? 'متدرب' : 'Students'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Tracks under this Provider */}
+                                            <div className="provider-tracks-section">
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-1)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                                        <Target size={13} />
+                                                        {lang === 'ar' ? 'المسارات التدريبية (Tracks):' : 'Training Tracks:'}
+                                                    </span>
+                                                    <button
+                                                        className="btn btn-ghost btn-sm"
+                                                        style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                                                        onClick={() => {
+                                                            setNewTrackForm({ title: '', description: '', provider_id: String(p.id) });
+                                                            setShowAddTrackModal(true);
+                                                        }}
+                                                    >
+                                                        <Plus size={12} /> {lang === 'ar' ? 'إضافة مسار' : 'Add Track'}
+                                                    </button>
+                                                </div>
+
+                                                <div className="track-chips-list">
+                                                    {providerTracks.length === 0 ? (
+                                                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                                            {lang === 'ar' ? 'لا توجد مسارات مخصصة بعد' : 'No specific tracks added'}
+                                                        </span>
+                                                    ) : (
+                                                        providerTracks.map(track => (
+                                                            <span key={track.id} className="track-chip">
+                                                                {track.title}
+                                                            </span>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Enrolled Students preview */}
+                                            {providerStudents.length > 0 && (
+                                                <div style={{ paddingTop: '0.5rem', borderTop: '1px dashed var(--border)', fontSize: '0.78rem' }}>
+                                                    <span style={{ color: 'var(--text-muted)' }}>
+                                                        {lang === 'ar' ? 'أبرز الطلاب:' : 'Enrolled:'}{' '}
+                                                    </span>
+                                                    <strong>
+                                                        {providerStudents.slice(0, 3).map(s => s.full_name || s.username).join('، ')}
+                                                        {providerStudents.length > 3 ? ` +${providerStudents.length - 3}` : ''}
+                                                    </strong>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 2. Non-Contracted Providers & Student Verification Queue */}
+                    <div className="verification-requests-box" style={{ marginTop: '1.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '8px' }}>
+                            <div>
+                                <h4 style={{ margin: 0, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <FileCheck size={18} className="text-primary" />
+                                    {lang === 'ar' ? 'طلبات التحقق للجهات غير المتعاقد معها (Verification Requests)' : 'Non-Contracted Providers Verification Queue'}
+                                </h4>
+                                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-2)' }}>
+                                    {lang === 'ar' 
+                                        ? 'مراجعة وتدقيق مستندات ووثائق التدريب الخارجي المرفوعة من قبل الطلاب لاعتماد جهة التدريب غير المعتمدة رسمياً.'
+                                        : 'Review and audit student-uploaded training verification documents for non-contracted companies.'}
+                                </p>
+                            </div>
+                            <button className="btn btn-outline btn-sm" onClick={fetchVerificationRequests} disabled={loadingVerifications}>
+                                {loadingVerifications ? <Loader2 className="spin" size={14} /> : <RotateCcw size={14} />}
+                                {lang === 'ar' ? 'تحديث الكشف' : 'Refresh'}
+                            </button>
+                        </div>
+
+                        {verificationRequests.length === 0 ? (
+                            <div className="empty-tab" style={{ padding: '1.5rem 1rem' }}>
+                                <CheckCircle size={32} style={{ color: '#22c55e' }} />
+                                <p>{lang === 'ar' ? 'لا توجد طلبات تحقق مرفوعة في هذه الدورة حالياً.' : 'No verification requests submitted for this course.'}</p>
+                            </div>
+                        ) : (
+                            <div style={{ overflowX: 'auto' }}>
+                                <table className="verification-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>{lang === 'ar' ? 'المتدرب' : 'Student'}</th>
+                                            <th>{lang === 'ar' ? 'جهة التدريب المخصصة' : 'Custom Provider'}</th>
+                                            <th>{lang === 'ar' ? 'وثيقة الإثبات' : 'Document'}</th>
+                                            <th>{lang === 'ar' ? 'الحالة' : 'Status'}</th>
+                                            <th>{lang === 'ar' ? 'الملاحظات / سبب الرفض' : 'Feedback / Reason'}</th>
+                                            <th>{lang === 'ar' ? 'الإجراء' : 'Actions'}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {verificationRequests.map((req, idx) => (
+                                            <tr key={req.enrollment_id || idx}>
+                                                <td>{idx + 1}</td>
+                                                <td>
+                                                    <strong>{req.trainee_name}</strong>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                        {req.student_id ? `ID: ${req.student_id}` : req.trainee_email}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <strong>{req.custom_provider_name || 'Custom Company'}</strong>
+                                                    <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+                                                        {req.custom_provider_website && (
+                                                            <a href={req.custom_provider_website} target="_blank" rel="noopener noreferrer" className="provider-link" style={{ fontSize: '0.74rem' }}>
+                                                                <Globe size={11} /> {lang === 'ar' ? 'موقع' : 'Web'}
+                                                            </a>
+                                                        )}
+                                                        {req.custom_provider_linkedin && (
+                                                            <a href={req.custom_provider_linkedin} target="_blank" rel="noopener noreferrer" className="provider-link" style={{ fontSize: '0.74rem' }}>
+                                                                <Linkedin size={11} /> LinkedIn
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    {req.verification_doc_url ? (
+                                                        <a
+                                                            href={req.verification_doc_url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="btn btn-outline btn-sm"
+                                                            style={{ padding: '3px 8px', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                                        >
+                                                            <Eye size={13} /> {lang === 'ar' ? 'معاينة الوثيقة' : 'View Document'}
+                                                        </a>
+                                                    ) : (
+                                                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{lang === 'ar' ? 'لم يتم الرفع' : 'Not uploaded'}</span>
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    {req.verification_status === 'approved' ? (
+                                                        <span className="badge badge-approved" style={{ fontSize: '0.75rem' }}>
+                                                            <CheckCircle size={12} /> {lang === 'ar' ? 'معتمد ومقبول' : 'Approved'}
+                                                        </span>
+                                                    ) : req.verification_status === 'rejected' ? (
+                                                        <span className="badge badge-rejected" style={{ fontSize: '0.75rem', background: '#fee2e2', color: '#dc2626' }}>
+                                                            <XCircle size={12} /> {lang === 'ar' ? 'مرفوض' : 'Rejected'}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="badge badge-pending" style={{ fontSize: '0.75rem', background: '#fef3c7', color: '#d97706' }}>
+                                                            <Clock size={12} /> {lang === 'ar' ? 'قيد المراجعة' : 'Pending'}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td style={{ maxWidth: '220px', fontSize: '0.8rem', color: 'var(--text-2)' }}>
+                                                    {req.verification_feedback || '—'}
+                                                </td>
+                                                <td>
+                                                    {isAdmin && (
+                                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                                            <button
+                                                                className="btn btn-primary btn-sm"
+                                                                style={{ padding: '3px 8px', fontSize: '0.75rem' }}
+                                                                onClick={() => {
+                                                                    setReviewingVerif(req);
+                                                                    setVerifFeedback('');
+                                                                    handleReviewVerificationSubmit('approved');
+                                                                }}
+                                                            >
+                                                                <Check size={13} /> {lang === 'ar' ? 'اعتماد' : 'Approve'}
+                                                            </button>
+                                                            <button
+                                                                className="btn btn-outline btn-sm"
+                                                                style={{ padding: '3px 8px', fontSize: '0.75rem', color: '#dc2626', borderColor: '#fca5a5' }}
+                                                                onClick={() => {
+                                                                    const reason = prompt(lang === 'ar' ? 'يرجى كتابة سبب رفض وثيقة التدريب لإبلاغ الطالب:' : 'Please enter rejection reason:');
+                                                                    if (reason) {
+                                                                        setReviewingVerif(req);
+                                                                        setVerifFeedback(reason);
+                                                                        handleReviewVerificationSubmit('rejected');
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <X size={13} /> {lang === 'ar' ? 'رفض' : 'Reject'}
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Robotics Simulator Tab */}
             {activeTab === 'simulator' && isRoboticsCourse && (
                 <div className="tab-content magy-simulator-view" data-magy-key="simulator">
@@ -1641,8 +2184,9 @@ void loop() {
                                         <th>{lang === 'ar' ? 'الاسم' : 'Name'}</th>
                                         <th>{lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}</th>
                                         <th>{lang === 'ar' ? 'الرقم الجامعي' : 'Student ID'}</th>
+                                        {isTrainer && <th>{lang === 'ar' ? 'نوع التدريب والجهة' : 'Training Type & Provider'}</th>}
                                         <th>{isTrainer ? (lang === 'ar' ? 'المصدر' : 'Source') : (lang === 'ar' ? 'الدور' : 'Role')}</th>
-                                        {isTrainer && <th>{lang === 'ar' ? 'الشهادة' : 'Certificate'}</th>}
+                                        {isTrainer && <th>{lang === 'ar' ? 'الإجراءات والشهادة' : 'Actions / Certificate'}</th>}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1659,6 +2203,23 @@ void loop() {
                                             </td>
                                             <td>{tr.email || '-'}</td>
                                             <td>{tr.student_id || '-'}</td>
+                                            {isTrainer && (
+                                                <td>
+                                                    {tr.training_type === 'external' ? (
+                                                        <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.25)', fontSize: '0.76rem', gap: '4px' }}>
+                                                            <Building2 size={12} />
+                                                            {tr.provider_name || tr.custom_provider_name || (lang === 'ar' ? 'تدريب خارجي' : 'External')}
+                                                            {tr.track_name ? ` • ${tr.track_name}` : ''}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="badge" style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', fontSize: '0.76rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                            <GraduationCap size={12} />
+                                                            {lang === 'ar' ? 'تدريب داخلي' : 'Internal'}
+                                                            {tr.track_name ? ` • ${tr.track_name}` : ''}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                            )}
                                             <td>
                                                 {isTrainer ? (
                                                     <span className="source-tag">{tr.source || 'Registered'}</span>
@@ -1670,26 +2231,50 @@ void loop() {
                                             </td>
                                             {isTrainer && (
                                                 <td>
-                                                    {(tr.evaluation_status === 'pass' || (Number(tr.evaluation_score) >= 60)) ? (
-                                                        <button 
-                                                            className="btn btn-outline btn-sm"
-                                                            style={{ gap: '0.35rem', borderColor: 'var(--amber)', color: 'var(--amber)' }}
-                                                            disabled={issuingCertId === (tr.trainee_id || tr.id)}
-                                                            onClick={() => handleIssueCertificate(tr.trainee_id || tr.id, tr.full_name)}
-                                                        >
-                                                            <Award size={14} />
-                                                            {issuingCertId === (tr.trainee_id || tr.id) ? '...' : (lang === 'ar' ? 'معاينة وإصدار الشهادة' : 'Preview & Issue Certificate')}
-                                                        </button>
-                                                    ) : (
-                                                        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                                                            {tr.evaluation_status === 'fail' 
-                                                                ? <span style={{ color: '#ef4444', fontWeight: 600 }}>{lang === 'ar' ? 'راسب' : 'Failed'}</span>
-                                                                : tr.evaluation_status === 'needs_revision'
-                                                                ? <span style={{ color: '#d97706', fontWeight: 600 }}>{lang === 'ar' ? 'يحتاج مراجعة' : 'Needs Revision'}</span>
-                                                                : '—'
-                                                            }
-                                                        </span>
-                                                    )}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        {isAdmin && (
+                                                            <button
+                                                                className="btn btn-ghost btn-sm"
+                                                                style={{ padding: '2px 6px', fontSize: '0.74rem' }}
+                                                                title={lang === 'ar' ? 'تعديل مسار ونوع التدريب' : 'Reassign Track / Provider'}
+                                                                onClick={() => {
+                                                                    setReassignStudent(tr);
+                                                                    setReassignForm({
+                                                                        training_type: tr.training_type || 'internal',
+                                                                        provider_id: tr.provider_id ? String(tr.provider_id) : '',
+                                                                        track_id: tr.track_id ? String(tr.track_id) : '',
+                                                                        custom_provider_name: tr.custom_provider_name || '',
+                                                                        custom_provider_website: tr.custom_provider_website || '',
+                                                                        custom_provider_linkedin: tr.custom_provider_linkedin || ''
+                                                                    });
+                                                                    setShowReassignStudentModal(true);
+                                                                }}
+                                                            >
+                                                                <Edit3 size={13} /> {lang === 'ar' ? 'تعديل المسار' : 'Track'}
+                                                            </button>
+                                                        )}
+
+                                                        {(tr.evaluation_status === 'pass' || (Number(tr.evaluation_score) >= 60)) ? (
+                                                            <button 
+                                                                className="btn btn-outline btn-sm"
+                                                                style={{ gap: '0.35rem', borderColor: 'var(--amber)', color: 'var(--amber)', fontSize: '0.74rem', padding: '2px 8px' }}
+                                                                disabled={issuingCertId === (tr.trainee_id || tr.id)}
+                                                                onClick={() => handleIssueCertificate(tr.trainee_id || tr.id, tr.full_name)}
+                                                            >
+                                                                <Award size={13} />
+                                                                {issuingCertId === (tr.trainee_id || tr.id) ? '...' : (lang === 'ar' ? 'الشهادة' : 'Cert')}
+                                                            </button>
+                                                        ) : (
+                                                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                                                                {tr.evaluation_status === 'fail' 
+                                                                    ? <span style={{ color: '#ef4444', fontWeight: 600 }}>{lang === 'ar' ? 'راسب' : 'Failed'}</span>
+                                                                    : tr.evaluation_status === 'needs_revision'
+                                                                    ? <span style={{ color: '#d97706', fontWeight: 600 }}>{lang === 'ar' ? 'يحتاج مراجعة' : 'Revision'}</span>
+                                                                    : '—'
+                                                                }
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             )}
                                         </tr>
@@ -2592,7 +3177,7 @@ void loop() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Trophy size={22} style={{ color: '#F59E0B' }} />
                                     <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#92400e' }}>
-                                        {lang === 'ar' ? '🏆 المشاريع الـ 5 الأفضل في تصويت نهاية الدورة' : '🏆 Top 5 Projects Selected by End-of-Course Voting'}
+                                        {lang === 'ar' ? 'المشاريع الـ 5 الأفضل في تصويت نهاية الدورة' : 'Top 5 Projects Selected by End-of-Course Voting'}
                                     </h4>
                                 </div>
                                 <span style={{
@@ -2619,8 +3204,8 @@ void loop() {
                                     }}>
                                         <div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
-                                                <span className="top5-shiny-gold-badge">
-                                                    🏆 #{tp.vote_rank} in Votes
+                                                <span className="top5-shiny-gold-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                    <Trophy size={13} /> #{tp.vote_rank} in Votes
                                                 </span>
                                                 <span style={{
                                                     display: 'inline-flex',
@@ -2713,8 +3298,8 @@ void loop() {
                                                         {proj.title}
                                                     </h4>
                                                     {proj.is_top_5 && (
-                                                        <span className="top5-shiny-gold-badge">
-                                                            🏆 Top 5 Winner (#{proj.vote_rank})
+                                                        <span className="top5-shiny-gold-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                            <Trophy size={13} /> Top 5 Winner (#{proj.vote_rank})
                                                         </span>
                                                     )}
                                                 </div>
@@ -2790,7 +3375,7 @@ void loop() {
                                                             }}
                                                         >
                                                             <CheckCircle2 size={16} />
-                                                            {lang === 'ar' ? '✓ تم التصويت (اضغط للحذف)' : '✓ Voted (Click to Remove)'}
+                                                            {lang === 'ar' ? 'تم التصويت (اضغط للحذف)' : 'Voted (Click to Remove)'}
                                                         </button>
                                                     ) : (
                                                         <button
@@ -3246,6 +3831,331 @@ void loop() {
                 isLoading={isDeletingCourse}
                 variant="danger"
             />
+
+            {/* External Training: Create Provider Modal */}
+            {showAddProviderModal && (
+                <div className="modal-overlay" onClick={() => setShowAddProviderModal(false)}>
+                    <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+                        <div className="modal-header-row">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Building2 size={20} className="text-primary" />
+                                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>
+                                    {lang === 'ar' ? 'إنشاء جهة تدريب خارجية جديدة' : 'Create External Training Provider'}
+                                </h3>
+                            </div>
+                            <button type="button" className="modal-close-btn" onClick={() => setShowAddProviderModal(false)}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleCreateProviderSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+                            <div className="form-group">
+                                <label>{lang === 'ar' ? 'اسم جهة التدريب (باللغة الإنجليزية أو الرسمية) *' : 'Provider Name *'}</label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="e.g. Information Technology Institute (ITI)"
+                                    value={newProviderForm.name}
+                                    onChange={e => setNewProviderForm({ ...newProviderForm, name: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label>{lang === 'ar' ? 'الاسم باللغة العربية (اختياري)' : 'Arabic Name (Optional)'}</label>
+                                <input
+                                    type="text"
+                                    placeholder="مثال: معهد تكنولوجيا المعلومات"
+                                    value={newProviderForm.name_ar}
+                                    onChange={e => setNewProviderForm({ ...newProviderForm, name_ar: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                <div className="form-group">
+                                    <label>{lang === 'ar' ? 'الموقع الرسمي (Website)' : 'Official Website'}</label>
+                                    <input
+                                        type="url"
+                                        placeholder="https://iti.gov.eg"
+                                        value={newProviderForm.website_url}
+                                        onChange={e => setNewProviderForm({ ...newProviderForm, website_url: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>{lang === 'ar' ? 'رابط صفحة لينكد إن (LinkedIn)' : 'LinkedIn Page URL'}</label>
+                                    <input
+                                        type="url"
+                                        placeholder="https://linkedin.com/school/iti"
+                                        value={newProviderForm.linkedin_url}
+                                        onChange={e => setNewProviderForm({ ...newProviderForm, linkedin_url: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={!!newProviderForm.is_contracted}
+                                        onChange={e => setNewProviderForm({ ...newProviderForm, is_contracted: e.target.checked ? 1 : 0 })}
+                                    />
+                                    <strong>{lang === 'ar' ? 'جهة معتمدة ومتعاقد معها رسمياً من الجامعة (Contracted)' : 'Official Contracted University Provider'}</strong>
+                                </label>
+                            </div>
+
+                            <div className="modal-actions" style={{ marginTop: '0.5rem' }}>
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowAddProviderModal(false)}>
+                                    {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                                </button>
+                                <button type="submit" className="btn btn-primary" disabled={savingProvider}>
+                                    {savingProvider ? <Loader2 className="spin" size={16} /> : (lang === 'ar' ? 'حفظ وربط بالدورة' : 'Save & Link to Course')}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* External Training: Associate Existing Provider Modal */}
+            {showAssociateProviderModal && (
+                <div className="modal-overlay" onClick={() => setShowAssociateProviderModal(false)}>
+                    <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+                        <div className="modal-header-row">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Building2 size={20} className="text-primary" />
+                                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>
+                                    {lang === 'ar' ? 'ربط جهة تدريب مسجلة بالدورة' : 'Associate Provider with Course'}
+                                </h3>
+                            </div>
+                            <button type="button" className="modal-close-btn" onClick={() => setShowAssociateProviderModal(false)}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleAssociateProviderSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+                            <div className="form-group">
+                                <label>{lang === 'ar' ? 'اختر جهة التدريب المسجلة *' : 'Select Registered Provider *'}</label>
+                                <select
+                                    required
+                                    className="form-control"
+                                    value={associatingProviderId}
+                                    onChange={e => setAssociatingProviderId(e.target.value)}
+                                    style={{ padding: '0.5rem', borderRadius: '6px', width: '100%' }}
+                                >
+                                    <option value="">{lang === 'ar' ? '-- اختر الجهة --' : '-- Select Provider --'}</option>
+                                    {allGlobalProviders
+                                        .filter(p => !courseExternalProviders.some(cp => cp.id === p.id))
+                                        .map(p => (
+                                            <option key={p.id} value={p.id}>
+                                                {p.name} {p.is_contracted ? (lang === 'ar' ? '[معتمد]' : '[Contracted]') : ''}
+                                            </option>
+                                        ))
+                                    }
+                                </select>
+                            </div>
+
+                            <div className="modal-actions">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowAssociateProviderModal(false)}>
+                                    {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                                </button>
+                                <button type="submit" className="btn btn-primary" disabled={!associatingProviderId}>
+                                    {lang === 'ar' ? 'تأكيد الربط' : 'Confirm Association'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* External Training: Add Track Modal */}
+            {showAddTrackModal && (
+                <div className="modal-overlay" onClick={() => setShowAddTrackModal(false)}>
+                    <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+                        <div className="modal-header-row">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Plus size={20} className="text-primary" />
+                                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>
+                                    {lang === 'ar' ? 'إضافة مسار تدريبي (Track)' : 'Add Training Track'}
+                                </h3>
+                            </div>
+                            <button type="button" className="modal-close-btn" onClick={() => setShowAddTrackModal(false)}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleCreateTrackSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+                            <div className="form-group">
+                                <label>{lang === 'ar' ? 'جهة التدريب التابع لها المسار' : 'Associated Provider'}</label>
+                                <select
+                                    className="form-control"
+                                    value={newTrackForm.provider_id}
+                                    onChange={e => setNewTrackForm({ ...newTrackForm, provider_id: e.target.value })}
+                                    style={{ padding: '0.5rem', borderRadius: '6px', width: '100%' }}
+                                >
+                                    <option value="">{lang === 'ar' ? 'مسار عام / تدريب داخلي' : 'General / Internal Course Track'}</option>
+                                    {courseExternalProviders.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="form-group">
+                                <label>{lang === 'ar' ? 'عنوان المسار التدريبي (Track Title) *' : 'Track Title *'}</label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="e.g. Web Development & Full-Stack, AI / Machine Learning..."
+                                    value={newTrackForm.title}
+                                    onChange={e => setNewTrackForm({ ...newTrackForm, title: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label>{lang === 'ar' ? 'وصف مختصر (اختياري)' : 'Description (Optional)'}</label>
+                                <textarea
+                                    rows={3}
+                                    placeholder="Description of track competencies, frameworks..."
+                                    value={newTrackForm.description}
+                                    onChange={e => setNewTrackForm({ ...newTrackForm, description: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="modal-actions">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowAddTrackModal(false)}>
+                                    {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                                </button>
+                                <button type="submit" className="btn btn-primary" disabled={savingTrack}>
+                                    {savingTrack ? <Loader2 className="spin" size={16} /> : (lang === 'ar' ? 'إنشاء المسار' : 'Create Track')}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* External Training: Reassign Student Track Modal */}
+            {showReassignStudentModal && reassignStudent && (
+                <div className="modal-overlay" onClick={() => setShowReassignStudentModal(false)}>
+                    <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+                        <div className="modal-header-row">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Edit3 size={20} className="text-primary" />
+                                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>
+                                    {lang === 'ar' ? 'تعديل مسار ونوع التدريب للطالب' : 'Reassign Student Training Track'}
+                                </h3>
+                            </div>
+                            <button type="button" className="modal-close-btn" onClick={() => setShowReassignStudentModal(false)}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <p style={{ margin: '0.4rem 0 1rem 0', fontSize: '0.86rem', color: 'var(--text-muted)' }}>
+                            <strong>{reassignStudent.full_name || reassignStudent.username}</strong> ({reassignStudent.student_id ? `ID: ${reassignStudent.student_id}` : reassignStudent.email})
+                        </p>
+                        <form onSubmit={handleReassignStudentSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                <button
+                                    type="button"
+                                    className={`btn btn-sm ${reassignForm.training_type === 'internal' ? 'btn-primary' : 'btn-outline'}`}
+                                    onClick={() => setReassignForm({ ...reassignForm, training_type: 'internal', provider_id: '' })}
+                                    style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                >
+                                    <GraduationCap size={14} />
+                                    <span>{lang === 'ar' ? 'تدريب داخلي' : 'Internal'}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`btn btn-sm ${reassignForm.training_type === 'external' ? 'btn-primary' : 'btn-outline'}`}
+                                    onClick={() => setReassignForm({ ...reassignForm, training_type: 'external' })}
+                                    style={{ flex: 1, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                >
+                                    <Building2 size={14} />
+                                    <span>{lang === 'ar' ? 'تدريب خارجي' : 'External'}</span>
+                                </button>
+                            </div>
+
+                            {reassignForm.training_type === 'external' ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '0.75rem', background: 'var(--bg-2)', borderRadius: '8px' }}>
+                                    <div className="form-group">
+                                        <label>{lang === 'ar' ? 'جهة التدريب الخارجية:' : 'External Provider:'}</label>
+                                        <select
+                                            className="form-control"
+                                            value={reassignForm.provider_id}
+                                            onChange={e => setReassignForm({ ...reassignForm, provider_id: e.target.value })}
+                                            style={{ padding: '0.45rem', width: '100%' }}
+                                        >
+                                            <option value="">{lang === 'ar' ? '-- جهة أخرى / مخصصة --' : '-- Custom / Other Provider --'}</option>
+                                            {courseExternalProviders.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name} {p.is_contracted ? (lang === 'ar' ? '[معتمد]' : '[Contracted]') : ''}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {!reassignForm.provider_id && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                            <input
+                                                type="text"
+                                                placeholder={lang === 'ar' ? 'اسم جهة التدريب المخصصة *' : 'Custom Provider Name *'}
+                                                value={reassignForm.custom_provider_name}
+                                                onChange={e => setReassignForm({ ...reassignForm, custom_provider_name: e.target.value })}
+                                            />
+                                            <input
+                                                type="url"
+                                                placeholder={lang === 'ar' ? 'الموقع الإلكتروني (اختياري)' : 'Website URL (Optional)'}
+                                                value={reassignForm.custom_provider_website}
+                                                onChange={e => setReassignForm({ ...reassignForm, custom_provider_website: e.target.value })}
+                                            />
+                                            <input
+                                                type="url"
+                                                placeholder={lang === 'ar' ? 'رابط لينكد إن (اختياري)' : 'LinkedIn URL (Optional)'}
+                                                value={reassignForm.custom_provider_linkedin}
+                                                onChange={e => setReassignForm({ ...reassignForm, custom_provider_linkedin: e.target.value })}
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="form-group">
+                                        <label>{lang === 'ar' ? 'المسار التدريبي (Track):' : 'Track:'}</label>
+                                        <select
+                                            className="form-control"
+                                            value={reassignForm.track_id}
+                                            onChange={e => setReassignForm({ ...reassignForm, track_id: e.target.value })}
+                                            style={{ padding: '0.45rem', width: '100%' }}
+                                        >
+                                            <option value="">{lang === 'ar' ? '-- بدون مسار محدد --' : '-- General / None --'}</option>
+                                            {topics
+                                                .filter(t => !reassignForm.provider_id || !t.provider_id || String(t.provider_id) === String(reassignForm.provider_id))
+                                                .map(t => (
+                                                    <option key={t.id} value={t.id}>{t.title}</option>
+                                                ))
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="form-group">
+                                    <label>{lang === 'ar' ? 'المسار الداخلي (اختياري):' : 'Internal Track (Optional):'}</label>
+                                    <select
+                                        className="form-control"
+                                        value={reassignForm.track_id}
+                                        onChange={e => setReassignForm({ ...reassignForm, track_id: e.target.value })}
+                                        style={{ padding: '0.45rem', width: '100%' }}
+                                    >
+                                        <option value="">{lang === 'ar' ? '-- بدون مسار محدد --' : '-- None --'}</option>
+                                        {topics.filter(t => !t.provider_id).map(t => (
+                                            <option key={t.id} value={t.id}>{t.title}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div className="modal-actions">
+                                <button type="button" className="btn btn-ghost" onClick={() => setShowReassignStudentModal(false)}>
+                                    {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                                </button>
+                                <button type="submit" className="btn btn-primary" disabled={savingReassign}>
+                                    {savingReassign ? <Loader2 className="spin" size={16} /> : (lang === 'ar' ? 'حفظ التعيين' : 'Save Assignment')}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Eng. Magy Assistant Mascot (Robotics Courses) */}
             <EngMagyMascot 

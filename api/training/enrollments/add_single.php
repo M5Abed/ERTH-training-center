@@ -42,16 +42,50 @@ if (!$user) {
 
 $traineeId = (int)$user['id'];
 
+$trainingType = strtolower(trim($data['training_type'] ?? 'internal'));
+if (!in_array($trainingType, ['internal', 'external'], true)) {
+    $trainingType = 'internal';
+}
+
+$providerId = isset($data['provider_id']) && (int)$data['provider_id'] > 0 ? (int)$data['provider_id'] : null;
+$trackId = isset($data['track_id']) && (int)$data['track_id'] > 0 ? (int)$data['track_id'] : null;
+$customName = trim($data['custom_provider_name'] ?? '');
+$customWebsite = trim($data['custom_provider_website'] ?? '');
+$customLinkedin = trim($data['custom_provider_linkedin'] ?? '');
+
+$verifStatus = ($trainingType === 'external' && empty($providerId) && !empty($customName)) ? 'pending' : 'none';
+
 // Insert enrollment
 $eStmt = $db->prepare("
-    INSERT INTO trainee_enrollments (trainee_id, course_id, source)
-    VALUES (?, ?, 'manual')
-    ON DUPLICATE KEY UPDATE course_id = VALUES(course_id)
+    INSERT INTO trainee_enrollments (
+        trainee_id, course_id, source, training_type, provider_id, track_id,
+        custom_provider_name, custom_provider_website, custom_provider_linkedin, verification_status
+    )
+    VALUES (?, ?, 'manual', ?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE 
+        training_type = VALUES(training_type),
+        provider_id = VALUES(provider_id),
+        track_id = VALUES(track_id),
+        custom_provider_name = VALUES(custom_provider_name),
+        custom_provider_website = VALUES(custom_provider_website),
+        custom_provider_linkedin = VALUES(custom_provider_linkedin),
+        verification_status = VALUES(verification_status)
 ");
-$eStmt->execute([$traineeId, $courseId]);
+$eStmt->execute([
+    $traineeId,
+    $courseId,
+    $trainingType,
+    $providerId,
+    $trackId,
+    $customName ?: null,
+    $customWebsite ?: null,
+    $customLinkedin ?: null,
+    $verifStatus
+]);
 
 respond([
     'success' => true,
     'message' => 'Trainee enrolled successfully',
-    'trainee_id' => $traineeId
+    'trainee_id' => $traineeId,
+    'training_type' => $trainingType
 ]);

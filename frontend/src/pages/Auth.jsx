@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
 import { verifyOtp, resendOtp, requestPasswordReset, verifyResetOtp, resetSetPassword } from '../services/api';
-import { Eye, EyeOff, ArrowRight, Loader2, ShieldCheck, Mail, ArrowLeft, RefreshCw, KeyRound, AlertCircle, Lock, Check } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, Loader2, ShieldCheck, Mail, ArrowLeft, RefreshCw, KeyRound, AlertCircle, Lock, Check, X } from 'lucide-react';
 import './Auth.css';
 
 export default function Auth() {
@@ -415,13 +415,16 @@ export default function Auth() {
                                                     {showResetConfirmPw ? <EyeOff size={18} /> : <Eye size={18} />}
                                                 </button>
                                             </div>
-                                            {resetConfirmPw && (
-                                                <div className={`pw-match-indicator ${passwordsMatch ? 'matched' : 'mismatch'}`}>
-                                                    {passwordsMatch 
-                                                        ? (lang === 'ar' ? '✓ كلمتا المرور متطابقتان' : '✓ Passwords match') 
-                                                        : (lang === 'ar' ? '✗ كلمتا المرور غير متطابقتين' : '✗ Passwords do not match')}
-                                                </div>
-                                            )}
+                                             {resetConfirmPw && (
+                                                 <div className={`pw-match-indicator ${passwordsMatch ? 'matched' : 'mismatch'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                     {passwordsMatch ? <Check size={13} /> : <X size={13} />}
+                                                     <span>
+                                                         {passwordsMatch 
+                                                             ? (lang === 'ar' ? 'كلمتا المرور متطابقتان' : 'Passwords match') 
+                                                             : (lang === 'ar' ? 'كلمتا المرور غير متطابقتين' : 'Passwords do not match')}
+                                                     </span>
+                                                 </div>
+                                             )}
                                         </div>
 
                                         <button className="btn btn-primary btn-lg auth-submit" type="submit" disabled={resetLoading || !allPwReqsMet || !passwordsMatch}>
