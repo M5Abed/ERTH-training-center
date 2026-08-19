@@ -3,7 +3,7 @@ import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
 import { 
-    BookOpen, Users, Lightbulb, FileText, Award, Plus, Upload, 
+    BookOpen, Users, User, Lightbulb, FileText, Award, Plus, Upload, 
     CheckCircle, XCircle, FileSpreadsheet, Sparkles, Download, 
     ExternalLink, Trash2, Edit3, Loader2, ArrowLeft, Video, Link as LinkIcon, X, FileCheck, UserPlus, Code, Send,
     Play, Cpu, Terminal, Zap, ShieldAlert, Layers, Calendar, MessageSquare, UserCheck, Crown, ChevronDown, ChevronUp, AlertCircle,
@@ -2523,40 +2523,31 @@ void loop() {
 
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
                                 {votingTop5.map(tp => (
-                                    <div key={tp.id} style={{
-                                        background: 'var(--bg-0, #ffffff)',
-                                        border: '1.5px solid #F59E0B',
-                                        borderRadius: '12px',
-                                        padding: '1.15rem',
-                                        boxShadow: '0 2px 8px rgba(245, 158, 11, 0.08)',
+                                    <div key={tp.id} className="top5-gold-winner-card" style={{
+                                        borderRadius: '14px',
+                                        padding: '1.25rem',
                                         display: 'flex',
                                         flexDirection: 'column',
-                                        justifyContent: 'space-between'
+                                        justifyContent: 'space-between',
+                                        transition: 'all 0.2s ease'
                                     }}>
                                         <div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                                <span style={{
-                                                    background: '#F59E0B',
-                                                    color: '#ffffff',
-                                                    fontWeight: 800,
-                                                    fontSize: '0.78rem',
-                                                    padding: '0.2rem 0.55rem',
-                                                    borderRadius: '6px'
-                                                }}>
-                                                    #{tp.vote_rank} in Votes
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
+                                                <span className="top5-shiny-gold-badge">
+                                                    🏆 #{tp.vote_rank} in Votes
                                                 </span>
                                                 <span style={{
                                                     display: 'inline-flex',
                                                     alignItems: 'center',
                                                     gap: '4px',
                                                     fontSize: '0.82rem',
-                                                    fontWeight: 700,
-                                                    color: 'var(--primary, #002D56)'
+                                                    fontWeight: 800,
+                                                    color: '#b45309'
                                                 }}>
                                                     <Vote size={13} /> {tp.vote_count} {lang === 'ar' ? 'أصوات' : 'votes'}
                                                 </span>
                                             </div>
-                                            <h5 style={{ margin: '0 0 0.4rem 0', fontSize: '1rem', fontWeight: 800, color: 'var(--text-0, #0f172a)' }}>
+                                            <h5 style={{ margin: '0 0 0.4rem 0', fontSize: '1.02rem', fontWeight: 800, color: 'var(--text-0, #0f172a)' }}>
                                                 {tp.title}
                                             </h5>
                                             <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted, #64748b)' }}>
@@ -2569,7 +2560,7 @@ void loop() {
                                         </div>
 
                                         {tp.evaluation_score !== null && (
-                                            <div style={{ marginTop: '0.85rem', paddingTop: '0.65rem', borderTop: '1px solid var(--border, #f1f5f9)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                            <div style={{ marginTop: '0.85rem', paddingTop: '0.65rem', borderTop: '1px solid rgba(245, 158, 11, 0.3)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                                                 {lang === 'ar' ? 'الدرجة الأكاديمية:' : 'Academic Score:'} <strong style={{ color: 'var(--text-0)' }}>{tp.evaluation_score}/100</strong>
                                             </div>
                                         )}
@@ -2609,16 +2600,21 @@ void loop() {
                                     return (
                                         <div 
                                             key={proj.id}
+                                            className={proj.is_top_5 ? 'top5-gold-winner-card' : ''}
                                             style={{
-                                                background: 'var(--bg-0, #ffffff)',
+                                                background: isSelected 
+                                                    ? 'rgba(22, 163, 74, 0.04)' 
+                                                    : proj.is_top_5 
+                                                    ? undefined 
+                                                    : 'var(--bg-0, #ffffff)',
                                                 border: isSelected 
                                                     ? '2px solid #16a34a' 
                                                     : proj.is_top_5 
-                                                    ? '2px solid #F59E0B' 
+                                                    ? undefined 
                                                     : '1px solid var(--border, #e2e8f0)',
                                                 borderRadius: '14px',
                                                 padding: '1.25rem',
-                                                boxShadow: isSelected ? '0 4px 14px rgba(22, 163, 74, 0.12)' : '0 2px 8px rgba(0,0,0,0.03)',
+                                                boxShadow: isSelected ? '0 4px 14px rgba(22, 163, 74, 0.12)' : undefined,
                                                 display: 'flex',
                                                 flexDirection: 'column',
                                                 justifyContent: 'space-between',
@@ -2631,17 +2627,8 @@ void loop() {
                                                         {proj.title}
                                                     </h4>
                                                     {proj.is_top_5 && (
-                                                        <span style={{
-                                                            background: 'rgba(245, 158, 11, 0.15)',
-                                                            color: '#b45309',
-                                                            border: '1px solid rgba(245, 158, 11, 0.3)',
-                                                            fontWeight: 800,
-                                                            fontSize: '0.75rem',
-                                                            padding: '0.15rem 0.5rem',
-                                                            borderRadius: '6px',
-                                                            whiteSpace: 'nowrap'
-                                                        }}>
-                                                            🏆 Top 5 (#{proj.vote_rank})
+                                                        <span className="top5-shiny-gold-badge">
+                                                            🏆 Top 5 Winner (#{proj.vote_rank})
                                                         </span>
                                                     )}
                                                 </div>
