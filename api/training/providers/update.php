@@ -15,7 +15,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $data = body();
 $providerId = (int)($data['id'] ?? $data['provider_id'] ?? 0);
 $name = trim($data['name'] ?? '');
-$nameAr = trim($data['name_ar'] ?? '');
 $websiteUrl = trim($data['website_url'] ?? '');
 $linkedinUrl = trim($data['linkedin_url'] ?? '');
 $isContracted = isset($data['is_contracted']) ? (int)(bool)$data['is_contracted'] : null;
@@ -49,7 +48,6 @@ try {
     $stmt = $db->prepare("
         UPDATE external_training_providers
         SET name = ?,
-            name_ar = ?,
             website_url = ?,
             linkedin_url = ?,
             is_contracted = COALESCE(?, is_contracted),
@@ -59,7 +57,6 @@ try {
     ");
     $stmt->execute([
         $name,
-        $nameAr ?: null,
         $websiteUrl ?: null,
         $linkedinUrl ?: null,
         $isContracted,

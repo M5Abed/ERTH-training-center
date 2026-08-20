@@ -171,8 +171,8 @@ export default function PublicProfile() {
                         </h2>
                         <div className="gv-project-list">
                             {projects.map((p, i) => {
-                                const title = p.title || p.title || p.title_ar || 'Untitled';
-                                const desc = p.description || p.description || p.description_ar || '';
+                                const title = p.title || 'Untitled';
+                                const desc = p.description || '';
                                 return (
                                     <div key={p.id ?? i} className="gv-project-item">
                                         <div className="gv-project-dot" />

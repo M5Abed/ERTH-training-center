@@ -402,8 +402,8 @@ export async function adminDeleteProject(projectId) {
     const { error } = await _api('admin/delete_project.php', { method: 'POST', body: { project_id: projectId } });
     return !error;
 }
-export async function adminCreateStaff({ email, password, full_name_en, role, college_key }) {
-    const { data, error } = await _api('admin/create_staff.php', { method: 'POST', body: { email, password, full_name_en, role, college_key } });
+export async function adminCreateStaff({ email, password, full_name, role, college_key }) {
+    const { data, error } = await _api('admin/create_staff.php', { method: 'POST', body: { email, password, full_name, role, college_key } });
     if (error) return { error: error.message || 'Failed to create account' };
     return data;
 }

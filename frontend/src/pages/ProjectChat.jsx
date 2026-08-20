@@ -106,7 +106,7 @@ export default function ProjectChat() {
                 <div className="chat-title-area">
                     <MessageCircle size={20} />
                     <h1>{L.chat}</h1>
-                    {project && <span className="chat-project-name">{lang === 'ar' && project.title_ar ? project.title_ar : (project.title || project.title)}</span>}
+                    {project && <span className="chat-project-name">{project.title}</span>}
                 </div>
             </div>
 

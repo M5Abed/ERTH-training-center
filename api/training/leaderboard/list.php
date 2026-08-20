@@ -24,7 +24,7 @@ $db = db();
 
 $courseInfo = null;
 if ($courseId) {
-    $cStmt = $db->prepare("SELECT id, name, name AS name_ar, voting_status FROM training_courses WHERE id = ?");
+    $cStmt = $db->prepare("SELECT id, name, voting_status FROM training_courses WHERE id = ?");
     $cStmt->execute([$courseId]);
     $courseInfo = $cStmt->fetch();
 }
@@ -169,7 +169,6 @@ $studentSql = "
     SELECT 
         u.id AS trainee_id,
         u.full_name,
-        u.full_name_en,
         u.student_id,
         u.email,
         u.avatar_url,

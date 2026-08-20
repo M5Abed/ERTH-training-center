@@ -32,7 +32,7 @@ try {
                te.verification_doc_url, te.verification_status, te.verification_feedback,
                te.verification_reviewed_at,
                u_rev.full_name AS reviewer_name,
-               p.name AS provider_name, p.name_ar AS provider_name_ar, p.is_contracted AS provider_is_contracted,
+               p.name AS provider_name, p.is_contracted AS provider_is_contracted,
                tt.title AS track_name
         FROM trainee_enrollments te
         LEFT JOIN users u_rev ON te.verification_reviewed_by = u_rev.id

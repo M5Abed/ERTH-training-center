@@ -25,7 +25,6 @@ $db = db();
 $query = "
     SELECT tt.*,
            p.name AS provider_name,
-           p.name_ar AS provider_name_ar,
            (SELECT COUNT(*) FROM topic_content WHERE topic_id = tt.id) AS material_count,
            (SELECT COUNT(*) FROM trainee_topic_progress WHERE topic_id = tt.id AND trainee_id = ?) AS is_completed,
            (SELECT COUNT(*) FROM trainee_enrollments te WHERE te.track_id = tt.id AND te.course_id = tt.course_id) AS trainee_count

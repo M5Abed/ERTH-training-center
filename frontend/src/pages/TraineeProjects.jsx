@@ -596,8 +596,8 @@ export default function TraineeProjects() {
             setEditingIdeaId(idea.id);
             setCreatedIdeaId(idea.id);
             setSubmitCourseId(idea.course_id);
-            setSubmitTitleEn(idea.title || idea.title_en || '');
-            setSubmitDescEn(idea.description || idea.description_en || '');
+            setSubmitTitleEn(idea.title || '');
+            setSubmitDescEn(idea.description || '');
             setSubmitTechStack(idea.tech_stack || '');
             setSubmitProblemStmt(idea.problem_statement || '');
             setSubmitExpectedOutput(idea.expected_output || '');
@@ -900,7 +900,7 @@ export default function TraineeProjects() {
     };
 
     const filteredProjects = projects.filter(p => {
-        const title = (p.title || p.title_ar || p.title_en || '').toLowerCase();
+        const title = (p.title || '').toLowerCase();
         const traineeName = (p.trainee_name || '').toLowerCase();
         const studentId = (p.student_id || '').toLowerCase();
         const query = searchQuery.toLowerCase();
@@ -1025,7 +1025,7 @@ export default function TraineeProjects() {
                                         {getStatusBadge(activeProject.status)}
                                     </div>
                                     <h2 className="hero-project-title">
-                                        {activeProject.title || activeProject.title_en || activeProject.title_ar}
+                                        {activeProject.title}
                                     </h2>
                                     <div className="hero-meta-row">
                                         {activeProject.training_type === 'external' && (activeProject.provider_name || activeProject.custom_provider_name) && (
@@ -1311,10 +1311,10 @@ export default function TraineeProjects() {
 
                                         {/* Project Key Highlights */}
                                         <div className="project-highlights-grid">
-                                            {(activeProject.description || activeProject.description_ar) && !['no description available', 'no description provided', 'لا يوجد وصف متاح'].includes((activeProject.description || activeProject.description_ar).toLowerCase().trim()) && (
+                                            {(activeProject.description) && !['no description available', 'no description provided', 'لا يوجد وصف متاح'].includes((activeProject.description).toLowerCase().trim()) && (
                                                 <div className="highlight-box">
                                                     <label>{lang === 'ar' ? 'المستخلص ووصف المشروع' : 'Project Abstract'}</label>
-                                                    <p>{activeProject.description || activeProject.description_ar}</p>
+                                                    <p>{activeProject.description}</p>
                                                 </div>
                                             )}
 
@@ -2010,7 +2010,7 @@ export default function TraineeProjects() {
 
                                                             <div className="project-card-body">
                                                                 <h3 className="project-title">
-                                                                    {project.title || project.title_ar || project.title_en}
+                                                                    {project.title}
                                                                 </h3>
                                                                 <div className="course-tag">
                                                                     <BookOpen size={13} />
@@ -2018,7 +2018,7 @@ export default function TraineeProjects() {
                                                                 </div>
 
                                                                 <p className="project-desc">
-                                                                    {project.description || project.description_ar || project.problem_statement || (lang === 'ar' ? 'لا يوجد وصف متاح' : 'No description provided')}
+                                                                    {project.description || project.problem_statement || (lang === 'ar' ? 'لا يوجد وصف متاح' : 'No description provided')}
                                                                 </p>
 
                                                                 {project.team_members && project.team_members.length > 1 && (
@@ -2057,7 +2057,7 @@ export default function TraineeProjects() {
                                                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                                                                     <button
                                                                         type="button"
-                                                                        onClick={() => handleDownloadProjectDocx(project.id, project.title_en || project.title)}
+                                                                        onClick={() => handleDownloadProjectDocx(project.id, project.title)}
                                                                         disabled={downloadingDocxId === project.id}
                                                                         className="btn btn-sm btn-outline-primary"
                                                                         style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: downloadingDocxId === project.id ? 'wait' : 'pointer' }}
@@ -2073,7 +2073,7 @@ export default function TraineeProjects() {
                                                                             setFeedback(project.feedback || '');
                                                                             setVoteNotes(project.vote_summary?.my_notes || '');
                                                                             setEvalTab('proposal');
-                                                                            fetchProjectDocs(project.id);
+                                                                            fetchIdeaDocs(project.id);
                                                                         }}
                                                                     >
                                                                         {lang === 'ar' ? 'مراجعة وتقييم' : 'Review & Evaluate'}
@@ -2120,7 +2120,7 @@ export default function TraineeProjects() {
                                                         {getStatusBadge(project.status)}
                                                     </div>
                                                     <div className="project-card-body">
-                                                        <h3 className="project-title">{project.title || project.title_ar || project.title_en}</h3>
+                                                        <h3 className="project-title">{project.title}</h3>
                                                         <p className="project-desc">{project.description || project.problem_statement || ''}</p>
                                                     </div>
                                                     <div className="project-card-footer">
@@ -2129,7 +2129,7 @@ export default function TraineeProjects() {
                                                             onClick={() => {
                                                                 setActiveProject(project);
                                                                 setFeedback(project.feedback || '');
-                                                                fetchProjectDocs(project.id);
+                                                                fetchIdeaDocs(project.id);
                                                             }}
                                                         >
                                                             {lang === 'ar' ? 'مراجعة وتقييم' : 'Review & Evaluate'}
@@ -2155,7 +2155,7 @@ export default function TraineeProjects() {
                         <div className="eval-modal-header">
                             <div className="eval-modal-header-left">
                                 <div className="eval-modal-title-row">
-                                    <h2>{activeProject.title || activeProject.title_en || activeProject.title_ar}</h2>
+                                    <h2>{activeProject.title}</h2>
                                     {getStatusBadge(activeProject.status)}
                                 </div>
                                 <div className="eval-modal-meta">
@@ -2173,7 +2173,7 @@ export default function TraineeProjects() {
                             <div className="eval-modal-header-right">
                                 <button
                                     type="button"
-                                    onClick={() => handleDownloadProjectDocx(activeProject.id, activeProject.title_en || activeProject.title)}
+                                    onClick={() => handleDownloadProjectDocx(activeProject.id, activeProject.title)}
                                     disabled={downloadingDocxId === activeProject.id}
                                     className="btn btn-sm btn-outline-primary"
                                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: downloadingDocxId === activeProject.id ? 'wait' : 'pointer' }}

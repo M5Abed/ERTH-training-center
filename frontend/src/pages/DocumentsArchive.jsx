@@ -184,7 +184,7 @@ export default function DocumentsArchive() {
                                         <td>{doc.trainee_name || '—'}</td>
                                         <td>
                                             <span className="da-course-tag">
-                                                {lang === 'ar' && doc.course_name_ar ? doc.course_name_ar : (doc.course_name || '—')}
+                                                {(doc.course_name || '—')}
                                             </span>
                                         </td>
                                         <td className="da-size">{formatSize(doc.file_size)}</td>

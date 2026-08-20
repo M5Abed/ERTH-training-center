@@ -211,7 +211,7 @@ export default function Reviews() {
                                     <label>{t('select_project')}</label>
                                     <select value={selectedProject} onChange={e => { setSelectedProject(e.target.value); setSelectedTeammate(''); }} required>
                                         <option value=""> </option>
-                                        {projects.map(p => <option key={p.id} value={p.id}>{lang === 'ar' ? (p.title_ar || p.title) : (p.title || p.title_ar)}</option>)}
+                                        {projects.map(p => <option key={p.id} value={p.id}>{lang === 'ar' ? (p.title) : (p.title)}</option>)}
                                     </select>
                                 </div>
                                 <div className="form-group">
@@ -252,7 +252,7 @@ export default function Reviews() {
                                         ? (r.users?.full_name || r.reviewer_name || '')
                                         : (r.users?.full_name || r.reviewer_name || '');
                                     const projTitle = lang === 'ar'
-                                        ? (r.projects?.title_ar || r.projects?.title || r.project_title || '')
+                                        ? (r.projects?.title || r.projects?.title || r.project_title || '')
                                         : (r.projects?.title || r.project_title || '');
                                     const avg = ((
                                         (r.commitment_rating || r.commitment || 0) +

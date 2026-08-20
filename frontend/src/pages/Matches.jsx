@@ -77,7 +77,7 @@ export default function Matches() {
             studentId,
             'invite',
             `You've been invited to join project "${project?.title || ''}"`,
-            `تم دعوتك للانضمام لمشروع "${project?.title_ar || project?.title || ''}"`,
+            `تم دعوتك للانضمام لمشروع "${project?.title || ''}"`,
             project?.id
         );
         setInvitedIds(prev => new Set([...prev, studentId]));
@@ -103,7 +103,7 @@ export default function Matches() {
                 <div className="match-project-bar" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '1rem', alignItems: 'center' }}>
                     <div className="match-project-info">
                         <Link to={`/project/${id}`} className="match-project-title" style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>
-                            {lang === 'ar' ? (project.title_ar || project.title) : project.title}
+                            {lang === 'ar' ? (project.title) : project.title}
                         </Link>
                         <div className="match-project-badges">
                             {expired && <span className="match-badge match-badge--expired"><AlertTriangle size={14} /> {lang === 'ar' ? 'منتهي' : 'Expired'}</span>}

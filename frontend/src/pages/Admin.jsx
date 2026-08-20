@@ -519,7 +519,7 @@ export default function Admin() {
                                 </thead>
                                 <tbody>
                                     {projects.slice(0, 30).map((p, i) => {
-                                        const title = lang === 'ar' ? (p.title_ar || p.title || p.title) : (p.title || p.title);
+                                        const title = lang === 'ar' ? (p.title) : (p.title);
                                         const teamCount = (p.team_members || []).length;
                                         const isExpired = p.deadline && new Date(p.deadline) < new Date();
                                         return (

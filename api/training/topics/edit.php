@@ -14,13 +14,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data = body();
 $topicId       = (int)($data['id'] ?? 0);
-$titleEn       = sanitizeString($data['title'] ?? '');
-$titleAr       = sanitizeString($data['title'] ?? '');
-$descriptionEn = sanitizeString($data['description'] ?? '');
-$descriptionAr = sanitizeString($data['description'] ?? '');
+$title       = sanitizeString($data['title'] ?? '');
+$description = sanitizeString($data['description'] ?? '');
 $dueDate       = trim($data['due_date'] ?? '');
 
-if (!$topicId || !$titleEn) {
+if (!$topicId || !$title) {
     respondError('Topic ID and title are required');
 }
 
@@ -39,21 +37,15 @@ $providerId = isset($data['provider_id']) ? ($data['provider_id'] === '' || $dat
 try {
     $stmt = $db->prepare("
         UPDATE training_topics 
-        SET title_en = ?, 
-            title_ar = CASE WHEN ? != '' THEN ? ELSE title_ar END,
-            description_en = ?, 
-            description_ar = CASE WHEN ? != '' THEN ? ELSE description_ar END,
+        SET title = ?, 
+            description = ?, 
             due_date = ?, 
             provider_id = ?
         WHERE id = ?
     ");
     $stmt->execute([
-        $titleEn,
-        $titleAr,
-        $titleAr,
-        $descriptionEn ?: null,
-        $descriptionAr,
-        $descriptionAr,
+        $title,
+        $description ?: null,
         $dueDate ?: null,
         $providerId,
         $topicId

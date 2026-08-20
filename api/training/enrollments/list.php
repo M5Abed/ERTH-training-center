@@ -24,7 +24,7 @@ $stmt = $db->prepare("
            te.custom_provider_name, te.custom_provider_website, te.custom_provider_linkedin,
            te.verification_doc_url, te.verification_status, te.verification_feedback,
            te.verification_reviewed_by, te.verification_reviewed_at,
-           p.name AS provider_name, p.name_ar AS provider_name_ar, p.is_contracted AS provider_is_contracted,
+           p.name AS provider_name, p.is_contracted AS provider_is_contracted,
            p.website_url AS provider_website_url, p.linkedin_url AS provider_linkedin_url,
            tt.title AS track_name,
            u.id AS trainee_id, u.full_name, u.email, u.student_id, u.college_key, u.academic_year, u.major,

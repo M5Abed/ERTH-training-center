@@ -25,7 +25,7 @@ if (!$courseId) {
 $db = db();
 
 // Fetch course details
-$cStmt = $db->prepare("SELECT id, name, name AS name_ar, voting_status FROM training_courses WHERE id = ?");
+$cStmt = $db->prepare("SELECT id, name, voting_status FROM training_courses WHERE id = ?");
 $cStmt->execute([$courseId]);
 $course = $cStmt->fetch();
 

@@ -658,7 +658,7 @@ export default function Profile() {
                                 <Link key={p.id} to={`/project/${p.id}`} className="profile-project-card">
                                     <FolderKanban size={16} />
                                     <div>
-                                        <span className="project-card-title">{lang === 'ar' && p.title_ar ? p.title_ar : (p.title || p.title)}</span>
+                                        <span className="project-card-title">{p.title}</span>
                                         <span className="project-card-status" style={{ color: p.status === 'open' ? 'var(--green)' : p.status === 'completed' ? 'var(--muted)' : 'var(--amber)' }}>
                                             {p.status}
                                         </span>
@@ -716,7 +716,7 @@ export default function Profile() {
                                         {sentApps.map(a => (
                                             <div key={a.id} className="inv-card">
                                                 <div className="inv-card-top">
-                                                    <span className="inv-project">{lang === 'ar' ? (a.projects?.title_ar || a.projects?.title) : (a.projects?.title || '—')}</span>
+                                                    <span className="inv-project">{lang === 'ar' ? (a.projects?.title || a.projects?.title) : (a.projects?.title || '—')}</span>
                                                     <span className={`inv-badge inv-badge--${a.status}`}>
                                                         {a.status === 'accepted' ? 'Accepted' : a.status === 'rejected' ? 'Declined' : 'Pending'}
                                                     </span>
@@ -748,7 +748,7 @@ export default function Profile() {
                                                         <Link to={`/profile/${a.applicant_id}`} className="inv-sender" style={{ fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>
                                                             {a.applicant?.full_name || 'Unknown'}
                                                         </Link>
-                                                        <span className="inv-project-sm">{lang === 'ar' ? 'لمشروع: ' : 'For: '}{lang === 'ar' ? (a.projects?.title_ar || a.projects?.title) : (a.projects?.title || '—')}</span>
+                                                        <span className="inv-project-sm">{lang === 'ar' ? 'لمشروع: ' : 'For: '}{lang === 'ar' ? (a.projects?.title || a.projects?.title) : (a.projects?.title || '—')}</span>
                                                     </div>
                                                     <span className={`inv-badge inv-badge--${a.status}`}>
                                                         {a.status === 'accepted' ? 'Accepted' : a.status === 'rejected' ? 'Declined' : 'Pending'}

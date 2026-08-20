@@ -122,7 +122,7 @@ export default function TaskBoard() {
                 </Link>
                 <div className="tb-title-area">
                     <h1>{L.board}</h1>
-                    {project && <span className="tb-project-name">{lang === 'ar' && project.title_ar ? project.title_ar : (project.title || project.title)}</span>}
+                    {project && <span className="tb-project-name">{project.title}</span>}
                 </div>
             </div>
 

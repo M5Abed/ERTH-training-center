@@ -73,9 +73,7 @@ if (!$course && strtolower($rawId) === 'robotics') {
     $course = [
         'id' => 'robotics',
         'name' => 'Robotics & Autonomous Systems Engineering',
-        'name_ar' => 'هندسة الروبوتات والأنظمة الذاتية',
         'description' => 'Comprehensive hands-on course covering microcontrollers, ROS2 nodes, motor PWM control, IMU sensor fusion, computer vision, and capstone autonomous navigation.',
-        'description_ar' => 'كورس تطبيقي شامل يغطي المتحكمات المدمجة، العقد المدمجة بروس 2، تحكم المحركات، دمج الحساسات، الرؤية الحاسوبية، والتحكم الذاتي.',
         'track' => 'robotics',
         'duration_hours' => 60,
         'status' => 'active',
@@ -149,7 +147,7 @@ $myEnrollment = null;
 if ($role === 'trainee') {
     $meStmt = $db->prepare("
         SELECT te.*,
-               p.name AS provider_name, p.name_ar AS provider_name_ar, p.is_contracted AS provider_is_contracted,
+               p.name AS provider_name, p.is_contracted AS provider_is_contracted,
                p.website_url AS provider_website_url, p.linkedin_url AS provider_linkedin_url,
                tt.title AS track_name
         FROM trainee_enrollments te

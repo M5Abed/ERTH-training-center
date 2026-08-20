@@ -167,7 +167,7 @@ export default function Dashboard() {
                                         <Cpu size={13}/>
                                         {lang === 'ar' ? 'مشروع التدريب الميداني المعتمد' : 'Official Field Training Project'}
                                     </div>
-                                    <h2 className="dash-hero-title">{myProject.title || myProject.title_en || myProject.title_ar}</h2>
+                                    <h2 className="dash-hero-title">{myProject.title}</h2>
                                     <div className="dash-hero-meta">
                                         <span><BookOpen size={13}/> {myProject.course_name}</span>
                                         <span><UserCheck size={13}/> {myProject.reviewer_name || myProject.effective_trainer_name || (lang === 'ar' ? 'مشرف الدورة' : 'Course Trainer')}</span>

@@ -8,7 +8,7 @@ import {
     ExternalLink, Trash2, Edit3, Loader2, ArrowLeft, Video, Link as LinkIcon, X, FileCheck, UserPlus, Code, Send,
     Play, Cpu, Terminal, Zap, ShieldAlert, Layers, Calendar, MessageSquare, UserCheck, Crown, ChevronDown, ChevronUp, AlertCircle,
     Sliders, RotateCcw, Check, Settings, Vote, Trophy, CheckCircle2,
-    Building2, Globe, Linkedin, ShieldCheck, CheckSquare, Eye, GraduationCap, Target, Info
+    Building2, Globe, Linkedin, ShieldCheck, CheckSquare, Eye, GraduationCap, Target, Info, Search
 } from 'lucide-react';
 import AddStudentModal from '../components/AddStudentModal';
 import CertificateModal from '../components/CertificateModal';
@@ -176,9 +176,9 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
     const isRoboticsCourse = Boolean(
         course?.category?.toLowerCase()?.includes('robot') ||
         course?.name?.toLowerCase()?.includes('robot') ||
-        course?.name_en?.toLowerCase()?.includes('robot') ||
-        course?.name_ar?.includes('روبوت') ||
-        course?.name_ar?.includes('الروبوتات') ||
+        course?.name?.toLowerCase()?.includes('robot') ||
+        course?.name?.includes('روبوت') ||
+        course?.name?.includes('الروبوتات') ||
         (typeof courseId === 'string' && courseId.toLowerCase().includes('robot'))
     );
 
@@ -279,7 +279,7 @@ void loop() {
         if (!myIdea?.id) return;
         setDownloadingIdeaDocx(true);
         try {
-            await downloadProposalDocx(myIdea.id, myIdea.title_en || myIdea.title || 'Proposal');
+            await downloadProposalDocx(myIdea.id, myIdea.title || 'Proposal');
         } catch (err) {
             alert(err.message || 'Error downloading Word document');
         } finally {
@@ -298,6 +298,7 @@ void loop() {
     const [courseCriteria, setCourseCriteria] = useState(defaultRubrics.map((d, i) => ({ ...d, order_index: i })));
     const [loadingCriteria, setLoadingCriteria] = useState(false);
     const [savingCriteria, setSavingCriteria] = useState(false);
+    const [useRubrics, setUseRubrics] = useState(false);
 
     // Trainer Trainee Evaluation Form state
     const [evalScore, setEvalScore] = useState(100);
@@ -305,6 +306,7 @@ void loop() {
     const [evalFeedback, setEvalFeedback] = useState('');
     const [submittingEval, setSubmittingEval] = useState(false);
     const [evalCriteriaScores, setEvalCriteriaScores] = useState({});
+    const [evalSearchQuery, setEvalSearchQuery] = useState('');
 
     // Dynamic Rubric Calculation & Operations
     const totalCriteriaWeight = Math.round(courseCriteria.reduce((sum, c) => sum + (parseFloat(c.weight) || 0), 0) * 100) / 100;
@@ -447,7 +449,6 @@ void loop() {
             setEvalScore(roundedTotal);
             
             if (roundedTotal >= 60) setEvalStatus('pass');
-            else if (roundedTotal >= 50) setEvalStatus('needs_revision');
             else setEvalStatus('fail');
             
             return nextScores;
@@ -1326,7 +1327,7 @@ void loop() {
                 if (d.evaluation) {
                     const ev = d.evaluation;
                     const fScore = parseFloat(ev.final_score) || 0;
-                    setEvalStatus(ev.status || (fScore >= 60 ? 'pass' : (fScore >= 50 ? 'needs_revision' : 'fail')));
+                    setEvalStatus(ev.status || (fScore >= 60 ? 'pass' : 'fail'));
                     setEvalFeedback(ev.feedback || '');
                     let stored = {};
                     try {
@@ -1429,7 +1430,7 @@ void loop() {
             formData.append('course_id', courseId);
             formData.append('idea_id', myIdea?.id || '');
             formData.append('doc_type', 'proposal');
-            formData.append('title', myIdea?.title_en || myIdea?.title || 'Updated Official Field Training Proposal');
+            formData.append('title', myIdea?.title || 'Updated Official Field Training Proposal');
 
             const res = await fetch('/api/training/docs/upload.php', {
                 method: 'POST',
@@ -1462,7 +1463,7 @@ void loop() {
             if (res.ok && data.certificate) {
                 setCertData({
                     studentName: data.certificate.trainee_name || traineeName || 'Trainee',
-                    courseTitle: data.certificate.course_title || (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name),
+                    courseTitle: data.certificate.course_title || (lang === 'ar' && course?.name ? course.name : course?.name),
                     issueDate: data.certificate.issued_at ? new Date(data.certificate.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '10 August 2026',
                     certCode: data.certificate.cert_code,
                     downloadUrl: `/api/training/certificates/download.php?code=${data.certificate.cert_code}`,
@@ -1473,7 +1474,7 @@ void loop() {
                 // Not issued yet -> Open Preview/Verification mode
                 setCertData({
                     studentName: traineeName || 'Trainee',
-                    courseTitle: (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name) || 'Summer Training Program',
+                    courseTitle: (lang === 'ar' && course?.name ? course.name : course?.name) || 'Summer Training Program',
                     issueDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
                     certCode: 'VERIFY-BEFORE-ISSUE',
                     downloadUrl: null,
@@ -1529,7 +1530,7 @@ void loop() {
             if (res.ok && data.certificate) {
                 setCertData({
                     studentName: data.certificate.trainee_name || traineeName || user?.full_name || 'Trainee',
-                    courseTitle: data.certificate.course_title || (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name),
+                    courseTitle: data.certificate.course_title || (lang === 'ar' && course?.name ? course.name : course?.name),
                     issueDate: data.certificate.issued_at ? new Date(data.certificate.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '10 August 2026',
                     certCode: data.certificate.cert_code,
                     downloadUrl: `/api/training/certificates/download.php?code=${data.certificate.cert_code}`,
@@ -1539,7 +1540,7 @@ void loop() {
             } else {
                 setCertData({
                     studentName: traineeName || user?.full_name || 'Trainee',
-                    courseTitle: (lang === 'ar' && course?.name_ar ? course.name_ar : course?.name) || 'Summer Training Program',
+                    courseTitle: (lang === 'ar' && course?.name ? course.name : course?.name) || 'Summer Training Program',
                     issueDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
                     certCode: 'NMU-VERIFY-PREVIEW',
                     downloadUrl: null,
@@ -1685,14 +1686,14 @@ void loop() {
                                     <div className="topic-header">
                                         <div className="topic-num">{idx + 1}</div>
                                         <div style={{ flex: 1 }}>
-                                            <h4>{t.title} {t.title_ar ? `( ${t.title_ar} )` : ''}</h4>
+                                            <h4>{t.title} {t.title ? `( ${t.title} )` : ''}</h4>
                                             {t.description && <p className="topic-desc">{t.description}</p>}
                                         </div>
 
                                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                             {isTrainee && (
                                                 <button
-                                                    className={`btn btn-sm ${t.viewed ? 'btn-success' : 'btn-outline'}`}
+                                                    className={`btn btn-sm ${t.viewed || Number(t.is_completed) > 0 ? 'btn-success' : 'btn-outline'}`}
                                                     onClick={async () => {
                                                         try {
                                                             await fetch('/api/training/progress/mark.php', {
@@ -1705,7 +1706,7 @@ void loop() {
                                                     }}
                                                 >
                                                     <CheckCircle size={14} />
-                                                    {t.viewed ? (lang === 'ar' ? 'تم الاطلاع' : 'Completed') : (lang === 'ar' ? 'تحديد كمكتمل' : 'Mark as Viewed')}
+                                                    {t.viewed || Number(t.is_completed) > 0 ? (lang === 'ar' ? 'تم الاطلاع' : 'Completed') : (lang === 'ar' ? 'تحديد كمكتمل' : 'Mark as Viewed')}
                                                 </button>
                                             )}
 
@@ -1854,8 +1855,8 @@ void loop() {
                                             <div className="provider-card-header">
                                                 <div className="provider-title-group">
                                                     <h4>{p.name}</h4>
-                                                    {p.name_ar && p.name_ar !== p.name && (
-                                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.name_ar}</span>
+                                                    {p.name && p.name !== p.name && (
+                                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.name}</span>
                                                     )}
                                                     <div className="provider-links-row" style={{ marginTop: '0.35rem' }}>
                                                         {p.website_url && (
@@ -2268,8 +2269,6 @@ void loop() {
                                                             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                                                                 {tr.evaluation_status === 'fail' 
                                                                     ? <span style={{ color: '#ef4444', fontWeight: 600 }}>{lang === 'ar' ? 'راسب' : 'Failed'}</span>
-                                                                    : tr.evaluation_status === 'needs_revision'
-                                                                    ? <span style={{ color: '#d97706', fontWeight: 600 }}>{lang === 'ar' ? 'يحتاج مراجعة' : 'Revision'}</span>
                                                                     : '—'
                                                                 }
                                                             </span>
@@ -2311,7 +2310,7 @@ void loop() {
                                                     </span>
                                                 </div>
                                                 <p className="standout-subtitle">
-                                                    {myIdea.title_en || myIdea.title || 'Official NMU Summer Training Proposal'}
+                                                    {myIdea.title || 'Official NMU Summer Training Proposal'}
                                                 </p>
                                             </div>
                                         </div>
@@ -2548,13 +2547,13 @@ void loop() {
                                         <div style={{
                                             padding: '0.5rem 1.25rem',
                                             borderRadius: '12px',
-                                            background: myEval.status === 'pass' ? 'rgba(34, 197, 94, 0.12)' : (myEval.status === 'needs_revision' ? 'rgba(234, 179, 8, 0.12)' : 'rgba(239, 68, 68, 0.12)'),
-                                            color: myEval.status === 'pass' ? '#16a34a' : (myEval.status === 'needs_revision' ? '#ca8a04' : '#ef4444'),
+                                            background: myEval.status === 'pass' ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                            color: myEval.status === 'pass' ? '#16a34a' : '#ef4444',
                                             fontWeight: 800,
                                             fontSize: '1.1rem',
                                             border: `1px solid ${myEval.status === 'pass' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
                                         }}>
-                                            {myEval.final_score} / 100 ({myEval.status.toUpperCase()})
+                                            {myEval.final_score} / 100 ({myEval.status === 'pass' ? 'PASS' : 'FAIL'})
                                         </div>
                                     </div>
                                 )}
@@ -2568,6 +2567,10 @@ void loop() {
                                         try {
                                             stored = typeof myEval.criteria_scores === 'string' ? JSON.parse(myEval.criteria_scores || '{}') : (myEval.criteria_scores || {});
                                         } catch (_) {}
+
+                                        if (!stored || Object.keys(stored).length === 0) {
+                                            return null;
+                                        }
 
                                         const finalScore = parseFloat(myEval.final_score) || 0;
                                         const rubricsList = (courseCriteria && courseCriteria.length > 0) ? courseCriteria : defaultRubrics;
@@ -2852,29 +2855,142 @@ void loop() {
                                     </p>
                                 </div>
 
-                                <div className="eval-form-box">
-                                    <form onSubmit={handleSubmitEvaluation}>
-                                        <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                                            <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.4rem' }}>
-                                                {lang === 'ar' ? 'اختر المتدرب المراد تقييمه:' : 'Select Trainee to Evaluate:'}
+                                <div className="eval-form-box" style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                                    <div>
+                                        <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                                            <label style={{ fontWeight: 800, display: 'block', marginBottom: '0.75rem', fontSize: '1.05rem', color: 'var(--primary)' }}>
+                                                {lang === 'ar' ? '1. اختر المتدرب المراد تقييمه' : '1. Select Trainee to Evaluate'}
                                             </label>
-                                            <select 
-                                                required 
-                                                value={selectedTraineeForEval || ''} 
-                                                onChange={e => setSelectedTraineeForEval(e.target.value)}
-                                                style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '0.95rem' }}
-                                            >
-                                                <option value="">{lang === 'ar' ? '-- اختر المتدرب --' : '-- Choose Trainee --'}</option>
-                                                {trainees.map(tr => (
-                                                    <option key={tr.trainee_id} value={tr.trainee_id}>
-                                                        {tr.full_name} ({tr.student_id ? `${tr.student_id} - ` : ''}{tr.email})
-                                                    </option>
-                                                ))}
-                                            </select>
+                                            
+                                            <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
+                                                <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                                <input 
+                                                    type="text" 
+                                                    placeholder={lang === 'ar' ? 'ابحث باسم المتدرب، المشروع، أو البريد الإلكتروني...' : 'Search by trainee name, project title, or email...'}
+                                                    value={evalSearchQuery}
+                                                    onChange={e => setEvalSearchQuery(e.target.value)}
+                                                    style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.75rem', borderRadius: '10px', border: '1.5px solid var(--border)', fontSize: '0.95rem', outline: 'none', background: '#ffffff', transition: 'border-color 0.2s' }}
+                                                    onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+                                                    onBlur={e => e.target.style.borderColor = 'var(--border)'}
+                                                />
+                                            </div>
+
+                                            {(() => {
+                                                const q = (evalSearchQuery || '').toLowerCase();
+                                                const fIdeas = (allIdeas || []).map(idea => {
+                                                    const titleMatch = idea.title?.toLowerCase().includes(q);
+                                                    const fMembers = (idea.team_members || []).filter(tm => 
+                                                        tm.full_name?.toLowerCase().includes(q) || 
+                                                        tm.student_id?.toLowerCase().includes(q) || 
+                                                        tm.email?.toLowerCase().includes(q)
+                                                    );
+                                                    if (titleMatch || fMembers.length > 0) {
+                                                        return { ...idea, team_members: titleMatch ? idea.team_members : fMembers };
+                                                    }
+                                                    return null;
+                                                }).filter(Boolean);
+
+                                                const fTraineesFallback = (trainees || [])
+                                                    .filter(tr => !(allIdeas || []).some(idea => idea.team_members?.some(tm => tm.user_id === parseInt(tr.trainee_id))))
+                                                    .filter(tr => tr.full_name?.toLowerCase().includes(q) || tr.student_id?.toLowerCase().includes(q) || tr.email?.toLowerCase().includes(q));
+                                                
+                                                const fTraineesOnly = (trainees || [])
+                                                    .filter(tr => tr.full_name?.toLowerCase().includes(q) || tr.student_id?.toLowerCase().includes(q) || tr.email?.toLowerCase().includes(q));
+
+                                                return (
+                                                    <div style={{ width: '100%', maxHeight: '280px', overflowY: 'auto', borderRadius: '10px', border: '1.5px solid var(--border)', background: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                                                        {fIdeas.length === 0 && fTraineesOnly.length === 0 && fTraineesFallback.length === 0 ? (
+                                                            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                                                {lang === 'ar' ? 'لا يوجد نتائج.' : 'No results found.'}
+                                                            </div>
+                                                        ) : null}
+
+                                                        {fIdeas.length > 0 && fIdeas.map(idea => (
+                                                            <div key={idea.id}>
+                                                                <div style={{ padding: '0.65rem 1rem', background: '#f8fafc', fontSize: '0.85rem', fontWeight: 800, color: '#475569', borderBottom: '1px solid var(--border)', borderTop: '1px solid var(--border)' }}>
+                                                                    {idea.title || (lang === 'ar' ? 'مشروع بدون عنوان' : 'Untitled Project')}
+                                                                </div>
+                                                                {idea.team_members && idea.team_members.map(tm => (
+                                                                    <div 
+                                                                        key={tm.user_id} 
+                                                                        onClick={() => setSelectedTraineeForEval(tm.user_id)}
+                                                                        style={{
+                                                                            padding: '0.75rem 1rem',
+                                                                            cursor: 'pointer',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            justifyContent: 'space-between',
+                                                                            borderBottom: '1px solid var(--border)',
+                                                                            background: selectedTraineeForEval == tm.user_id ? 'rgba(0, 45, 86, 0.08)' : '#ffffff',
+                                                                            color: selectedTraineeForEval == tm.user_id ? 'var(--primary)' : 'inherit',
+                                                                            fontWeight: selectedTraineeForEval == tm.user_id ? 700 : 500,
+                                                                            transition: 'background 0.15s'
+                                                                        }}
+                                                                    >
+                                                                        <span>{tm.full_name} ({tm.student_id ? `${tm.student_id} - ` : ''}{tm.email})</span>
+                                                                        <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '6px', background: '#e2e8f0', color: '#334155', fontWeight: 700 }}>
+                                                                            {tm.role === 'leader' ? 'Leader' : 'Member'}
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ))}
+
+                                                        {fTraineesOnly.length > 0 && (!allIdeas || allIdeas.length === 0) && fTraineesOnly.map(tr => (
+                                                            <div 
+                                                                key={tr.trainee_id} 
+                                                                onClick={() => setSelectedTraineeForEval(tr.trainee_id)}
+                                                                style={{
+                                                                    padding: '0.75rem 1rem',
+                                                                    cursor: 'pointer',
+                                                                    borderBottom: '1px solid var(--border)',
+                                                                    background: selectedTraineeForEval == tr.trainee_id ? 'rgba(0, 45, 86, 0.08)' : '#ffffff',
+                                                                    color: selectedTraineeForEval == tr.trainee_id ? 'var(--primary)' : 'inherit',
+                                                                    fontWeight: selectedTraineeForEval == tr.trainee_id ? 700 : 500,
+                                                                    transition: 'background 0.15s'
+                                                                }}
+                                                            >
+                                                                {tr.full_name} ({tr.student_id ? `${tr.student_id} - ` : ''}{tr.email})
+                                                            </div>
+                                                        ))}
+
+                                                        {allIdeas && allIdeas.length > 0 && fTraineesFallback.length > 0 && (
+                                                            <div>
+                                                                <div style={{ padding: '0.65rem 1rem', background: '#f8fafc', fontSize: '0.85rem', fontWeight: 800, color: '#475569', borderBottom: '1px solid var(--border)', borderTop: '1px solid var(--border)' }}>
+                                                                    {lang === 'ar' ? 'متدربين بدون مشروع' : 'Trainees without a project'}
+                                                                </div>
+                                                                {fTraineesFallback.map(tr => (
+                                                                    <div 
+                                                                        key={tr.trainee_id} 
+                                                                        onClick={() => setSelectedTraineeForEval(tr.trainee_id)}
+                                                                        style={{
+                                                                            padding: '0.75rem 1rem',
+                                                                            cursor: 'pointer',
+                                                                            borderBottom: '1px solid var(--border)',
+                                                                            background: selectedTraineeForEval == tr.trainee_id ? 'rgba(0, 45, 86, 0.08)' : '#ffffff',
+                                                                            color: selectedTraineeForEval == tr.trainee_id ? 'var(--primary)' : 'inherit',
+                                                                            fontWeight: selectedTraineeForEval == tr.trainee_id ? 700 : 500,
+                                                                            transition: 'background 0.15s'
+                                                                        }}
+                                                                    >
+                                                                        {tr.full_name} ({tr.student_id ? `${tr.student_id} - ` : ''}{tr.email})
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
 
-                                        {/* Dynamic Rubric Inputs */}
-                                        <div className="dynamic-rubrics-grid">
+                                        <div style={{ marginBottom: '1.5rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                                            <div style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--primary)' }}>
+                                                    {lang === 'ar' ? '2. إدخال درجات المعايير' : '2. Enter Rubric Scores'}
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="dynamic-rubrics-grid" style={{ background: '#ffffff', padding: '1.25rem', borderTop: '1px solid var(--border)', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
                                             {courseCriteria.map((crit, idx) => (
                                                 <div key={crit.id || idx} className="rubric-field-card">
                                                     <label>
@@ -2895,60 +3011,102 @@ void loop() {
                                                     />
                                                 </div>
                                             ))}
+                                            </div>
                                         </div>
 
-                                        <div className="form-row" style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-                                            <div className="form-group" style={{ flex: 1, minWidth: '160px' }}>
-                                                <label style={{ fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                    <span>{lang === 'ar' ? 'الدرجة النهائية المحتسبة' : 'Calculated Final Score'}</span>
-                                                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{lang === 'ar' ? '(تلقائي من المعايير)' : '(Auto-calculated)'}</span>
+                                        <div className="form-row" style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap', padding: '1.5rem', background: '#f0f9ff', borderRadius: '12px', border: '1px solid #bae6fd' }}>
+                                            <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
+                                                <label style={{ fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', color: '#0369a1' }}>
+                                                    <span>{lang === 'ar' ? 'الدرجة النهائية' : 'Final Score'}</span>
+                                                    <span style={{ fontSize: '0.78rem', color: '#0ea5e9' }}>{lang === 'ar' ? '(تلقائي)' : '(Auto)'}</span>
                                                 </label>
-                                                <div style={{
-                                                    width: '100%',
-                                                    padding: '0.65rem 1rem',
-                                                    borderRadius: '8px',
-                                                    border: '1.5px solid var(--primary, #002D56)',
-                                                    background: 'rgba(0, 45, 86, 0.04)',
-                                                    fontWeight: 800,
-                                                    fontSize: '1.15rem',
-                                                    color: 'var(--primary, #002D56)',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'space-between'
-                                                }}>
-                                                    <span>{evalScore}</span>
-                                                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>/ 100</span>
+                                                <div style={{ position: 'relative' }}>
+                                                    <input
+                                                        type="number"
+                                                        value={evalScore}
+                                                        readOnly={true}
+                                                        style={{
+                                                            width: '100%',
+                                                            padding: '0.85rem 3.5rem 0.85rem 1.25rem',
+                                                            borderRadius: '10px',
+                                                            border: '2px solid #38bdf8',
+                                                            background: '#f1f5f9',
+                                                            fontWeight: 900,
+                                                            fontSize: '1.35rem',
+                                                            color: '#0284c7',
+                                                            outline: 'none',
+                                                            boxShadow: '0 4px 12px rgba(56, 189, 248, 0.15)',
+                                                            cursor: 'not-allowed'
+                                                        }}
+                                                    />
+                                                    <span style={{ position: 'absolute', right: '1.25rem', top: '50%', transform: 'translateY(-50%)', fontSize: '1rem', color: '#94a3b8', fontWeight: 800 }}>/ 100</span>
                                                 </div>
                                             </div>
-                                            <div className="form-group" style={{ flex: 1, minWidth: '160px' }}>
-                                                <label style={{ fontWeight: 700 }}>{lang === 'ar' ? 'حالة الاعتماد' : 'Evaluation Status'}</label>
-                                                <select 
-                                                    value={evalStatus} 
-                                                    onChange={e => setEvalStatus(e.target.value)}
-                                                    style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1px solid var(--border)', fontWeight: 700 }}
+                                            <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
+                                                <label style={{ fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', color: 'var(--primary)' }}>
+                                                    <span>{lang === 'ar' ? 'حالة الاعتماد' : 'Evaluation Status'}</span>
+                                                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{lang === 'ar' ? '(تلقائي)' : '(Auto)'}</span>
+                                                </label>
+                                                <div
+                                                    style={{ 
+                                                        width: '100%', 
+                                                        padding: '1.05rem 0.85rem', 
+                                                        borderRadius: '10px', 
+                                                        border: '1.5px solid var(--border)', 
+                                                        fontWeight: 800, 
+                                                        fontSize: '1.05rem', 
+                                                        background: evalStatus === 'pass' ? '#dcfce7' : '#fee2e2', 
+                                                        color: evalStatus === 'pass' ? '#166534' : '#991b1b',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}
                                                 >
-                                                    <option value="pass">PASS (ناجح معتمد)</option>
-                                                    <option value="needs_revision">NEEDS REVISION (يحتاج مراجعة)</option>
-                                                    <option value="fail">FAIL (راسب)</option>
-                                                </select>
+                                                    {evalStatus === 'pass' ? (lang === 'ar' ? 'ناجح معتمد (PASS)' : 'PASS') : (lang === 'ar' ? 'راسب (FAIL)' : 'FAIL')}
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                                            <label style={{ fontWeight: 700 }}>{lang === 'ar' ? 'ملاحظات وتوجيهات المشرف الأكاديمي' : 'Trainer Feedback & Notes'}</label>
+                                        <div className="form-group" style={{ marginBottom: '1.75rem' }}>
+                                            <label style={{ fontWeight: 800, display: 'block', marginBottom: '0.75rem', fontSize: '1.05rem', color: 'var(--primary)' }}>
+                                                {lang === 'ar' ? '3. ملاحظات وتوجيهات المشرف الأكاديمي' : '3. Trainer Feedback & Notes'}
+                                            </label>
                                             <textarea 
-                                                rows="3" 
+                                                rows="4" 
                                                 value={evalFeedback} 
                                                 onChange={e => setEvalFeedback(e.target.value)} 
                                                 placeholder={lang === 'ar' ? 'أدخل ملاحظات بناءة وتوجيهات للطالب حول مشروعه وأدائه...' : 'Constructive feedback for the trainee...'} 
-                                                style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid var(--border)' }}
+                                                style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: '1.5px solid var(--border)', fontSize: '0.95rem', background: '#ffffff', outline: 'none', transition: 'border-color 0.2s', resize: 'vertical' }}
+                                                onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+                                                onBlur={e => e.target.style.borderColor = 'var(--border)'}
                                             />
                                         </div>
 
-                                        <button type="submit" className="btn btn-primary" disabled={submittingEval || !selectedTraineeForEval} style={{ padding: '0.75rem 2rem', fontWeight: 700, borderRadius: '10px' }}>
-                                            {submittingEval ? <Loader2 className="spin" size={16} /> : (lang === 'ar' ? 'حفظ ونشر التقييم النهائي' : 'Save & Publish Grade')}
+                                        <button 
+                                            type="button" 
+                                            onClick={(e) => {
+                                                console.log("Submit clicked", {selectedTraineeForEval, evalScore, useRubrics});
+                                                handleSubmitEvaluation(e);
+                                            }}
+                                            className="btn btn-primary" 
+                                            disabled={submittingEval}
+                                            style={{ 
+                                                width: '100%', 
+                                                padding: '1rem', 
+                                                fontWeight: 800, 
+                                                fontSize: '1.1rem', 
+                                                borderRadius: '12px', 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                justifyContent: 'center', 
+                                                gap: '8px', 
+                                                boxShadow: '0 4px 15px rgba(0,45,86,0.15)' 
+                                            }}
+                                        >
+                                            {submittingEval ? <Loader2 className="spin" size={20} /> : <CheckCircle size={20} />}
+                                            {lang === 'ar' ? 'حفظ ونشر التقييم النهائي' : 'Save & Publish Grade'}
                                         </button>
-                                    </form>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -3864,7 +4022,7 @@ void loop() {
                                 <input
                                     type="text"
                                     placeholder="مثال: معهد تكنولوجيا المعلومات"
-                                    value={newProviderForm.name_ar}
+                                    value={newProviderForm.name}
                                     onChange={e => setNewProviderForm({ ...newProviderForm, name_ar: e.target.value })}
                                 />
                             </div>

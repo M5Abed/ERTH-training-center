@@ -101,8 +101,8 @@ export default function Projects() {
                                     </span>
                                 </div>
                             </div>
-                            <h3 className="project-card-title">{lang === 'ar' && p.title_ar ? p.title_ar : (p.title || p.title)}</h3>
-                            <p className="project-card-desc">{lang === 'ar' && p.description_ar ? p.description_ar : (p.description || p.description)}</p>
+                            <h3 className="project-card-title">{p.title}</h3>
+                            <p className="project-card-desc">{p.description}</p>
                             <div className="project-card-skills">
                                 {(p.project_skills || []).slice(0, 4).map(s => (
                                     <span key={s.skill_id || s} className="skill-tag">{s.skill_name || s.skill_id || s}</span>

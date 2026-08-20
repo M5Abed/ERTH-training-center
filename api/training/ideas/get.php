@@ -181,7 +181,6 @@ if ($role === 'trainee' && !$isAdmin) {
                te.verification_status,
                te.verification_feedback,
                p.name AS provider_name,
-               p.name_ar AS provider_name_ar,
                p.is_contracted AS provider_is_contracted,
                tt.title AS track_name
         FROM training_ideas ti
@@ -219,7 +218,6 @@ if ($role === 'trainee' && !$isAdmin) {
                te.custom_provider_name,
                te.verification_status,
                p.name AS provider_name,
-               p.name_ar AS provider_name_ar,
                tt.title AS track_name
         FROM training_ideas ti
         JOIN users u ON ti.owner_id = u.id

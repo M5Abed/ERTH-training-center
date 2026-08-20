@@ -170,7 +170,7 @@ export default function PostProject() {
             <form className="pp-form" onSubmit={handleSubmit}>
                 {/* Project Title */}
                 <div className={`form-group ${fieldErrors.title ? 'has-error' : ''}`}>
-                    <label>{t('project_title_en')} <span className="req">*</span></label>
+                    <label>{t('project_title')} <span className="req">*</span></label>
                     <div className="input-with-icon">
                         <FileText size={18} className="field-icon" />
                         <input 

@@ -6,7 +6,10 @@
 
 require_once __DIR__ . '/../../config.php';
 
-$issuer = requireTrainer();
+$issuer = requireRole(['trainee', 'trainer', 'admin']);
+$issuerId = (int)$issuer['id'];
+$issuerRole = strtolower($issuer['role'] ?? 'trainee');
+$isAdminOrTrainer = (bool)($issuer['is_admin'] || $issuerRole === 'admin' || $issuerRole === 'trainer');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respondError('Method not allowed', 405);
@@ -41,8 +44,20 @@ CREATE TABLE IF NOT EXISTS training_certificates (
 
 $db = db();
 
-// Ensure trainer is assigned to this course (or admin)
-verifyCourseAccess($courseId, $issuer);
+// Ensure trainer is assigned to this course (or admin), unless it's a trainee issuing their own cert
+if (!$isAdminOrTrainer) {
+    if ($traineeId !== $issuerId) {
+        respondError('Forbidden: You can only issue your own certificate', 403);
+    }
+    // For trainees, we verify they are enrolled in this course
+    $enrollStmt = $db->prepare("SELECT 1 FROM training_enrollments WHERE course_id = ? AND trainee_id = ?");
+    $enrollStmt->execute([$courseId, $traineeId]);
+    if (!$enrollStmt->fetch()) {
+        respondError('Forbidden: Not enrolled in this course', 403);
+    }
+} else {
+    verifyCourseAccess($courseId, $issuer);
+}
 
 // 1. Fetch Trainee details
 $tStmt = $db->prepare("SELECT id, full_name, student_id, email FROM users WHERE id = ?");
@@ -66,7 +81,13 @@ $eStmt->execute([$courseId, $traineeId]);
 $eval = $eStmt->fetch();
 
 // Allow issuing if evaluated or if admin/trainer explicitly issues
+if (!$eval && !$isAdminOrTrainer) {
+    respondError('Cannot issue certificate: No final evaluation found.', 403);
+}
 $finalScore = $eval ? (float)$eval['final_score'] : 100.0;
+if (!$isAdminOrTrainer && $eval['status'] !== 'pass') {
+    respondError('Cannot issue certificate: You did not pass the evaluation.', 403);
+}
 
 // 4. Generate unique certificate code
 $randomHash = strtoupper(substr(md5(uniqid($traineeId . '_' . $courseId, true)), 0, 8));

@@ -13,10 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = body();
-$nameEn        = sanitizeString($data['name_en'] ?? $data['name'] ?? $data['title'] ?? '');
-$nameAr        = sanitizeString($data['name_ar'] ?? '') ?: null;
-$descriptionEn = sanitizeString($data['description_en'] ?? $data['description'] ?? '');
-$descriptionAr = sanitizeString($data['description_ar'] ?? '') ?: null;
+$name        = sanitizeString($data['name_en'] ?? $data['name'] ?? $data['title'] ?? '');
+$description = sanitizeString($data['description_en'] ?? $data['description'] ?? '');
 $startDate     = trim($data['start_date'] ?? '');
 $endDate       = trim($data['end_date'] ?? '');
 $durationHours = (int)($data['duration_hours'] ?? $data['duration'] ?? 40);
@@ -28,7 +26,7 @@ if (!in_array($courseType, ['internal', 'external', 'both'])) {
     $courseType = 'both';
 }
 
-if (!$nameEn) {
+if (empty($name)) {
     respondError('Course name is required');
 }
 
@@ -36,16 +34,14 @@ $db = db();
 
 try {
     $stmt = $db->prepare("
-        INSERT INTO training_courses (name_en, name_ar, category, level, description_en, description_ar, start_date, end_date, duration_hours, course_type, status, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
+        INSERT INTO training_courses (name, category, level, description, start_date, end_date, duration_hours, course_type, status, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
     ");
     $stmt->execute([
-        $nameEn,
-        $nameAr,
+        $name,
         $category,
         $level,
-        $descriptionEn ?: null,
-        $descriptionAr,
+        $description ?: null,
         $startDate ?: null,
         $endDate ?: null,
         $durationHours,

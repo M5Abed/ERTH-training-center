@@ -15,13 +15,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $data = body();
 $courseId      = (int)($data['course_id'] ?? 0);
 $providerId    = isset($data['provider_id']) && (int)$data['provider_id'] > 0 ? (int)$data['provider_id'] : null;
-$titleEn       = sanitizeString($data['title_en'] ?? $data['title'] ?? '');
-$titleAr       = sanitizeString($data['title_ar'] ?? '') ?: null;
-$descriptionEn = sanitizeString($data['description_en'] ?? $data['description'] ?? '');
-$descriptionAr = sanitizeString($data['description_ar'] ?? '') ?: null;
+$title       = sanitizeString($data['title'] ?? $data['title_en'] ?? '');
+$description = sanitizeString($data['description'] ?? $data['description_en'] ?? '');
 $dueDate       = trim($data['due_date'] ?? '');
 
-if (!$courseId || !$titleEn) {
+if (!$courseId || !$title) {
     respondError('Course ID and Track title are required');
 }
 
@@ -51,16 +49,14 @@ try {
     $nextOrder = (int)$ordStmt->fetchColumn();
 
     $stmt = $db->prepare("
-        INSERT INTO training_topics (course_id, provider_id, title_en, title_ar, description_en, description_ar, due_date, order_index)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO training_topics (course_id, provider_id, title, description, due_date, order_index)
+        VALUES (?, ?, ?, ?, ?, ?)
     ");
     $stmt->execute([
         $courseId,
         $providerId,
-        $titleEn,
-        $titleAr,
-        $descriptionEn ?: null,
-        $descriptionAr,
+        $title,
+        $description ?: null,
         $dueDate ?: null,
         $nextOrder
     ]);

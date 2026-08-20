@@ -132,7 +132,7 @@ export default function TrainingCourses() {
     const filteredCourses = courses.filter(c => {
         const query = search.toLowerCase();
         return (c.name || '').toLowerCase().includes(query) ||
-               (c.name_ar || '').includes(query) ||
+               (c.name || '').includes(query) ||
                (c.description || '').toLowerCase().includes(query);
     });
 

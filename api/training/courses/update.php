@@ -14,10 +14,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data = body();
 $courseId      = (int)($data['course_id'] ?? $data['id'] ?? 0);
-$nameEn        = sanitizeString($data['name_en'] ?? $data['name'] ?? '');
-$nameAr        = sanitizeString($data['name_ar'] ?? '');
-$descriptionEn = sanitizeString($data['description_en'] ?? $data['description'] ?? '');
-$descriptionAr = sanitizeString($data['description_ar'] ?? '');
+$name        = sanitizeString($data['name_en'] ?? $data['name'] ?? '');
+$description = sanitizeString($data['description_en'] ?? $data['description'] ?? '');
 $startDate     = trim($data['start_date'] ?? '');
 $endDate       = trim($data['end_date'] ?? '');
 $durationHours = (int)($data['duration_hours'] ?? 40);
@@ -26,11 +24,8 @@ $category      = sanitizeString($data['category'] ?? '');
 $level         = sanitizeString($data['level'] ?? '');
 $courseType    = sanitizeString($data['course_type'] ?? '');
 
-if (!$courseId) {
-    respondError('Course ID is required');
-}
-if (!$nameEn) {
-    respondError('Course name is required');
+if (!$courseId || empty($name)) {
+    respondError('Course ID and name are required');
 }
 if (!$category) {
     respondError('Track / Category is required');
@@ -55,12 +50,10 @@ verifyCourseAccess($courseId, $user);
 try {
     $updateStmt = $db->prepare("
         UPDATE training_courses 
-        SET name_en = ?, 
-            name_ar = CASE WHEN ? != '' THEN ? ELSE name_ar END, 
+        SET name = ?, 
             category = ?, 
             level = ?, 
-            description_en = ?, 
-            description_ar = CASE WHEN ? != '' THEN ? ELSE description_ar END, 
+            description = ?, 
             start_date = ?, 
             end_date = ?, 
             duration_hours = ?,
@@ -68,14 +61,10 @@ try {
         WHERE id = ?
     ");
     $updateStmt->execute([
-        $nameEn,
-        $nameAr,
-        $nameAr,
+        $name,
         $category,
         $level,
-        $descriptionEn ?: null,
-        $descriptionAr,
-        $descriptionAr,
+        $description ?: null,
         $startDate ?: null,
         $endDate ?: null,
         $durationHours,

@@ -21,7 +21,13 @@ foreach ($queries as $q) {
         $db->exec($q);
         echo "Success: $q\n";
     } catch (Exception $e) {
-        echo "Error: " . $e->getMessage() . "\n";
+        $msg = $e->getMessage();
+        // Ignore errors if column doesn't exist (already dropped/renamed)
+        if (strpos($msg, 'Column not found') !== false || strpos($msg, 'Can\'t DROP') !== false || strpos($msg, 'check that column/key exists') !== false) {
+            echo "Skipped (already applied): $q\n";
+        } else {
+            echo "Error: " . $msg . "\n";
+        }
     }
 }
 ?>

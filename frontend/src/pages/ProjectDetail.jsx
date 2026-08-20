@@ -186,8 +186,8 @@ export default function ProjectDetail() {
 
     // Open edit modal (#16)
     const openEditModal = () => {
-        setEditTitle(project.title || project.title || '');
-        setEditDesc(project.description || project.description || '');
+        setEditTitle(project.title || '');
+        setEditDesc(project.description || '');
         setEditType(project.type || '');
         setEditTeamSize(project.team_size_needed || project.team_size || '');
         setEditDeadline(project.deadline ? project.deadline.split('T')[0] : '');
@@ -257,7 +257,7 @@ export default function ProjectDetail() {
                 <div className="pd-main">
                     <div className="pd-header">
                         <div className="pd-title-row">
-                            <h1>{lang === 'ar' && project.title_ar ? project.title_ar : (project.title || project.title)}</h1>
+                            <h1>{project.title}</h1>
                             <div className="pd-badges">
                                 <span className="project-status" style={{ color: getStatusColor(project.status) }}>
                                     <span className="status-dot" style={{ background: getStatusColor(project.status) }} />
@@ -297,7 +297,7 @@ export default function ProjectDetail() {
                     </div>
 
                     <div className="pd-desc">
-                        <p>{lang === 'ar' && project.description_ar ? project.description_ar : (project.description || project.description)}</p>
+                        <p>{project.description}</p>
                         {project.project_skills?.length > 0 && (
                             <div className="pd-desc-skills" style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
                                 <h4 style={{ marginBottom: '0.75rem', fontSize: '0.9rem', color: 'var(--text-2)' }}>{t('required_skills')}</h4>

@@ -18,6 +18,7 @@ $courseId      = (int)($data['course_id']  ?? 0);
 $status        = trim($data['status']   ?? 'pass');  // pass | fail | needs_revision
 $feedback      = sanitizeString($data['feedback'] ?? '');
 $criteriaInput = $data['criteria_scores'] ?? null;
+$submittedFinalScore = isset($data['final_score']) ? (float)$data['final_score'] : null;
 
 if (!$traineeId || !$courseId) {
     respondError('Trainee ID and Course ID are required');
@@ -27,24 +28,32 @@ if (!in_array($status, ['pass', 'fail', 'needs_revision'], true)) {
     respondError('Invalid evaluation status. Allowed: pass, fail, needs_revision');
 }
 
-if (!is_array($criteriaInput) || count($criteriaInput) === 0) {
-    respondError('criteria_scores must be a non-empty object of {name: score} pairs');
-}
-
 $db = db();
 
 // Enforce Object-Level Authorization
 verifyCourseAccess($courseId, $evaluator);
 
 // ── Load this course's configured criteria ────────────────────────────────
-$cStmt = $db->prepare("
-    SELECT id, name, weight
-    FROM course_eval_criteria
-    WHERE course_id = ?
-    ORDER BY order_index ASC, id ASC
-");
-$cStmt->execute([$courseId]);
-$configuredCriteria = $cStmt->fetchAll();
+try {
+    $db->exec("CREATE TABLE IF NOT EXISTS course_eval_criteria (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        course_id INT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        weight DECIMAL(5,2) NOT NULL,
+        order_index INT NOT NULL DEFAULT 0
+    )");
+
+    $cStmt = $db->prepare("
+        SELECT id, name, weight
+        FROM course_eval_criteria
+        WHERE course_id = ?
+        ORDER BY order_index ASC, id ASC
+    ");
+    $cStmt->execute([$courseId]);
+    $configuredCriteria = $cStmt->fetchAll();
+} catch (Throwable $e) {
+    $configuredCriteria = [];
+}
 
 // ── Calculate final score from submitted scores ───────────────────────────
 // Each criterion's maximum score equals its weight (so sum of all maxes = 100).
@@ -63,12 +72,22 @@ if (empty($configuredCriteria)) {
         ['Presentation',    20.00, 3],
         ['Documentation',   20.00, 4],
     ];
-    $ins = $db->prepare("INSERT INTO course_eval_criteria (course_id, name, weight, order_index) VALUES (?, ?, ?, ?)");
-    foreach ($defaults as [$name, $weight, $idx]) {
-        $ins->execute([$courseId, $name, $weight, $idx]);
+    try {
+        $ins = $db->prepare("INSERT INTO course_eval_criteria (course_id, name, weight, order_index) VALUES (?, ?, ?, ?)");
+        foreach ($defaults as [$name, $weight, $idx]) {
+            $ins->execute([$courseId, $name, $weight, $idx]);
+        }
+        $cStmt = $db->prepare("
+            SELECT id, name, weight
+            FROM course_eval_criteria
+            WHERE course_id = ?
+            ORDER BY order_index ASC, id ASC
+        ");
+        $cStmt->execute([$courseId]);
+        $configuredCriteria = $cStmt->fetchAll();
+    } catch (Throwable $e) {
+        $configuredCriteria = [];
     }
-    $cStmt->execute([$courseId]);
-    $configuredCriteria = $cStmt->fetchAll();
 }
 
 // Build a lookup: name (lowercase), id, and slug -> [weight, canonicalName]
@@ -80,18 +99,24 @@ foreach ($configuredCriteria as $c) {
     $lookup[(string)$c['id']] = [$w, $canonical];
 }
 
-foreach ($criteriaInput as $rawKey => $rawScore) {
-    $lookupKey = strtolower(trim((string)$rawKey));
-    $score = (float)$rawScore;
+if (is_array($criteriaInput)) {
+    foreach ($criteriaInput as $rawKey => $rawScore) {
+        $lookupKey = strtolower(trim((string)$rawKey));
+        $score = (float)$rawScore;
 
-    if (!isset($lookup[$lookupKey])) {
-        continue;
+        if (!isset($lookup[$lookupKey])) {
+            continue;
+        }
+
+        [$maxScore, $canonicalName] = $lookup[$lookupKey];
+        $score = max(0.0, min($maxScore, $score));
+        $criteriaScores[$canonicalName] = round($score, 2);
+        $finalScore += $score;
     }
+}
 
-    [$maxScore, $canonicalName] = $lookup[$lookupKey];
-    $score = max(0.0, min($maxScore, $score));
-    $criteriaScores[$canonicalName] = round($score, 2);
-    $finalScore += $score;
+if ($submittedFinalScore !== null) {
+    $finalScore = $submittedFinalScore;
 }
 
 $finalScore = max(0.0, min(100.0, round($finalScore, 2)));
@@ -133,13 +158,57 @@ try {
         $criteriaJson
     ]);
 
+    // Auto-issue certificate if passed
+    if ($status === 'pass') {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS training_certificates (
+              id            INT AUTO_INCREMENT PRIMARY KEY,
+              cert_code     VARCHAR(64) UNIQUE NOT NULL,
+              course_id     INT NOT NULL,
+              trainee_id    INT NOT NULL,
+              issued_by     INT NOT NULL,
+              final_score   DECIMAL(5,2) DEFAULT NULL,
+              status        VARCHAR(32) DEFAULT 'issued',
+              pdf_path      VARCHAR(255) DEFAULT NULL,
+              issued_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE INDEX idx_tc_trainee_course (trainee_id, course_id),
+              INDEX idx_tc_code (cert_code)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
+        
+        $randomHash = strtoupper(substr(md5(uniqid($traineeId . '_' . $courseId, true)), 0, 8));
+        $certCode   = "NMU-CERT-2026-" . $randomHash;
+
+        $cStmt = $db->prepare("
+            INSERT INTO training_certificates
+                (cert_code, course_id, trainee_id, issued_by, final_score, status, issued_at)
+            VALUES
+                (?, ?, ?, ?, ?, 'issued', NOW())
+            ON DUPLICATE KEY UPDATE 
+                final_score = VALUES(final_score),
+                issued_by = VALUES(issued_by)
+        ");
+        $cStmt->execute([
+            $certCode,
+            $courseId,
+            $traineeId,
+            $evaluator['id'],
+            $finalScore
+        ]);
+    } else {
+        // Remove certificate if they failed
+        try {
+            $db->prepare("DELETE FROM training_certificates WHERE course_id = ? AND trainee_id = ?")->execute([$courseId, $traineeId]);
+        } catch (Throwable $e) {}
+    }
+
     // Notify trainee
     $nStmt = $db->prepare("
         INSERT INTO notifications (user_id, type, message_en, message_ar)
         VALUES (?, 'training_evaluation', ?, ?)
     ");
     $msgEn = "Your training evaluation has been submitted. Status: " . strtoupper($status) . " (Score: $finalScore/100).";
-    $msgAr = "تم رصد تقييمك للتدريب الصيفي. الحالة: " . strtoupper($status) . " (الدرجة: $finalScore/100).";
+    $msgAr = "تم رصد تقييمك للتدريب الصيفي. الحالة: " . ($status === 'pass' ? 'ناجح' : 'راسب') . " (الدرجة: $finalScore/100).";
     $nStmt->execute([$traineeId, $msgEn, $msgAr]);
 
     respond([

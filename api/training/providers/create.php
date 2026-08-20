@@ -14,7 +14,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data = body();
 $name = trim($data['name'] ?? '');
-$nameAr = trim($data['name_ar'] ?? $name);
 $websiteUrl = trim($data['website_url'] ?? '');
 $linkedinUrl = trim($data['linkedin_url'] ?? '');
 $isContracted = isset($data['is_contracted']) ? (int)(bool)$data['is_contracted'] : 1;
@@ -37,12 +36,11 @@ $db = db();
 
 try {
     $stmt = $db->prepare("
-        INSERT INTO external_training_providers (name, name_ar, website_url, linkedin_url, is_contracted, status, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO external_training_providers (name, website_url, linkedin_url, is_contracted, status, created_by)
+        VALUES (?, ?, ?, ?, ?, ?)
     ");
     $stmt->execute([
         $name,
-        $nameAr ?: null,
         $websiteUrl ?: null,
         $linkedinUrl ?: null,
         $isContracted,

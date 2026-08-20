@@ -49,10 +49,10 @@ try {
             if ($cp['id'] === (int)$idea['catalog_project_id']) { $catProject = $cp; break; }
         }
     }
-    // Priority 2: title_en exact match
-    if (!$catProject && !empty($idea['title_en'])) {
+    // Priority 2: title exact match
+    if (!$catProject && !empty($idea['title'])) {
         foreach ($catalog as $cp) {
-            if (strcasecmp($cp['title'], $idea['title_en']) === 0) { $catProject = $cp; break; }
+            if (strcasecmp($cp['title'], $idea['title']) === 0) { $catProject = $cp; break; }
         }
     }
     // Priority 3: title match
@@ -63,7 +63,7 @@ try {
     }
     // Priority 4: fuzzy substring match on title
     if (!$catProject) {
-        $searchTitle = strtolower($idea['title_en'] ?: $idea['title'] ?: '');
+        $searchTitle = strtolower($idea['title'] ?: '');
         if ($searchTitle) {
             foreach ($catalog as $cp) {
                 if (stripos($cp['title'], $searchTitle) !== false || stripos($searchTitle, $cp['title']) !== false) {
@@ -103,7 +103,7 @@ try {
 
     // ── Resolve project metadata ────────────────────────────────────────────────
     $title = $s($p['project_title'] ?? $p['title'] ?? '', '');
-    if (empty($title)) $title = $s($idea['title_en'] ?? '', $idea['title'] ?? 'Training Project');
+    if (empty($title)) $title = $s($idea['title'] ?? 'Training Project');
 
     $category = $s($catProject['category'] ?? $p['category'] ?? 'software');
     $platformMap = [
@@ -164,7 +164,7 @@ try {
     $endDate     = $s($_GET['end_date'] ?? '18 August 2026', '18 August 2026');
 
     // ── Extract full section content ────────────────────────────────────────────
-    $abstract    = $secMap['abstract']                    ?? $s($idea['description_en'] ?? $idea['description'] ?? '');
+    $abstract    = $secMap['abstract']                    ?? $s($idea['description'] ?? '');
     $intro       = $secMap['introduction_background']     ?? $s($p['ch1_introduction'] ?? '');
     $objectives  = $secMap['objectives_scope']            ?? $s($p['ch1_aim'] ?? '');
     $related     = $secMap['related_work']                ?? $s($p['ch2_gap'] ?? '');

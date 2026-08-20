@@ -106,9 +106,9 @@ export default function TrainingApprovals() {
                                 <div className="detail-item">
                                     <span>Academic Year:</span> <strong>Year {req.academic_year || '3'}</strong>
                                 </div>
-                                {req.requested_course_name_en && (
-                                    <div className="detail-item">
-                                        <span>Requested Course:</span> <strong>{req.requested_course_name_en}</strong>
+                                {req.requested_course_name && (
+                                    <div className="req-detail">
+                                        <span>Requested Course:</span> <strong>{req.requested_course_name}</strong>
                                     </div>
                                 )}
                                 <div className="detail-item">
