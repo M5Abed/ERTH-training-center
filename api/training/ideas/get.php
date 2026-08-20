@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);
 }
 
-$courseId = (int) ($_GET['course_id'] ?? 0);
+$courseId = resolveCourseId($_GET['course_id'] ?? 0);
 if (!$courseId) {
     respondError('Course ID is required');
 }
@@ -32,9 +32,9 @@ function attachTeamMembersToIdeas($db, array &$ideas, int $currentUserId) {
     $membersByIdea = [];
     try {
         $mStmt = $db->prepare("
-            SELECT tim.idea_id, tim.user_id, tim.role, 
-                   u.full_name, u.student_id, u.email, u.avatar_url, u.username,
-                   u.major, u.academic_year, u.department
+            SELECT tim.idea_id, tim.user_id, tim.role,
+                   u.full_name, u.student_id, u.email,
+                   u.major, u.academic_year
             FROM training_idea_members tim
             JOIN users u ON tim.user_id = u.id
             WHERE tim.idea_id IN ($inClause)
@@ -45,17 +45,14 @@ function attachTeamMembersToIdeas($db, array &$ideas, int $currentUserId) {
 
         foreach ($allMembers as $m) {
             $membersByIdea[$m['idea_id']][] = [
-                'user_id' => (int) $m['user_id'],
-                'id' => (int) $m['user_id'],
-                'role' => $m['role'],
-                'full_name' => $m['full_name'] ?: $m['username'] ?: $m['email'],
-                'student_id' => $m['student_id'],
-                'email' => $m['email'],
-                'avatar_url' => $m['avatar_url'],
-                'username' => $m['username'],
-                'major' => $m['major'],
-                'academic_year' => $m['academic_year'],
-                'department' => $m['department']
+                'user_id'      => (int) $m['user_id'],
+                'id'           => (int) $m['user_id'],
+                'role'         => $m['role'],
+                'full_name'    => $m['full_name'] ?: $m['email'],
+                'student_id'   => $m['student_id'],
+                'email'        => $m['email'],
+                'major'        => $m['major'],
+                'academic_year'=> $m['academic_year'],
             ];
         }
     } catch (Exception $e) {

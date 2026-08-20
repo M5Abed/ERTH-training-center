@@ -41,6 +41,14 @@ if (!$course) {
 // Enforce course-level authorization for trainers
 verifyCourseAccess($courseId, $user);
 
+// Ensure voting_status column exists
+try {
+    $cols = $db->query("SHOW COLUMNS FROM training_courses LIKE 'voting_status'")->fetchAll();
+    if (empty($cols)) {
+        $db->exec("ALTER TABLE training_courses ADD COLUMN voting_status ENUM('not_started', 'open', 'closed') NOT NULL DEFAULT 'not_started'");
+    }
+} catch (Throwable $e) {}
+
 // Update status
 $upd = $db->prepare("UPDATE training_courses SET voting_status = ?, updated_at = NOW() WHERE id = ?");
 $upd->execute([$votingStatus, $courseId]);

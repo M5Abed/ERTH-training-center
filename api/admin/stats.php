@@ -65,8 +65,8 @@ try { $totalProjects = (int)$db->query("SELECT COUNT(*) FROM projects")->fetchCo
 // ── Users list (admin panel users tab) ────────────────────────────────────────
 $users = $db->query("
     SELECT u.id, u.full_name, u.email,
-           u.college_key, u.academic_year, u.avatar_url,
-           u.avg_rating, u.created_at, u.student_id, u.role
+           u.academic_year, u.major, u.department,
+           u.created_at, u.student_id, u.role, u.approval_status
     FROM users u
     ORDER BY u.created_at DESC
     LIMIT 200
@@ -74,7 +74,6 @@ $users = $db->query("
 
 foreach ($users as &$u) {
     $u['user_skills'] = [];
-    $u['avg_rating'] = $u['avg_rating'] !== null ? (float)$u['avg_rating'] : null;
 }
 unset($u);
 

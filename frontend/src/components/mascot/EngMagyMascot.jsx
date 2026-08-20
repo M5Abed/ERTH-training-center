@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import './EngMagyMascot.css';
 
 // Egyptian dialect, professional engineering lecturer, zero emojis
@@ -53,10 +54,18 @@ const RANDOM_MAGY_QUOTES = [
 ];
 
 export default function EngMagyMascot({ forceShow = false, courseTrack = '' }) {
+    const { user } = useAuth();
     const location = useLocation();
     const pathname = location.pathname.toLowerCase();
 
-    // STRICT SCOPE ISOLATION:
+    // STRICT USER SCOPE: Only for students / trainees. Admins and Trainers must never see Eng. Magy.
+    const userRole = (user?.role || '').toLowerCase();
+    const isAdminOrTrainer = !!(user?.is_admin || userRole === 'admin' || userRole === 'trainer');
+    if (isAdminOrTrainer) {
+        return null;
+    }
+
+    // STRICT ROUTE ISOLATION:
     const isRoboticsRoute = forceShow || 
         pathname.includes('/courses/robotics') || 
         pathname.includes('robotics') ||

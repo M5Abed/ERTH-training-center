@@ -42,9 +42,20 @@ if (!$user) {
 
 $traineeId = (int)$user['id'];
 
-$trainingType = strtolower(trim($data['training_type'] ?? 'internal'));
-if (!in_array($trainingType, ['internal', 'external'], true)) {
-    $trainingType = 'internal';
+$cStmt = $db->prepare("SELECT course_type, name, category FROM training_courses WHERE id = ?");
+$cStmt->execute([$courseId]);
+$course = $cStmt->fetch();
+$isCourseExternal = ($course && (
+    ($course['course_type'] ?? '') === 'external' || 
+    stripos($course['name'], 'external') !== false || 
+    stripos($course['name'], 'خارجي') !== false || 
+    stripos($course['category'] ?? '', 'external') !== false || 
+    stripos($course['category'] ?? '', 'خارجي') !== false
+));
+
+$trainingType = strtolower(trim($data['training_type'] ?? ($isCourseExternal ? 'external' : 'internal')));
+if (!in_array($trainingType, ['internal', 'external'], true) || $isCourseExternal) {
+    $trainingType = $isCourseExternal ? 'external' : 'internal';
 }
 
 $providerId = isset($data['provider_id']) && (int)$data['provider_id'] > 0 ? (int)$data['provider_id'] : null;

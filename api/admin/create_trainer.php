@@ -13,11 +13,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data = body();
 $email      = trim(strtolower($data['email'] ?? ''));
-$username   = trim($data['username'] ?? '');
 $password   = $data['password'] ?? '';
 $name       = trim($data['full_name'] ?? '');
-$college    = trim($data['college_key'] ?? '');
 $department = trim($data['department'] ?? '');
+$role       = trim(strtolower($data['role'] ?? 'trainer'));
+
+$allowedRoles = ['trainer', 'professor', 'ta', 'lecturer', 'supervisor', 'admin'];
+if (!in_array($role, $allowedRoles, true)) {
+    $role = 'trainer';
+}
+$isAdmin = ($role === 'admin' || !empty($data['is_admin'])) ? 1 : 0;
 
 // Validate
 if (!$email || !$password || !$name) {
@@ -30,12 +35,7 @@ if (strlen($password) < 8) {
     respondError('Password must be at least 8 characters');
 }
 
-// Generate username if not provided
-if (!$username) {
-    $parts = explode('@', $email);
-    $username = preg_replace('/[^a-zA-Z0-9_]/', '', $parts[0]);
-    if (strlen($username) < 3) $username = 'trainer_' . rand(100, 999);
-}
+
 
 // Check email
 $chk = db()->prepare("SELECT id FROM users WHERE email = ?");
@@ -44,13 +44,13 @@ if ($chk->fetch()) {
     respondError('A user with this email already exists', 409);
 }
 
-// Create account with role='trainer', approval_status='approved', email_verified=1
+// Create account with selected role, approval_status='approved', email_verified=1
 $hash = password_hash($password, PASSWORD_DEFAULT);
 $ins = db()->prepare("
-    INSERT INTO users (email, username, password_hash, full_name, role, college_key, department, approval_status, email_verified, created_at)
-    VALUES (?, ?, ?, ?, 'trainer', ?, ?, 'approved', 1, NOW())
+    INSERT INTO users (email, password_hash, full_name, role, is_admin, department, approval_status, email_verified, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, 'approved', 1, NOW())
 ");
-$ins->execute([$email, $username, $hash, $name, $college ?: null, $department ?: null]);
+$ins->execute([$email, $hash, $name, $role, $isAdmin, $department ?: null]);
 $newId = db()->lastInsertId();
 
-respond(['success' => true, 'user_id' => $newId, 'message' => 'Trainer account created successfully'], 201);
+respond(['success' => true, 'user_id' => $newId, 'role' => $role, 'message' => 'Trainer account created successfully'], 201);

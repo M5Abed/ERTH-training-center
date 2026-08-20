@@ -120,9 +120,9 @@ export default function Auth() {
             setTimeout(() => setShakeForm(false), 600);
         } else {
             setOtpSuccess(true);
-            const sessionData = await reloadSession();
+            await reloadSession();
             setTimeout(() => {
-                checkOnboardingRedirect(sessionData?.profile, sessionData?.user);
+                navigate('/dashboard');
             }, 1000);
         }
     };
@@ -220,25 +220,6 @@ export default function Auth() {
         }, 1500);
     };
 
-    // Check if user needs onboarding
-    const checkOnboardingRedirect = (userProfile, userObj) => {
-        const role = userObj?.role || userProfile?.role;
-        const isAdmin = !!(userObj?.is_admin || userObj?.role === 'admin' || userProfile?.is_admin || userProfile?.role === 'admin' || role === 'admin');
-        const isTrainer = role === 'trainer';
-
-        if (isAdmin || isTrainer) {
-            navigate('/courses');
-            return false;
-        }
-
-        if (!userProfile || !userProfile.user_skills || userProfile.user_skills.length === 0) {
-            navigate('/onboarding');
-            return true;
-        }
-        navigate('/courses');
-        return false;
-    };
-
     const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
@@ -253,7 +234,7 @@ export default function Auth() {
             const vd = result.verificationData;
             enterVerifyMode(vd.user_id, vd.email);
         } else {
-            checkOnboardingRedirect(result.profile, result.user);
+            navigate('/dashboard');
         }
     };
 

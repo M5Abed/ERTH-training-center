@@ -43,7 +43,8 @@ try {
     } catch (Throwable $e) {}
 
     // Support both multipart form-data (for files) and JSON payloads (for links)
-    $inputData = !empty($_POST) ? $_POST : body();
+    $jsonBody = body();
+    $inputData = array_merge(is_array($jsonBody) ? $jsonBody : [], $_POST);
 
     $ideaId    = (int) ($inputData['idea_id'] ?? 0);
     $courseId  = (int) ($inputData['course_id'] ?? 0);
@@ -62,6 +63,22 @@ try {
                 $courseId = (int) $ideaRow['course_id'];
             }
         }
+    }
+
+    // If ideaId missing but courseId exists, resolve trainee's active idea
+    if (!$ideaId && $courseId && $uid) {
+        try {
+            $iFind = $db->prepare("
+                SELECT id FROM training_ideas 
+                WHERE course_id = ? AND (owner_id = ? OR id IN (SELECT idea_id FROM training_idea_members WHERE user_id = ?))
+                ORDER BY id DESC LIMIT 1
+            ");
+            $iFind->execute([$courseId, $uid, $uid]);
+            $foundIdeaId = $iFind->fetchColumn();
+            if ($foundIdeaId) {
+                $ideaId = (int)$foundIdeaId;
+            }
+        } catch (Throwable $e) {}
     }
 
     if (!$courseId && $uid) {
@@ -243,7 +260,7 @@ try {
             'id' => $docId,
             'idea_id' => $ideaId,
             'trainee_id' => $uid,
-            'trainee_name' => $user['full_name'] ?: $user['username'],
+            'trainee_name' => $user['full_name'] ?: ($user['email'] ?? 'Trainee'),
             'course_id' => $courseId,
             'doc_type' => $docType,
             'file_name' => $fileName,

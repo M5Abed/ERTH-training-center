@@ -31,7 +31,8 @@ if ($courseId > 0) {
         SELECT u.id, u.id AS trainer_id, u.full_name, u.email, u.department, u.role,
                (SELECT COUNT(*) FROM trainer_assignments WHERE trainer_id = u.id) AS assigned_courses_count
         FROM users u
-        WHERE u.role IN ('trainer', 'professor', 'ta') OR u.is_admin = 1
+        WHERE (u.role IN ('trainer', 'professor', 'ta', 'lecturer', 'supervisor') OR u.is_admin = 1) 
+          AND u.role != 'trainee'
         ORDER BY u.id ASC
     ");
     $trainers = $stmt->fetchAll();

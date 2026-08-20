@@ -10,10 +10,14 @@ import './DocumentsArchive.css';
 
 const DOC_TYPE_LABELS = {
     report:       { en: 'Final Report',     ar: 'التقرير النهائي',       icon: FileText },
-    presentation: { en: 'Presentation',     ar: 'عرض تقديمي',            icon: FileText },
+    presentation: { en: 'Presentation',    ar: 'عرض تقديمي',            icon: FileText },
     srs:          { en: 'SRS / Arch',       ar: 'وثيقة المتطلبات',       icon: FileText },
     code_zip:     { en: 'Source Code',      ar: 'الكود المصدري',          icon: Code2 },
-    github_url:   { en: 'GitHub Repo',      ar: 'مستودع GitHub',          icon: Github },
+    github:       { en: 'GitHub Repo',      ar: 'مستودع GitHub',          icon: Github },
+    figma:        { en: 'Figma Prototype', ar: 'نماذج Figma',            icon: Github },
+    video:        { en: 'Video Demo',      ar: 'فيديو توضيحي',          icon: Github },
+    demo:         { en: 'Live Demo',       ar: 'عرض تجريبي مباشر',      icon: Github },
+    drive:        { en: 'Drive Link',      ar: 'رابط Drive',            icon: Github },
 };
 
 export default function DocumentsArchive() {
@@ -33,7 +37,7 @@ export default function DocumentsArchive() {
     const [exporting, setExporting]       = useState(false);
 
     useEffect(() => {
-        fetch('/api/training/courses/list.php')
+        fetch('/api/training/courses/list.php', { credentials: 'include' })
             .then(r => r.json())
             .then(d => setCourses(d.courses || []))
             .catch(() => {});
@@ -49,9 +53,9 @@ export default function DocumentsArchive() {
             let url = '/api/training/docs/list.php?all=1&';
             if (courseFilter) url += `course_id=${courseFilter}&`;
             if (typeFilter)   url += `doc_type=${typeFilter}&`;
-            const res  = await fetch(url);
+            const res  = await fetch(url, { credentials: 'include' });
             const data = await res.json();
-            if (res.ok) setDocs(data.docs || []);
+            if (res.ok) setDocs(data.docs || data.documents || []);
         } catch (e) { console.error(e); }
         finally { setLoading(false); }
     };
@@ -166,7 +170,7 @@ export default function DocumentsArchive() {
                         <tbody>
                             {filtered.map((doc, idx) => {
                                 const typeInfo = DOC_TYPE_LABELS[doc.doc_type] || DOC_TYPE_LABELS.report;
-                                const isLink   = doc.doc_type === 'github_url';
+                                const isLink = !!doc.file_url && /^https?:\/\//i.test(doc.file_url);
                                 return (
                                     <tr key={doc.id}>
                                         <td className="da-num">{idx + 1}</td>

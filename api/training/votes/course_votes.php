@@ -1,6 +1,6 @@
-<?php
+﻿<?php
 // =========================================================
-// NMU TRAINING — Get Course Projects & Voting State
+// NMU TRAINING â€” Get Course Projects & Voting State
 // GET /api/training/votes/course_votes.php?course_id=X
 // Access: Trainee, Trainer, or Admin
 // =========================================================
@@ -45,7 +45,6 @@ $pStmt = $db->prepare("
         u.full_name AS trainee_name,
         u.student_id,
         u.email AS trainee_email,
-        u.avatar_url AS trainee_avatar,
         te.final_score AS evaluation_score,
         COUNT(DISTINCT cpv.id) AS vote_count,
         ti.created_at
@@ -149,3 +148,4 @@ respond([
     'projects'      => $projects,
     'top_5'         => $top5
 ]);
+

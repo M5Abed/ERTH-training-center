@@ -32,7 +32,7 @@ if (!$rateCheck['allowed']) {
 // =========================================================
 
 $data  = body();
-$email = trim($data['email'] ?? $data['username'] ?? $data['identifier'] ?? '');
+$email = trim($data['email'] ?? $data['identifier'] ?? '');
 $pass  = $data['password'] ?? '';
 
 if (!$email || !$pass) {
@@ -45,8 +45,8 @@ if (!$email || !$pass) {
 
 $identifier = strtolower(trim($email));
 
-$stmt = db()->prepare("SELECT * FROM users WHERE LOWER(email) = ? OR LOWER(username) = ?");
-$stmt->execute([$identifier, $identifier]);
+$stmt = db()->prepare("SELECT * FROM users WHERE LOWER(email) = ?");
+$stmt->execute([$identifier]);
 $user = $stmt->fetch();
 
 if (!$user || !password_verify($pass, $user['password_hash'])) {

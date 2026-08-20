@@ -1,6 +1,6 @@
-<?php
+﻿<?php
 // =========================================================
-// NMU TRAINING — List Pending Registrations
+// NMU TRAINING â€” List Pending Registrations
 // Access: Trainer or Admin
 // =========================================================
 
@@ -21,9 +21,7 @@ $stmt = db()->prepare("
         u.id AS user_id,
         u.full_name,
         u.email,
-        u.username,
         u.student_id,
-        u.college_key,
         u.academic_year,
         u.major,
         u.approval_status,
@@ -39,3 +37,4 @@ $stmt->execute();
 $requests = $stmt->fetchAll();
 
 respond(['requests' => $requests]);
+

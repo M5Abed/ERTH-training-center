@@ -33,6 +33,23 @@ $db = db();
 // Enforce Object-Level Authorization
 verifyCourseAccess($courseId, $evaluator);
 
+// Trainee must have a submitted project idea (or belong to an idea team) in this course
+$ideaCheckStmt = $db->prepare("
+    SELECT ti.id 
+    FROM training_ideas ti
+    LEFT JOIN training_idea_members tim ON tim.idea_id = ti.id
+    WHERE ti.course_id = ? 
+      AND (ti.owner_id = ? OR tim.user_id = ?)
+      AND ti.status != 'rejected'
+    LIMIT 1
+");
+$ideaCheckStmt->execute([$courseId, $traineeId, $traineeId]);
+$hasIdea = $ideaCheckStmt->fetchColumn();
+
+if (!$hasIdea) {
+    respondError('Cannot evaluate trainee before they submit or join a project idea for this course.', 400);
+}
+
 // ── Load this course's configured criteria ────────────────────────────────
 try {
     $db->exec("CREATE TABLE IF NOT EXISTS course_eval_criteria (
@@ -158,6 +175,12 @@ try {
         $criteriaJson
     ]);
 
+    // Synchronize final_grade in trainee_enrollments table
+    try {
+        $db->prepare("UPDATE trainee_enrollments SET final_grade = ? WHERE trainee_id = ? AND course_id = ?")
+           ->execute([$finalScore, $traineeId, $courseId]);
+    } catch (Throwable $e) {}
+
     // Auto-issue certificate if passed
     if ($status === 'pass') {
         $db->exec("
@@ -186,7 +209,9 @@ try {
                 (?, ?, ?, ?, ?, 'issued', NOW())
             ON DUPLICATE KEY UPDATE 
                 final_score = VALUES(final_score),
-                issued_by = VALUES(issued_by)
+                issued_by   = VALUES(issued_by),
+                status      = 'issued',
+                issued_at   = NOW()
         ");
         $cStmt->execute([
             $certCode,
@@ -207,15 +232,21 @@ try {
         INSERT INTO notifications (user_id, type, message_en, message_ar)
         VALUES (?, 'training_evaluation', ?, ?)
     ");
-    $msgEn = "Your training evaluation has been submitted. Status: " . strtoupper($status) . " (Score: $finalScore/100).";
-    $msgAr = "تم رصد تقييمك للتدريب الصيفي. الحالة: " . ($status === 'pass' ? 'ناجح' : 'راسب') . " (الدرجة: $finalScore/100).";
+    $msgEn = $status === 'pass' 
+        ? "Congratulations! Your training evaluation has PASSED with score $finalScore/100 and your certificate has been issued automatically." 
+        : "Your training evaluation has been submitted. Status: " . strtoupper($status) . " (Score: $finalScore/100).";
+    $msgAr = $status === 'pass'
+        ? "تهانينا! لقد اجتزت التقييم التدريبي بنجاح بدرجة $finalScore/100 وتم إصدار شهادتك الرسمية تلقائياً."
+        : "تم رصد تقييمك للتدريب الصيفي. الحالة: " . ($status === 'pass' ? 'ناجح' : 'راسب') . " (الدرجة: $finalScore/100).";
     $nStmt->execute([$traineeId, $msgEn, $msgAr]);
 
     respond([
-        'success'     => true,
-        'message'     => 'Trainee evaluation submitted successfully',
-        'status'      => $status,
-        'final_score' => $finalScore,
+        'success'            => true,
+        'message'            => 'Trainee evaluation submitted successfully' . ($status === 'pass' ? ' and certificate issued automatically' : ''),
+        'status'             => $status,
+        'final_score'        => $finalScore,
+        'certificate_issued' => ($status === 'pass'),
+        'cert_code'          => ($status === 'pass' ? ($certCode ?? null) : null)
     ]);
 } catch (Throwable $e) {
     respondError('Database error saving evaluation: ' . $e->getMessage(), 500);

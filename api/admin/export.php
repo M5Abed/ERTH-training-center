@@ -1,162 +1,170 @@
 <?php
 // =========================================================
-// NMU TRAINING — Admin Export (Trainees / Ideas / Evaluations)
-// Supports: CSV download + XLSX via PhpSpreadsheet (if available)
-// Access: Admin only
+// NMU TRAINING — Admin Export API
+// Exports trainees or ideas to CSV (Excel compatible)
 // =========================================================
 
 require_once __DIR__ . '/../config.php';
-requireAdmin();
+
+requireTrainer();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);
 }
 
-$type     = strtolower(trim($_GET['type']    ?? ''));
-$format   = strtolower(trim($_GET['format']  ?? 'csv'));   // csv | xlsx
-$courseId = isset($_GET['course_id']) ? (int)$_GET['course_id'] : null;
-
-$allowed = ['trainees', 'ideas', 'evaluations'];
-if (!in_array($type, $allowed, true)) {
-    respondError('type must be one of: trainees, ideas, evaluations');
-}
+$type = strtolower(trim($_GET['type'] ?? 'trainees'));
+$format = strtolower(trim($_GET['format'] ?? 'csv'));
+$courseId = isset($_GET['course_id']) && (int)$_GET['course_id'] > 0 ? (int)$_GET['course_id'] : null;
 
 $db = db();
-$rows  = [];
-$heads = [];
+$reportRows = [];
+$columns = [];
+$filename = "Export_";
 
-// ── Trainees ──────────────────────────────────────────────────────────────────
 if ($type === 'trainees') {
-    $heads = ['#', 'Student ID', 'Full Name', 'Email', 'Enrolled Courses', 'Submitted Ideas'];
+    $filename .= "Trainees_" . ($courseId ? "Course_{$courseId}_" : "All_") . date('Y-m-d') . ".csv";
+    
+    $where = "WHERE u.role = 'trainee'";
+    $params = [];
+    
     if ($courseId) {
-        $stmt = $db->prepare("
-            SELECT u.id, u.student_id, u.full_name, u.email,
-                   tc.name AS courses,
-                   (SELECT COUNT(*) FROM training_ideas ti WHERE ti.owner_id = u.id AND ti.course_id = ?) AS idea_count
-            FROM trainee_enrollments te
-            JOIN users u ON u.id = te.trainee_id
-            JOIN training_courses tc ON tc.id = te.course_id
-            WHERE te.course_id = ?
-            GROUP BY u.id
-            ORDER BY u.full_name
-        ");
-        $stmt->execute([$courseId, $courseId]);
-    } else {
-        $stmt = $db->prepare("
-            SELECT u.id, u.student_id, u.full_name, u.email,
-                   GROUP_CONCAT(DISTINCT tc.name SEPARATOR ', ') AS courses,
-                   (SELECT COUNT(*) FROM training_ideas ti WHERE ti.owner_id = u.id) AS idea_count
-            FROM trainee_enrollments te
-            JOIN users u ON u.id = te.trainee_id
-            JOIN training_courses tc ON tc.id = te.course_id
-            GROUP BY u.id
-            ORDER BY u.full_name
-        ");
-        $stmt->execute([]);
+        $where .= " AND te.course_id = ?";
+        $params[] = $courseId;
     }
-    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $i = 1;
-    foreach ($data as $r) {
-        $rows[] = [
-            $i++,
-            $r['student_id'] ?? '',
-            $r['full_name'],
-            $r['email'],
-            $r['courses'],
-            (int)($r['idea_count'] ?? 0)
+    
+    // Ensure required columns exist safely (prevent failures if missing)
+    try { $db->exec("ALTER TABLE users ADD COLUMN academic_email VARCHAR(255) NULL AFTER email"); } catch (Throwable $e) {}
+    try { $db->exec("ALTER TABLE trainee_enrollments ADD COLUMN final_grade DECIMAL(5,2) NULL"); } catch (Throwable $e) {}
+
+    $stmt = $db->prepare("
+        SELECT 
+            u.id AS trainee_id,
+            COALESCE(NULLIF(TRIM(u.academic_id), ''), NULLIF(TRIM(u.student_id), ''), '-') AS academic_id,
+            COALESCE(NULLIF(TRIM(u.full_name), ''), 'Trainee') AS full_name,
+            u.email AS platform_email,
+            u.academic_email,
+            COALESCE(NULLIF(TRIM(te.program), ''), NULLIF(TRIM(u.program), ''), NULLIF(TRIM(u.major), ''), NULLIF(TRIM(u.department), ''), 'General') AS program,
+            COALESCE(
+                NULLIF(TRIM(te.final_track), ''),
+                NULLIF(TRIM(tt.title), ''),
+                NULLIF(TRIM(te.custom_provider_name), ''),
+                NULLIF(TRIM(p.name), ''),
+                NULLIF(TRIM(u.final_track), ''),
+                NULLIF(TRIM(c.category), ''),
+                c.name
+            ) AS final_track,
+            COALESCE(NULLIF(TRIM(te.course_code), ''), NULLIF(TRIM(c.course_code), ''), NULLIF(TRIM(c.category), ''), NULLIF(TRIM(c.name), ''), CONCAT('COURSE-', c.id)) AS course_code,
+            c.name AS course_name,
+            te.training_type,
+            COALESCE(p.name, te.custom_provider_name) AS provider_name,
+            COALESCE((SELECT final_score FROM training_evaluations WHERE trainee_id = u.id AND course_id = c.id), te.final_grade) AS final_grade,
+            (SELECT status FROM training_evaluations WHERE trainee_id = u.id AND course_id = c.id) AS eval_status
+        FROM users u
+        LEFT JOIN trainee_enrollments te ON te.trainee_id = u.id
+        LEFT JOIN training_courses c ON c.id = te.course_id
+        LEFT JOIN external_training_providers p ON te.provider_id = p.id
+        LEFT JOIN training_topics tt ON te.track_id = tt.id
+        $where
+        ORDER BY c.name ASC, u.full_name ASC
+    ");
+    $stmt->execute($params);
+    $trainees = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    $columns = [
+        'NO.',
+        'Academic ID',
+        'Name',
+        'Academic Email',
+        'Platform Email',
+        'Program / Major',
+        'Course Code',
+        'Course Name',
+        'Final Track',
+        'Training Type',
+        'Provider',
+        'Final Grade',
+        'Evaluation Status'
+    ];
+    
+    $no = 1;
+    foreach ($trainees as $t) {
+        $finalGradeStr = ($t['final_grade'] !== null) ? number_format((float)$t['final_grade'], 2, '.', '') : 'Not Graded';
+        $reportRows[] = [
+            $no++,
+            $t['academic_id'],
+            $t['full_name'],
+            $t['academic_email'] ?: '-',
+            $t['platform_email'],
+            $t['program'],
+            $t['course_code'] ?: '-',
+            $t['course_name'] ?: '-',
+            $t['final_track'] ?: '-',
+            $t['training_type'] ?: '-',
+            $t['provider_name'] ?: '-',
+            $finalGradeStr,
+            $t['eval_status'] ?? 'pending'
         ];
     }
-}
-
-// ── Ideas ─────────────────────────────────────────────────────────────────────
-if ($type === 'ideas') {
-    $heads = ['#', 'Title', 'Trainee', 'Student ID', 'Course', 'Status', 'Avg Rating', 'Votes', 'Submitted At'];
-    $where = $courseId ? "WHERE ti.course_id = $courseId" : "";
-    $stmt  = $db->prepare("
-        SELECT ti.id, ti.title, u.full_name AS trainee_name, u.student_id,
-               tc.name AS course_name, ti.status,
-               COALESCE(AVG(tv.rating), 0) AS avg_rating,
-               COUNT(tv.id) AS vote_count,
-               ti.created_at
-        FROM training_ideas ti
-        LEFT JOIN users u ON u.id = COALESCE(ti.trainee_id, ti.owner_id)
-        LEFT JOIN training_courses tc ON tc.id = ti.course_id
-        LEFT JOIN training_votes tv ON tv.idea_id = ti.id
-        $where
-        GROUP BY ti.id
-        ORDER BY ti.created_at DESC
+} elseif ($type === 'ideas') {
+    // Basic ideas export if needed by DocumentsArchive
+    $filename .= "Ideas_" . date('Y-m-d') . ".csv";
+    
+    $stmt = $db->query("
+        SELECT i.id, i.title, u.full_name AS owner_name, c.name AS course_name, i.status, i.created_at
+        FROM training_ideas i
+        LEFT JOIN users u ON i.owner_id = u.id
+        LEFT JOIN training_courses c ON i.course_id = c.id
+        ORDER BY i.created_at DESC
     ");
-    $stmt->execute([]);
-    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $i = 1;
-    foreach ($data as $r) {
-        $rows[] = [$i++, $r['title'], $r['trainee_name'], $r['student_id'] ?? '', $r['course_name'], $r['status'], round((float)$r['avg_rating'], 1), (int)$r['vote_count'], $r['created_at']];
+    $ideas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    $columns = ['ID', 'Title', 'Owner', 'Course', 'Status', 'Created At'];
+    foreach ($ideas as $i) {
+        $reportRows[] = [
+            $i['id'],
+            $i['title'],
+            $i['owner_name'],
+            $i['course_name'],
+            $i['status'],
+            $i['created_at']
+        ];
     }
+} else {
+    respondError("Invalid export type", 400);
 }
 
-// ── Evaluations ───────────────────────────────────────────────────────────────
-if ($type === 'evaluations') {
-    $heads = ['#', 'Trainee', 'Student ID', 'Email', 'Course', 'Score', 'Status', 'Feedback', 'Evaluated By', 'Evaluated At'];
-    $where = $courseId ? "WHERE te_ev.course_id = $courseId" : "";
-    $stmt  = $db->prepare("
-        SELECT te_ev.id, u.full_name, u.student_id, u.email,
-               tc.name AS course_name,
-               te_ev.final_score, te_ev.status, te_ev.feedback,
-               ev.full_name AS evaluator_name, te_ev.evaluated_at
-        FROM training_evaluations te_ev
-        JOIN users u   ON u.id = te_ev.trainee_id
-        JOIN training_courses tc ON tc.id = te_ev.course_id
-        LEFT JOIN users ev ON ev.id = te_ev.evaluator_id
-        $where
-        ORDER BY tc.name, u.full_name
-    ");
-    $stmt->execute([]);
-    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $i = 1;
-    foreach ($data as $r) {
-        $rows[] = [$i++, $r['full_name'], $r['student_id'] ?? '', $r['email'], $r['course_name'], $r['final_score'], $r['status'], $r['feedback'] ?? '', $r['evaluator_name'] ?? '', $r['evaluated_at']];
-    }
+if ($format === 'json') {
+    respond([
+        'success' => true,
+        'type'    => $type,
+        'total'   => count($reportRows),
+        'columns' => $columns,
+        'data'    => $reportRows
+    ]);
 }
 
-$filename = "erth_{$type}_export_" . date('Ymd_His');
-
-// ── XLSX output ───────────────────────────────────────────────────────────────
-if ($format === 'xlsx') {
-    $vendorAutoload = __DIR__ . '/../../vendor/autoload.php';
-    if (file_exists($vendorAutoload)) {
-        require_once $vendorAutoload;
-        if (class_exists('PhpOffice\\PhpSpreadsheet\\Spreadsheet')) {
-            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-            $sheet = $spreadsheet->getActiveSheet();
-            $sheet->fromArray(array_merge([$heads], $rows), null, 'A1');
-            // Bold header row
-            $lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($heads));
-            $sheet->getStyle("A1:{$lastCol}1")->getFont()->setBold(true);
-            foreach (range(1, count($heads)) as $col) {
-                $sheet->getColumnDimensionByColumn($col)->setAutoSize(true);
-            }
-            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            header("Content-Disposition: attachment; filename=\"{$filename}.xlsx\"");
-            header('Cache-Control: max-age=0');
-            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-            $writer->save('php://output');
-            exit;
-        }
-    }
-    // Fallback to CSV if PhpSpreadsheet not installed
+// Clean output buffer before streaming CSV
+if (ob_get_level()) {
+    ob_end_clean();
 }
 
-// ── CSV output (default / fallback) ──────────────────────────────────────────
-header('Content-Type: text/csv; charset=utf-8');
-header("Content-Disposition: attachment; filename=\"{$filename}.csv\"");
-header('Cache-Control: max-age=0');
+header('Content-Type: text/csv; charset=UTF-8');
+header("Content-Disposition: attachment; filename=\"{$filename}\"");
+header('Pragma: no-cache');
+header('Expires: 0');
 
-$out = fopen('php://output', 'w');
-// UTF-8 BOM for Excel compatibility
-fwrite($out, "\xEF\xBB\xBF");
-fputcsv($out, $heads);
-foreach ($rows as $row) {
-    fputcsv($out, $row);
+$output = fopen('php://output', 'w');
+
+// Write UTF-8 BOM for full Arabic / English Excel compatibility
+fwrite($output, "\xEF\xBB\xBF");
+
+// Write header
+fputcsv($output, $columns);
+
+// Write rows
+foreach ($reportRows as $row) {
+    fputcsv($output, $row);
 }
-fclose($out);
+
+fclose($output);
 exit;

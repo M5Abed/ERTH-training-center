@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// NMU TRAINING — Search Teammates for Course Project
+// NMU TRAINING â€” Search Teammates for Course Project
 // Access: Trainee, Trainer, Admin
 // Checks existing team status & 1 project per course rule
 // =========================================================
@@ -34,13 +34,12 @@ if (!$course) {
     respondError('Course not found', 404);
 }
 
-$where = "u.id != ? AND u.role != 'admin' AND (u.approval_status IS NULL OR u.approval_status != 'rejected')";
-$params = [$uid, $courseId, $courseId, $courseId];
+$where = "u.id != ? AND (u.role IN ('trainee', 'student') OR u.role IS NULL OR u.role = '') AND (u.is_admin = 0 OR u.is_admin IS NULL) AND LOWER(COALESCE(u.role, '')) NOT IN ('admin', 'trainer', 'professor', 'ta', 'supervisor', 'evaluator') AND (u.approval_status IS NULL OR u.approval_status != 'rejected')";
+$params = [$courseId, $courseId, $courseId, $uid];
 
 if ($q !== '') {
     $like = '%' . $q . '%';
-    $where .= " AND (u.full_name LIKE ? OR u.student_id LIKE ? OR u.username LIKE ? OR u.email LIKE ? OR CAST(u.id AS CHAR) = ?)";
-    $params[] = $like;
+    $where .= " AND (u.full_name LIKE ? OR u.student_id LIKE ? OR u.email LIKE ? OR CAST(u.id AS CHAR) = ?)";
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
@@ -51,11 +50,9 @@ if ($q !== '') {
 $sql = "
     SELECT 
         u.id, 
-        u.username, 
         u.full_name, 
         u.email, 
         u.student_id, 
-        u.avatar_url, 
         u.major, 
         u.academic_year,
         CASE WHEN te.id IS NOT NULL THEN 1 ELSE 0 END AS is_enrolled,
@@ -105,11 +102,11 @@ foreach ($rows as $row) {
     if (!isset($candidatesMap[$cId])) {
         $candidatesMap[$cId] = [
             'id' => $cId,
-            'username' => $row['username'],
-            'full_name' => $row['full_name'] ?: $row['username'] ?: $row['email'],
+            'user_id' => $cId,
+            'full_name' => $row['full_name'] ?: $row['email'],
             'email' => $row['email'],
             'student_id' => $row['student_id'],
-            'avatar_url' => $row['avatar_url'],
+            'avatar_url' => null,
             'major' => $row['major'],
             'academic_year' => $row['academic_year'],
             'is_enrolled' => (bool) $row['is_enrolled'],
@@ -127,3 +124,4 @@ respond([
     'course_id' => $courseId,
     'candidates' => array_values($candidatesMap)
 ]);
+

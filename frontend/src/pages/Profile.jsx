@@ -281,7 +281,6 @@ export default function Profile() {
     const completionItems = [
         { key: 'avatar', done: !!profile?.avatar_url },
         { key: 'bio', done: !!(profile?.bio && profile.bio.trim().length > 0) },
-        { key: 'skills', done: (profile?.skills || profile?.user_skills || []).length >= 3 },
         { key: 'year', done: !!profile?.academic_year },
         ...(profile?.college_key ? [{ key: 'major', done: !!profile?.major }] : []),
     ];
@@ -391,11 +390,9 @@ export default function Profile() {
                                     {completionItems.filter(i => !i.done).map(item => {
                                         const label = item.key === 'avatar' ? (lang === 'ar' ? 'أضف صورة شخصية' : 'Add a profile photo')
                                             : item.key === 'bio' ? (lang === 'ar' ? 'أضف نبذة شخصية' : 'Write a short bio')
-                                                : item.key === 'skills' ? (lang === 'ar' ? 'أضف ٣ مهارات على الأقل' : 'Add 3+ skills')
-                                                    : item.key === 'year' ? (lang === 'ar' ? 'حدّد سنتك الدراسية' : 'Set your academic year')
+                                                : item.key === 'year' ? (lang === 'ar' ? 'حدّد سنتك الدراسية' : 'Set your academic year')
                                                         : (lang === 'ar' ? 'حدّد تخصصك' : 'Set your major');
                                         const action = item.key === 'avatar' ? () => document.querySelector('.avatar-edit-btn')?.click()
-                                            : item.key === 'skills' ? () => navigate('/onboarding')
                                                 : openEditModal;
                                         return (
                                             <button key={item.key} className="profile-completion-todo" onClick={action} title={label}>
@@ -507,11 +504,6 @@ export default function Profile() {
                                 {rawSkills.length > 0 && (
                                     <span className="skills-total-badge">{rawSkills.length} {lang === 'ar' ? 'مهارة' : 'skills'}</span>
                                 )}
-                                {isOwnProfile && (
-                                    <Link to="/onboarding" className="btn btn-outline btn-sm">
-                                        {lang === 'ar' ? 'تعديل المهارات' : 'Edit Skills'}
-                                    </Link>
-                                )}
                             </div>
                         </div>
 
@@ -521,11 +513,6 @@ export default function Profile() {
                                     <BookOpen size={36} className="text-muted" />
                                 </div>
                                 <p>{t('no_skills')}</p>
-                                {isOwnProfile && (
-                                    <Link to="/onboarding" className="btn btn-primary btn-sm">
-                                        {lang === 'ar' ? 'أضف مهاراتك' : 'Add your skills'}
-                                    </Link>
-                                )}
                             </div>
                         ) : (
                             <div className="skills-categories">

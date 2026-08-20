@@ -53,7 +53,7 @@ export default function CertificateVerification() {
           params.set('trainee_id', traineeId);
         }
           
-        const res = await fetch(`/api/training/certificates/verify.php?${params.toString()}`);
+        const res = await fetch(`/api/training/certificates/verify.php?${params.toString()}`, { credentials: 'include' });
         let json = null;
         try {
           json = await res.json();

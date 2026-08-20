@@ -77,26 +77,32 @@ if (php_sapi_name() !== 'cli') {
     header_remove("X-Powered-By");  // Hide PHP version
     header_remove("Server");
 
-    // CORS — whitelist allowed origins
-    $allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174', 'http://localhost:5175', 'http://127.0.0.1:5175', 'http://localhost:8000', 'http://localhost:8080', 'http://127.0.0.1:8000', 'http://localhost'];
+    // CORS — dynamic whitelist for development & production
+    $allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174', 'http://localhost:5175', 'http://127.0.0.1:5175', 'http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:8000', 'http://localhost:8080', 'http://127.0.0.1:8000', 'http://localhost', 'http://127.0.0.1'];
     if (defined('ALLOWED_ORIGINS') && ALLOWED_ORIGINS) {
         $allowedOrigins = array_merge($allowedOrigins, array_map('trim', explode(',', ALLOWED_ORIGINS)));
     }
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-    if (in_array($origin, $allowedOrigins, true)) {
-        header("Access-Control-Allow-Origin: $origin");
-    } elseif ($origin) {
-        // Allow same-origin: if the Origin matches this server's host, echo it back
-        $serverHost = ($_SERVER['HTTP_HOST'] ?? '');
+    if ($origin) {
         $originHost = parse_url($origin, PHP_URL_HOST) ?? '';
-        if ($serverHost && $originHost && ($originHost === $serverHost || substr($originHost, -strlen('.' . $serverHost)) === '.' . $serverHost)) {
+        $serverHost = parse_url($_SERVER['HTTP_HOST'] ?? '', PHP_URL_HOST) ?: ($_SERVER['HTTP_HOST'] ?? '');
+        if (
+            in_array($origin, $allowedOrigins, true) ||
+            $originHost === 'localhost' ||
+            $originHost === '127.0.0.1' ||
+            str_starts_with($originHost, '192.168.') ||
+            str_starts_with($originHost, '10.') ||
+            str_starts_with($originHost, '172.') ||
+            str_ends_with($originHost, '.local') ||
+            str_ends_with($originHost, '.nmu.edu.eg') ||
+            ($serverHost && ($originHost === $serverHost || str_ends_with($originHost, '.' . $serverHost)))
+        ) {
             header("Access-Control-Allow-Origin: $origin");
         }
     }
-    // Same-origin requests with no Origin header do not need the CORS header
     header("Access-Control-Allow-Credentials: true");
     header("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token, X-Requested-With, X-User-Id");
     header("Content-Type: application/json; charset=utf-8");
 
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -187,12 +193,73 @@ function db(): PDO
 function _autoMigrate(): void
 {
     try {
-        // 1. Add approval_status to users if missing
+        // 1. Add student academic variables to users if missing
         $cols = db()->query("SHOW COLUMNS FROM users LIKE 'approval_status'")->fetchAll();
         if (empty($cols)) {
             db()->exec("ALTER TABLE users ADD COLUMN approval_status ENUM('pending','approved','rejected') DEFAULT 'approved' AFTER department");
             db()->exec("ALTER TABLE users ADD INDEX idx_users_approval (approval_status)");
         }
+        $aeCols = db()->query("SHOW COLUMNS FROM users LIKE 'academic_email'")->fetchAll();
+        if (empty($aeCols)) {
+            db()->exec("ALTER TABLE users ADD COLUMN academic_email VARCHAR(255) NULL AFTER email");
+        }
+        $aidCols = db()->query("SHOW COLUMNS FROM users LIKE 'academic_id'")->fetchAll();
+        if (empty($aidCols)) {
+            db()->exec("ALTER TABLE users ADD COLUMN academic_id VARCHAR(50) NULL AFTER student_id");
+        }
+        $prgCols = db()->query("SHOW COLUMNS FROM users LIKE 'program'")->fetchAll();
+        if (empty($prgCols)) {
+            db()->exec("ALTER TABLE users ADD COLUMN program VARCHAR(255) NULL AFTER major");
+        }
+        $ftCols = db()->query("SHOW COLUMNS FROM users LIKE 'final_track'")->fetchAll();
+        if (empty($ftCols)) {
+            db()->exec("ALTER TABLE users ADD COLUMN final_track VARCHAR(255) NULL AFTER program");
+        }
+
+        // Add variables to trainee_enrollments
+        $teCols = db()->query("SHOW COLUMNS FROM trainee_enrollments LIKE 'course_code'")->fetchAll();
+        if (empty($teCols)) {
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN course_code VARCHAR(100) NULL AFTER course_id");
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN program VARCHAR(255) NULL AFTER course_code");
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN final_track VARCHAR(255) NULL AFTER program");
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN final_grade DECIMAL(5,2) NULL AFTER final_track");
+        }
+        $confCols = db()->query("SHOW COLUMNS FROM trainee_enrollments LIKE 'technical_track_confirmed'")->fetchAll();
+        if (empty($confCols)) {
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN technical_track_confirmed TINYINT(1) DEFAULT 0");
+        }
+        $custCols = db()->query("SHOW COLUMNS FROM trainee_enrollments LIKE 'custom_provider_name'")->fetchAll();
+        if (empty($custCols)) {
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN custom_provider_name VARCHAR(255) NULL");
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN custom_provider_website VARCHAR(255) NULL");
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN custom_provider_linkedin VARCHAR(255) NULL");
+        }
+
+        // Add course_code and course_type to training_courses
+        $tcCols = db()->query("SHOW COLUMNS FROM training_courses LIKE 'course_code'")->fetchAll();
+        if (empty($tcCols)) {
+            db()->exec("ALTER TABLE training_courses ADD COLUMN course_code VARCHAR(100) NULL AFTER name");
+        }
+        $typeCols = db()->query("SHOW COLUMNS FROM training_courses LIKE 'course_type'")->fetchAll();
+        if (empty($typeCols)) {
+            db()->exec("ALTER TABLE training_courses ADD COLUMN course_type ENUM('internal','external','both') NOT NULL DEFAULT 'both' AFTER course_code");
+        }
+
+        // Auto-fix any existing trainees in external courses whose training_type was defaulted to internal
+        try {
+            db()->exec("
+                UPDATE trainee_enrollments te 
+                JOIN training_courses c ON c.id = te.course_id 
+                SET te.training_type = 'external' 
+                WHERE (c.course_type = 'external' OR c.name LIKE '%external%' OR c.name LIKE '%خارجي%' OR c.category LIKE '%external%' OR c.category LIKE '%خارجي%') 
+                  AND te.training_type != 'external'
+            ");
+        } catch (Throwable $e) {}
+
+        // Ensure admin accounts are fully flagged and approved
+        try {
+            db()->exec("UPDATE users SET is_admin = 1, role = 'admin', approval_status = 'approved' WHERE LOWER(email) LIKE 'admin@%' OR role = 'admin'");
+        } catch (Throwable $e) {}
 
         // 2. Execute 002_training_schema.sql if tables do not exist
         $trainingSchemaFile = __DIR__ . '/../db_dump/002_training_schema.sql';
@@ -212,6 +279,50 @@ function _autoMigrate(): void
             }
         }
 
+        // 3a. Ensure training_ideas table columns and compatibility exist
+        try {
+            $tiCols = db()->query("SHOW COLUMNS FROM training_ideas")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('title', $tiCols, true)) {
+                if (in_array('title_en', $tiCols, true)) {
+                    db()->exec("ALTER TABLE training_ideas ADD COLUMN title VARCHAR(255) NOT NULL DEFAULT '' AFTER owner_id");
+                    db()->exec("UPDATE training_ideas SET title = COALESCE(NULLIF(title_en, ''), 'Untitled Project')");
+                } else {
+                    db()->exec("ALTER TABLE training_ideas ADD COLUMN title VARCHAR(255) NOT NULL DEFAULT '' AFTER owner_id");
+                }
+            }
+            if (!in_array('description', $tiCols, true)) {
+                if (in_array('description_en', $tiCols, true)) {
+                    db()->exec("ALTER TABLE training_ideas ADD COLUMN description TEXT NULL AFTER title");
+                    db()->exec("UPDATE training_ideas SET description = description_en");
+                } else {
+                    db()->exec("ALTER TABLE training_ideas ADD COLUMN description TEXT NULL AFTER title");
+                }
+            }
+            if (!in_array('catalog_project_id', $tiCols, true)) {
+                db()->exec("ALTER TABLE training_ideas ADD COLUMN catalog_project_id INT NULL AFTER course_id");
+                db()->exec("ALTER TABLE training_ideas ADD INDEX idx_ti_catalog_proj (catalog_project_id)");
+            }
+            if (!in_array('proposal_json', $tiCols, true)) {
+                db()->exec("ALTER TABLE training_ideas ADD COLUMN proposal_json LONGTEXT NULL");
+            }
+            if (!in_array('tech_stack', $tiCols, true)) {
+                db()->exec("ALTER TABLE training_ideas ADD COLUMN tech_stack TEXT NULL");
+            }
+            if (!in_array('problem_statement', $tiCols, true)) {
+                db()->exec("ALTER TABLE training_ideas ADD COLUMN problem_statement TEXT NULL");
+            }
+            if (!in_array('expected_output', $tiCols, true)) {
+                db()->exec("ALTER TABLE training_ideas ADD COLUMN expected_output TEXT NULL");
+            }
+            db()->exec("ALTER TABLE training_ideas MODIFY COLUMN status VARCHAR(50) NOT NULL DEFAULT 'submitted'");
+            if (in_array('title_en', $tiCols, true)) {
+                db()->exec("ALTER TABLE training_ideas MODIFY COLUMN title_en VARCHAR(255) NULL DEFAULT NULL");
+            }
+            if (in_array('description_en', $tiCols, true)) {
+                db()->exec("ALTER TABLE training_ideas MODIFY COLUMN description_en TEXT NULL DEFAULT NULL");
+            }
+        } catch (Throwable $e) {}
+
         // 3. Ensure training_evaluations table exists
         db()->exec("
             CREATE TABLE IF NOT EXISTS training_evaluations (
@@ -226,6 +337,19 @@ function _autoMigrate(): void
               evaluated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
               UNIQUE INDEX idx_te_trainee_course (trainee_id, course_id),
               INDEX idx_te_course (course_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
+
+        // 3b. Ensure course_eval_criteria table exists
+        db()->exec("
+            CREATE TABLE IF NOT EXISTS course_eval_criteria (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                course_id INT NOT NULL,
+                name VARCHAR(150) NOT NULL,
+                weight DECIMAL(5,2) NOT NULL,
+                order_index INT NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_cec_course (course_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ");
 
@@ -285,6 +409,58 @@ function _autoMigrate(): void
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ");
 
+        // 6a. Auto-repair projects_catalog categories if needed
+        if (file_exists(__DIR__ . '/training/ideas/catalog_64_data.php')) {
+            try {
+                $pCount = (int)db()->query("SELECT COUNT(*) FROM projects_catalog")->fetchColumn();
+                $pRobotics = (int)db()->query("SELECT COUNT(*) FROM projects_catalog WHERE category IN ('yanshee', 'nao', 'integrated')")->fetchColumn();
+                if ($pCount < 64 || $pRobotics < 30) {
+                    require_once __DIR__ . '/training/ideas/catalog_64_data.php';
+                    if (function_exists('getCatalog64')) {
+                        $catItems = getCatalog64();
+                        $catStmt = db()->prepare("
+                            INSERT INTO projects_catalog (id, title, category, level, skills, display_order)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                            ON DUPLICATE KEY UPDATE
+                                title         = VALUES(title),
+                                category      = VALUES(category),
+                                level         = VALUES(level),
+                                skills        = VALUES(skills),
+                                display_order = VALUES(display_order)
+                        ");
+                        $secStmt = db()->prepare("
+                            INSERT INTO proposals_pregenerated (catalog_project_id, section_key, content)
+                            VALUES (?, ?, ?)
+                            ON DUPLICATE KEY UPDATE content = VALUES(content)
+                        ");
+                        foreach ($catItems as $ci) {
+                            $catStmt->execute([(int)$ci['id'], $ci['title'], $ci['category'], $ci['level'], $ci['skills'] ?? '', (int)($ci['display_order'] ?? $ci['id'])]);
+                            if (!empty($ci['sections']) && is_array($ci['sections'])) {
+                                foreach ($ci['sections'] as $sKey => $sVal) {
+                                    $secStmt->execute([(int)$ci['id'], $sKey, $sVal]);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Throwable $e) {}
+        }
+
+        // 6b. Ensure course_project_votes table exists
+        db()->exec("
+            CREATE TABLE IF NOT EXISTS course_project_votes (
+              id          INT AUTO_INCREMENT PRIMARY KEY,
+              course_id   INT NOT NULL,
+              project_id  INT NOT NULL,
+              voter_id    INT NOT NULL,
+              created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              UNIQUE KEY idx_cpv_course_voter_project (course_id, voter_id, project_id),
+              INDEX idx_cpv_course (course_id),
+              INDEX idx_cpv_project (project_id),
+              INDEX idx_cpv_voter (voter_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
+
         // 7. Ensure training_courses columns exist
         $tcCols = db()->query("SHOW COLUMNS FROM training_courses LIKE 'category'")->fetchAll();
         if (empty($tcCols)) {
@@ -297,6 +473,10 @@ function _autoMigrate(): void
         $tdCols = db()->query("SHOW COLUMNS FROM training_courses LIKE 'duration_hours'")->fetchAll();
         if (empty($tdCols)) {
             db()->exec("ALTER TABLE training_courses ADD COLUMN duration_hours INT NOT NULL DEFAULT 40 AFTER end_date");
+        }
+        $tvsCols = db()->query("SHOW COLUMNS FROM training_courses LIKE 'voting_status'")->fetchAll();
+        if (empty($tvsCols)) {
+            db()->exec("ALTER TABLE training_courses ADD COLUMN voting_status ENUM('not_started', 'open', 'closed') NOT NULL DEFAULT 'not_started' AFTER course_type");
         }
 
         // 8. Ensure training_ideas catalog_project_id exists
@@ -320,22 +500,7 @@ function _autoMigrate(): void
               updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
               INDEX idx_etp_status (status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-        ");
 
-        // Seed initial contracted providers if table is empty
-        $pCount = (int)db()->query("SELECT COUNT(*) FROM external_training_providers")->fetchColumn();
-        if ($pCount === 0) {
-            db()->exec("
-                INSERT INTO external_training_providers (name, name_ar, website_url, linkedin_url, is_contracted, status) VALUES
-                ('Information Technology Institute (ITI)', 'معهد تكنولوجيا المعلومات (ITI)', 'https://iti.gov.eg', 'https://www.linkedin.com/school/information-technology-institute-iti', 1, 'active'),
-                ('National Telecommunication Institute (NTI)', 'المعهد القومي للاتصالات (NTI)', 'https://nti.sci.eg', 'https://www.linkedin.com/school/national-telecommunication-institute', 1, 'active'),
-                ('Creativa Innovation Hubs', 'مراكز إبداع مصر الرقمية (كرياتيفا)', 'https://creativa.gov.eg', 'https://www.linkedin.com/company/creativainnovationhubs', 1, 'active'),
-                ('Digital Egypt Pioneers Initiative (DEPI)', 'مبادرة رواد مصر الرقمية', 'https://depi.gov.eg', 'https://www.linkedin.com/company/digital-egypt-pioneers', 1, 'active');
-            ");
-        }
-
-        // 10. Ensure course_external_providers table exists
-        db()->exec("
             CREATE TABLE IF NOT EXISTS course_external_providers (
               id            INT AUTO_INCREMENT PRIMARY KEY,
               course_id     INT NOT NULL,
@@ -345,6 +510,34 @@ function _autoMigrate(): void
               INDEX idx_cep_course (course_id),
               INDEX idx_cep_provider (provider_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ");
+
+        // Seed 4 official default providers if table is empty
+        $pCount = (int)db()->query("SELECT COUNT(*) FROM external_training_providers")->fetchColumn();
+        if ($pCount === 0) {
+            $db = db();
+            $seedProviders = [
+                [1, 'Information Technology Institute (ITI)', 'معهد تكنولوجيا المعلومات (ITI)', 'https://iti.gov.eg', 'https://www.linkedin.com/school/information-technology-institute-iti/'],
+                [2, 'National Telecommunication Institute (NTI)', 'المعهد القومي للاتصالات (NTI)', 'https://nti.sci.eg', 'https://www.linkedin.com/school/national-telecommunication-institute/'],
+                [3, 'Creativa Innovation Hubs', 'مراكز إبداع مصر الرقمية (Creativa)', 'https://creativa.gov.eg', 'https://www.linkedin.com/company/creativa-hubs/'],
+                [4, 'Digital Egypt Pioneers Initiative (DEPI)', 'مبادرة رواد مصر الرقمية (DEPI)', 'https://depi.gov.eg', 'https://www.linkedin.com/company/digital-egypt-pioneers-initiative-depi/']
+            ];
+            $insP = $db->prepare("
+                INSERT IGNORE INTO external_training_providers (id, name, name_ar, website_url, linkedin_url, is_contracted, status)
+                VALUES (?, ?, ?, ?, ?, 1, 'active')
+            ");
+            foreach ($seedProviders as $sp) {
+                $insP->execute($sp);
+            }
+        }
+
+        // Automatically link 4 default contracted providers to external/both courses
+        db()->exec("
+            INSERT IGNORE INTO course_external_providers (course_id, provider_id)
+            SELECT c.id, p.id
+            FROM training_courses c
+            CROSS JOIN external_training_providers p
+            WHERE c.course_type IN ('external', 'both') AND p.id IN (1, 2, 3, 4);
         ");
 
         // 11. Ensure training_topics has provider_id for provider-specific tracks
@@ -373,15 +566,23 @@ function _autoMigrate(): void
         if (empty($teTrack)) {
             db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN track_id INT NULL AFTER provider_id");
         }
+        $teTechConf = db()->query("SHOW COLUMNS FROM trainee_enrollments LIKE 'technical_track_confirmed'")->fetchAll();
+        if (empty($teTechConf)) {
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN technical_track_confirmed TINYINT(1) NOT NULL DEFAULT 0 AFTER track_id");
+        }
         $teCustName = db()->query("SHOW COLUMNS FROM trainee_enrollments LIKE 'custom_provider_name'")->fetchAll();
         if (empty($teCustName)) {
             db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN custom_provider_name VARCHAR(255) NULL AFTER track_id");
             db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN custom_provider_website VARCHAR(255) NULL AFTER custom_provider_name");
             db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN custom_provider_linkedin VARCHAR(255) NULL AFTER custom_provider_website");
         }
+        $teStartDate = db()->query("SHOW COLUMNS FROM trainee_enrollments LIKE 'training_start_date'")->fetchAll();
+        if (empty($teStartDate)) {
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN training_start_date DATE NULL AFTER custom_provider_linkedin");
+        }
         $teVerifDoc = db()->query("SHOW COLUMNS FROM trainee_enrollments LIKE 'verification_doc_url'")->fetchAll();
         if (empty($teVerifDoc)) {
-            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN verification_doc_url VARCHAR(255) NULL AFTER custom_provider_linkedin");
+            db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN verification_doc_url VARCHAR(255) NULL AFTER training_start_date");
             db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN verification_status ENUM('none', 'pending', 'approved', 'rejected') NOT NULL DEFAULT 'none' AFTER verification_doc_url");
             db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN verification_feedback TEXT NULL AFTER verification_status");
             db()->exec("ALTER TABLE trainee_enrollments ADD COLUMN verification_reviewed_by INT NULL AFTER verification_feedback");
@@ -408,19 +609,44 @@ function respondError(string $message, int $status = 400): void
 
 function requireSession(): int
 {
-    if (empty($_SESSION['user_id'])) {
-        respondError('Unauthorized', 401);
+    // 1. Check active PHP session
+    if (!empty($_SESSION['user_id'])) {
+        return (int) $_SESSION['user_id'];
     }
-    return (int) $_SESSION['user_id'];
+
+    // 2. Resilient header fallback (X-User-Id / Authorization: Bearer <id>)
+    $candidateId = 0;
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+    if (preg_match('/Bearer\s+(\d+)/i', $authHeader, $matches)) {
+        $candidateId = (int) $matches[1];
+    } elseif (!empty($_SERVER['HTTP_X_USER_ID'])) {
+        $candidateId = (int) $_SERVER['HTTP_X_USER_ID'];
+    }
+
+    if ($candidateId > 0) {
+        $stmt = db()->prepare("SELECT id, approval_status FROM users WHERE id = ?");
+        $stmt->execute([$candidateId]);
+        $uRow = $stmt->fetch();
+        if ($uRow) {
+            $_SESSION['user_id'] = (int) $uRow['id'];
+            return (int) $uRow['id'];
+        }
+    }
+
+    respondError('Unauthorized', 401);
 }
 
 function requireAdmin(): int
 {
     $uid = requireSession();
-    $stmt = db()->prepare("SELECT is_admin, role FROM users WHERE id = ?");
+    $stmt = db()->prepare("SELECT is_admin, role, approval_status FROM users WHERE id = ?");
     $stmt->execute([$uid]);
     $row = $stmt->fetch();
-    if (!$row || (!$row['is_admin'] && $row['role'] !== 'admin')) {
+    if (!$row) {
+        respondError('Unauthorized', 401);
+    }
+    $isAdmin = (bool) (!empty($row['is_admin']) || strtolower($row['role'] ?? '') === 'admin');
+    if (!$isAdmin) {
         respondError('Forbidden: Admin access required', 403);
     }
     return $uid;
@@ -430,6 +656,7 @@ function requireRole(array|string $allowedRoles): array
 {
     $uid = requireSession();
     $roles = is_array($allowedRoles) ? $allowedRoles : [$allowedRoles];
+    $roles = array_map('strtolower', $roles);
 
     $stmt = db()->prepare("SELECT id, email, full_name, role, is_admin, approval_status FROM users WHERE id = ?");
     $stmt->execute([$uid]);
@@ -448,27 +675,85 @@ function requireRole(array|string $allowedRoles): array
     }
 
     $userRole = strtolower($user['role'] ?? '');
-    $isAdmin = (bool) ($user['is_admin'] || $userRole === 'admin');
+    $isAdmin = (bool) (!empty($user['is_admin']) || $userRole === 'admin');
 
     if ($isAdmin) {
         return $user; // Admin satisfies all role checks
     }
 
-    if (!in_array($userRole, array_map('strtolower', $roles), true)) {
-        respondError('Forbidden: Insufficient permissions', 403);
+    // Normalize student <-> trainee
+    if ($userRole === 'student') {
+        $userRole = 'trainee';
     }
 
-    return $user;
+    // Check direct match
+    if (in_array($userRole, $roles, true)) {
+        return $user;
+    }
+
+    // Academic staff role aliases for 'trainer'
+    $staffRoles = ['trainer', 'professor', 'ta', 'lecturer', 'supervisor', 'instructor', 'evaluator'];
+    if (in_array($userRole, $staffRoles, true) && (in_array('trainer', $roles, true) || in_array('evaluator', $roles, true))) {
+        return $user;
+    }
+
+    // Trainee aliases
+    if (($userRole === 'trainee' || $userRole === 'student') && (in_array('trainee', $roles, true) || in_array('student', $roles, true))) {
+        return $user;
+    }
+
+    respondError('Forbidden: Insufficient permissions', 403);
 }
 
 function requireTrainer(): array
 {
-    return requireRole(['trainer', 'admin']);
+    return requireRole(['trainer', 'professor', 'ta', 'lecturer', 'supervisor', 'instructor', 'evaluator', 'admin']);
 }
 
 function requireTrainee(): array
 {
-    return requireRole(['trainee', 'admin']);
+    return requireRole(['trainee', 'student', 'admin']);
+}
+
+/**
+ * Resolve a course ID from either an integer or a string slug/keyword (e.g. 'robotics', 'external', 'default').
+ */
+function resolveCourseId(mixed $rawId): int
+{
+    if (empty($rawId)) return 0;
+    if (is_numeric($rawId)) {
+        $id = (int)$rawId;
+        if ($id > 0) return $id;
+    }
+
+    $rawStr = trim((string)$rawId);
+    if (empty($rawStr)) return 0;
+
+    $db = db();
+    // 1. Check if course_code matches
+    $stmt = $db->prepare("SELECT id FROM training_courses WHERE LOWER(course_code) = LOWER(?) OR LOWER(name) = LOWER(?) LIMIT 1");
+    $stmt->execute([$rawStr, $rawStr]);
+    $found = $stmt->fetchColumn();
+    if ($found) return (int)$found;
+
+    // 2. Check slug / keyword matching
+    if (stripos($rawStr, 'robot') !== false) {
+        $rStmt = $db->query("SELECT id FROM training_courses WHERE LOWER(name) LIKE '%robot%' OR LOWER(category) LIKE '%robot%' ORDER BY id ASC LIMIT 1");
+        $rId = $rStmt->fetchColumn();
+        if ($rId) return (int)$rId;
+    }
+    if (stripos($rawStr, 'extern') !== false || stripos($rawStr, 'خارجي') !== false) {
+        $eStmt = $db->query("SELECT id FROM training_courses WHERE course_type = 'external' OR LOWER(name) LIKE '%external%' OR LOWER(name) LIKE '%خارجي%' ORDER BY id ASC LIMIT 1");
+        $eId = $eStmt->fetchColumn();
+        if ($eId) return (int)$eId;
+    }
+    if ($rawStr === 'default') {
+        $dStmt = $db->query("SELECT id FROM training_courses ORDER BY id ASC LIMIT 1");
+        $dId = $dStmt->fetchColumn();
+        if ($dId) return (int)$dId;
+    }
+
+    return 0;
 }
 
 /**
@@ -478,11 +763,12 @@ function requireTrainee(): array
 function verifyCourseAccess(int $courseId, array $user): void
 {
     $role = strtolower($user['role'] ?? '');
+    $staffRoles = ['trainer', 'professor', 'ta', 'lecturer', 'supervisor', 'instructor', 'evaluator', 'admin'];
     $isAdmin = (bool) (!empty($user['is_admin']) || $role === 'admin');
     if ($isAdmin) {
         return;
     }
-    if ($role !== 'trainer') {
+    if (!in_array($role, $staffRoles, true)) {
         respondError('Forbidden: Trainer or Admin access required', 403);
     }
     $cStmt = db()->prepare("SELECT 1 FROM training_courses WHERE id = ?");

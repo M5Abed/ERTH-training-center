@@ -83,7 +83,10 @@ export default function PublicProfile() {
         <div className="gv-shell">
             {/* Minimal header — brand only, no nav links */}
             <header className="gv-topbar">
-                <span className="gv-brand"><span>ERTH Training Center</span></span>
+                <span className="gv-brand" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <img src="/assets/university_logo.png" alt="NMU" style={{ height: '28px', width: 'auto' }} />
+                    <span>ERTH Training Center</span>
+                </span>
                 <Link to="/auth" className="gv-login-btn">
                     <Lock size={14} />
                     {lang === 'ar' ? 'تسجيل الدخول' : 'Sign In'}

@@ -23,15 +23,35 @@ try {
     }
 } catch (Throwable $e) {}
 
-try {
-    $count = (int)$db->query("SELECT COUNT(*) FROM projects_catalog")->fetchColumn();
-} catch (Throwable $e) {
-    $count = 0;
+// Load canonical 64 catalog items from data source
+$catalogMap = [];
+if (file_exists(__DIR__ . '/catalog_64_data.php')) {
+    require_once __DIR__ . '/catalog_64_data.php';
+    if (function_exists('getCatalog64')) {
+        $allCatalogItems = getCatalog64();
+        foreach ($allCatalogItems as $item) {
+            $catalogMap[(int)$item['id']] = $item;
+        }
+    }
 }
 
-if ($count === 0) {
+// Check if database table needs seeding or category correction
+$needsSync = false;
+try {
+    $count = (int)$db->query("SELECT COUNT(*) FROM projects_catalog")->fetchColumn();
+    $distinctCats = (int)$db->query("SELECT COUNT(DISTINCT category) FROM projects_catalog")->fetchColumn();
+    $roboticsCount = (int)$db->query("SELECT COUNT(*) FROM projects_catalog WHERE category IN ('yanshee', 'nao', 'integrated')")->fetchColumn();
+    
+    if ($count < 64 || $distinctCats < 4 || $roboticsCount < 30) {
+        $needsSync = true;
+    }
+} catch (Throwable $e) {
+    $count = 0;
+    $needsSync = true;
+}
+
+if ($needsSync && !empty($catalogMap)) {
     try {
-        require_once __DIR__ . '/catalog_64_data.php';
         $db->exec("
             CREATE TABLE IF NOT EXISTS projects_catalog (
                 id INT PRIMARY KEY,
@@ -54,32 +74,34 @@ if ($count === 0) {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ");
 
-        $catalog = getCatalog64();
-        foreach ($catalog as $p) {
-            $id = (int)$p['id'];
-            $stmt = $db->prepare("
-                INSERT INTO projects_catalog (id, title, category, level, skills, display_order)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    title         = VALUES(title),
-                    category      = VALUES(category),
-                    level         = VALUES(level),
-                    skills        = VALUES(skills),
-                    display_order = VALUES(display_order)
-            ");
+        $stmt = $db->prepare("
+            INSERT INTO projects_catalog (id, title, category, level, skills, display_order)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                title         = VALUES(title),
+                category      = VALUES(category),
+                level         = VALUES(level),
+                skills        = VALUES(skills),
+                display_order = VALUES(display_order)
+        ");
+
+        $sectionStmt = $db->prepare("
+            INSERT INTO proposals_pregenerated (catalog_project_id, section_key, content)
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE content = VALUES(content)
+        ");
+
+        foreach ($catalogMap as $id => $p) {
             $stmt->execute([$id, $p['title'], $p['category'], $p['level'], $p['skills'] ?? '', $p['display_order'] ?? $id]);
 
-            $sectionStmt = $db->prepare("
-                INSERT INTO proposals_pregenerated (catalog_project_id, section_key, content)
-                VALUES (?, ?, ?)
-                ON DUPLICATE KEY UPDATE content = VALUES(content)
-            ");
-            foreach ($p['sections'] as $key => $content) {
-                $sectionStmt->execute([$id, $key, $content]);
+            if (!empty($p['sections']) && is_array($p['sections'])) {
+                foreach ($p['sections'] as $key => $content) {
+                    $sectionStmt->execute([$id, $key, $content]);
+                }
             }
         }
     } catch (Throwable $e) {
-        error_log("Failed to auto-seed catalog: " . $e->getMessage());
+        error_log("Failed to auto-seed/repair catalog: " . $e->getMessage());
     }
 }
 
@@ -158,21 +180,45 @@ foreach ($takenRows as $tr) {
 
 // ── Fetch all 64 projects from catalog ────────────────────────────────────────
 $stmt = $db->query("
-    SELECT id, title, category, level, skills, display_order
-    FROM projects_catalog
+    SELECT 
+        pc.id, 
+        pc.title, 
+        pc.category, 
+        pc.level, 
+        pc.skills, 
+        pc.display_order,
+        pp.content AS abstract
+    FROM projects_catalog pc
+    LEFT JOIN proposals_pregenerated pp ON pp.catalog_project_id = pc.id AND pp.section_key = 'abstract'
     ORDER BY
-        CASE category
+        CASE pc.category
             WHEN 'software'    THEN 1
             WHEN 'yanshee'     THEN 2
             WHEN 'nao'         THEN 3
             WHEN 'integrated'  THEN 4
             ELSE 5
         END,
-        display_order ASC,
-        id ASC
+        pc.display_order ASC,
+        pc.id ASC
 ");
 
-$rawProjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$rawProjects = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+
+// Fallback to static catalog if database query returned empty
+if (empty($rawProjects) && !empty($catalogMap)) {
+    foreach ($catalogMap as $id => $p) {
+        $rawProjects[] = [
+            'id'            => $id,
+            'title'         => $p['title'],
+            'category'      => $p['category'],
+            'level'         => $p['level'],
+            'skills'        => $p['skills'] ?? '',
+            'display_order' => $p['display_order'] ?? $id,
+            'abstract'      => $p['sections']['abstract'] ?? '',
+        ];
+    }
+}
+
 $projects = [];
 
 // Group by category for convenient frontend rendering
@@ -186,6 +232,20 @@ $grouped = [
 foreach ($rawProjects as $p) {
     $pId = (int)$p['id'];
     $pTitleNorm = mb_strtolower(trim($p['title']), 'UTF-8');
+
+    // Guarantee canonical category from source
+    if (isset($catalogMap[$pId]['category'])) {
+        $p['category'] = $catalogMap[$pId]['category'];
+    }
+    if (isset($catalogMap[$pId]['level']) && empty($p['level'])) {
+        $p['level'] = $catalogMap[$pId]['level'];
+    }
+    if (isset($catalogMap[$pId]['skills']) && empty($p['skills'])) {
+        $p['skills'] = $catalogMap[$pId]['skills'];
+    }
+    if (empty($p['abstract']) && isset($catalogMap[$pId]['sections']['abstract'])) {
+        $p['abstract'] = $catalogMap[$pId]['sections']['abstract'];
+    }
 
     $takenInfo = $takenById[$pId] ?? ($takenByTitle[$pTitleNorm] ?? null);
 
@@ -204,9 +264,11 @@ foreach ($rawProjects as $p) {
 
     $projects[] = $p;
 
-    $cat = $p['category'];
+    $cat = strtolower(trim((string)$p['category']));
     if (isset($grouped[$cat])) {
         $grouped[$cat][] = $p;
+    } else {
+        $grouped['software'][] = $p;
     }
 }
 

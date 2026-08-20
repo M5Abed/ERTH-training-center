@@ -17,6 +17,9 @@ require_once __DIR__ . '/../../config.php';
 
 $user = requireRole(['trainee', 'trainer', 'admin']);
 $uid  = (int)$user['id'];
+$role = strtolower($user['role'] ?? '');
+$isAdmin = (bool)($user['is_admin'] || $role === 'admin');
+$isEvaluator = (bool)($isAdmin || $role === 'trainer');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respondError('Method not allowed', 405);
@@ -24,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data              = body();
 $catalogProjectId  = (int)($data['catalog_project_id'] ?? 0);
-$courseId          = (int)($data['course_id'] ?? 0);
+$courseId          = resolveCourseId($data['course_id'] ?? 0);
 $trainingIdeaId    = (int)($data['training_idea_id'] ?? 0);  // if idea already exists
 
 if (!$catalogProjectId) {
@@ -40,6 +43,31 @@ $db = db();
 $catStmt = $db->prepare("SELECT id, title, category, level, skills FROM projects_catalog WHERE id = ?");
 $catStmt->execute([$catalogProjectId]);
 $catProject = $catStmt->fetch();
+
+// Ensure canonical category from static catalog data
+if (file_exists(__DIR__ . '/catalog_64_data.php')) {
+    require_once __DIR__ . '/catalog_64_data.php';
+    if (function_exists('getCatalog64')) {
+        $cItems = getCatalog64();
+        foreach ($cItems as $ci) {
+            if ((int)$ci['id'] === $catalogProjectId) {
+                if (!$catProject) {
+                    $catProject = [
+                        'id'       => (int)$ci['id'],
+                        'title'    => $ci['title'],
+                        'category' => $ci['category'],
+                        'level'    => $ci['level'],
+                        'skills'   => $ci['skills'] ?? '',
+                    ];
+                } else {
+                    $catProject['category'] = $ci['category'];
+                }
+                break;
+            }
+        }
+    }
+}
+
 if (!$catProject) {
     respondError('Catalog project not found', 404);
 }
@@ -63,8 +91,6 @@ if ($trainingIdeaId) {
         respondError('Course not found');
     }
 
-    $role        = strtolower($user['role'] ?? '');
-    $isEvaluator = (bool)($user['is_admin'] || $role === 'admin' || $role === 'trainer');
     if (!$isEvaluator) {
         $enrStmt = $db->prepare("SELECT id, training_type FROM trainee_enrollments WHERE trainee_id = ? AND course_id = ?");
         $enrStmt->execute([$uid, $courseId]);
@@ -77,13 +103,26 @@ if ($trainingIdeaId) {
         }
     }
 
-    // Check if trainee is already a member in another active team
-    $memCheck = $db->prepare("
+    // Check if trainee already has an idea for this course
+    $existStmt = $db->prepare("SELECT id, status FROM training_ideas WHERE owner_id = ? AND course_id = ?");
+    $existStmt->execute([$uid, $courseId]);
+    $existingRow = $existStmt->fetch();
+    $existingId = $existingRow ? (int)$existingRow['id'] : 0;
+    $existingStatus = strtolower($existingRow['status'] ?? '');
+
+    // Check if trainee is already a member in another active team FOR THIS COURSE
+    $memSql = "
         SELECT ti.title FROM training_idea_members tim
         JOIN training_ideas ti ON tim.idea_id = ti.id
-        WHERE tim.user_id = ? AND tim.role = 'member' AND ti.status != 'rejected'
-    ");
-    $memCheck->execute([$uid]);
+        WHERE tim.user_id = ? AND tim.role = 'member' AND ti.status != 'rejected' AND ti.course_id = ?
+    ";
+    $memParams = [$uid, $courseId];
+    if ($existingId) {
+        $memSql .= " AND ti.id != ?";
+        $memParams[] = $existingId;
+    }
+    $memCheck = $db->prepare($memSql);
+    $memCheck->execute($memParams);
     $alreadyMem = $memCheck->fetchColumn();
     if ($alreadyMem) {
         respondError("You are already enrolled as a team member in another project ('$alreadyMem').");
@@ -106,20 +145,18 @@ if ($trainingIdeaId) {
         respondError("This project idea has already been chosen. Two teams cannot have the same idea. Please choose a different project.", 409);
     }
 
-    // Check if trainee already has an idea for this course
-    $existStmt = $db->prepare("SELECT id, status FROM training_ideas WHERE owner_id = ? AND course_id = ?");
-    $existStmt->execute([$uid, $courseId]);
-    $existingRow = $existStmt->fetch();
-    $existingId = $existingRow ? (int)$existingRow['id'] : 0;
-    $existingStatus = strtolower($existingRow['status'] ?? '');
-
     if ($existingId) {
         if (($existingStatus === 'approved' || $existingStatus === 'completed') && !$isEvaluator) {
             respondError("This project idea has been officially approved by the supervisor and cannot be replaced. You can only add team members or upload files until training is complete.", 403);
         }
         $ideaId = $existingId;
+        // Check existing columns
+        $tiCols = $db->query("SHOW COLUMNS FROM training_ideas")->fetchAll(PDO::FETCH_COLUMN);
+        $hasTitleEn = in_array('title_en', $tiCols, true);
+        $hasDescEn  = in_array('description_en', $tiCols, true);
+
         // Update catalog_project_id, title, and reset to submitted
-        $updCatStmt = $db->prepare("
+        $sql = "
             UPDATE training_ideas 
             SET catalog_project_id = ?,
                 title = ?,
@@ -129,28 +166,54 @@ if ($trainingIdeaId) {
                 reviewed_by = NULL,
                 reviewed_at = NULL,
                 updated_at = NOW()
-            WHERE id = ? AND owner_id = ?
-        ");
-        $updCatStmt->execute([
+        ";
+        $params = [
             $catalogProjectId,
             $catProject['title'],
-            'Selected from the project catalog: ' . $catProject['title'],
-            $ideaId,
-            $uid
-        ]);
+            'Selected from the project catalog: ' . $catProject['title']
+        ];
+        if ($hasTitleEn) {
+            $sql .= ", title_en = ?";
+            $params[] = $catProject['title'];
+        }
+        if ($hasDescEn) {
+            $sql .= ", description_en = ?";
+            $params[] = 'Selected from the project catalog: ' . $catProject['title'];
+        }
+        $sql .= " WHERE id = ? AND owner_id = ?";
+        $params[] = $ideaId;
+        $params[] = $uid;
+
+        $updCatStmt = $db->prepare($sql);
+        $updCatStmt->execute($params);
     } else {
-        // Create new idea row in 'submitted' (under review) status
-        $insStmt = $db->prepare("
-            INSERT INTO training_ideas (owner_id, course_id, catalog_project_id, title, description, status)
-            VALUES (?, ?, ?, ?, ?, 'submitted')
-        ");
-        $insStmt->execute([
+        // Check existing columns
+        $tiCols = $db->query("SHOW COLUMNS FROM training_ideas")->fetchAll(PDO::FETCH_COLUMN);
+        $hasTitleEn = in_array('title_en', $tiCols, true);
+        $hasDescEn  = in_array('description_en', $tiCols, true);
+
+        $fields = ['owner_id', 'course_id', 'catalog_project_id', 'title', 'description', 'status'];
+        $placeholders = ['?', '?', '?', '?', '?', "'submitted'"];
+        $params = [
             $uid,
             $courseId,
             $catalogProjectId,
             $catProject['title'],
             'Selected from the project catalog: ' . $catProject['title'],
-        ]);
+        ];
+        if ($hasTitleEn) {
+            $fields[] = 'title_en';
+            $placeholders[] = '?';
+            $params[] = $catProject['title'];
+        }
+        if ($hasDescEn) {
+            $fields[] = 'description_en';
+            $placeholders[] = '?';
+            $params[] = 'Selected from the project catalog: ' . $catProject['title'];
+        }
+
+        $insStmt = $db->prepare("INSERT INTO training_ideas (" . implode(', ', $fields) . ") VALUES (" . implode(', ', $placeholders) . ")");
+        $insStmt->execute($params);
         $ideaId = (int)$db->lastInsertId();
 
         // Insert the owner as leader in training_idea_members
@@ -313,6 +376,10 @@ $saveStmt = $db->prepare("
         tech_stack         = ?,
         catalog_project_id = ?,
         proposal_json      = ?,
+        status             = 'submitted',
+        feedback           = NULL,
+        reviewed_by        = NULL,
+        reviewed_at        = NULL,
         updated_at         = NOW()
     WHERE id = ?
 ");

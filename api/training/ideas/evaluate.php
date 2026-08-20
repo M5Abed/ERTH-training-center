@@ -1,6 +1,6 @@
-<?php
+﻿<?php
 // =========================================================
-// NMU TRAINING — Evaluate Trainee Idea / Send to Voting
+// NMU TRAINING â€” Evaluate Trainee Idea / Send to Voting
 // Access: Trainer or Admin
 // =========================================================
 
@@ -117,7 +117,7 @@ try {
             VALUES (?, 'idea_voting', ?, ?)
         ");
         $msgEn = "Project Idea '{$idea['title']}' is now open for Trainer & Admin voting!";
-        $msgAr = "فكرة المشروع '{$idea['title']}' متاحة الآن للتصويت بين المدربين والمسؤولين!";
+        $msgAr = "ÙÙƒØ±Ø© Ø§Ù„Ù…Ø´Ø±ÙˆØ¹ '{$idea['title']}' Ù…ØªØ§Ø­Ø© Ø§Ù„Ø¢Ù† Ù„Ù„ØªØµÙˆÙŠØª Ø¨ÙŠÙ† Ø§Ù„Ù…Ø¯Ø±Ø¨ÙŠÙ† ÙˆØ§Ù„Ù…Ø³Ø¤ÙˆÙ„ÙŠÙ†!";
         foreach ($evaluators as $eId) {
             $nStmt->execute([(int)$eId, $msgEn, $msgAr]);
         }
@@ -130,14 +130,14 @@ try {
             ");
             $statusDisplay = str_replace('_', ' ', $status);
             $msgEn = "Your training idea '{$idea['title']}' status has been updated to: " . strtoupper($statusDisplay) . ".";
-            $msgAr = "تم تحديث حالة فكرة التدريب الخاص بك إلى: $statusDisplay.";
+            $msgAr = "ØªÙ… ØªØ­Ø¯ÙŠØ« Ø­Ø§Ù„Ø© ÙÙƒØ±Ø© Ø§Ù„ØªØ¯Ø±ÙŠØ¨ Ø§Ù„Ø®Ø§Øµ Ø¨Ùƒ Ø¥Ù„Ù‰: $statusDisplay.";
             $nStmt->execute([(int)$idea['trainee_id'], $msgEn, $msgAr]);
         }
     }
 
     // Fetch vote summary for this idea
     $votesStmt = $db->prepare("
-        SELECT tv.*, COALESCE(u.full_name, u.username, u.email) AS evaluator_name, u.role AS evaluator_role
+        SELECT tv.*, COALESCE(u.full_name, u.email) AS evaluator_name, u.role AS evaluator_role
         FROM training_votes tv
         JOIN users u ON tv.evaluator_id = u.id
         WHERE tv.idea_id = ?
@@ -176,3 +176,4 @@ try {
 } catch (Throwable $e) {
     respondError('Server error: ' . $e->getMessage(), 500);
 }
+

@@ -16,7 +16,7 @@ export default function TrainingApprovals() {
     const fetchRequests = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/training/registrations/list.php');
+            const res = await fetch('/api/training/registrations/list.php', { credentials: 'include' });
             const data = await res.json();
             if (res.ok && data.requests) {
                 setRequests(data.requests);
@@ -33,6 +33,7 @@ export default function TrainingApprovals() {
         try {
             const res = await fetch('/api/training/registrations/approve.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ request_id: reqId, user_id: userId, course_id: courseId })
             });
@@ -52,6 +53,7 @@ export default function TrainingApprovals() {
         try {
             const res = await fetch('/api/training/registrations/reject.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ request_id: reqId, user_id: userId, reason: reason || '' })
             });

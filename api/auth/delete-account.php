@@ -7,6 +7,7 @@
 // =========================================================
 
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../users/delete_helper.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respondError('POST required', 405);
@@ -31,11 +32,8 @@ if (!$user || !password_verify($password, $user['password_hash'])) {
 }
 
 try {
-    $stmt = db()->prepare("DELETE FROM users WHERE id = ?");
-    $stmt->execute([$uid]);
-
+    cascadeDeleteUser(db(), $uid);
     session_destroy();
-
     respond(['success' => true]);
 } catch (PDOException $e) {
     error_log("Delete account error for uid=$uid: " . $e->getMessage());

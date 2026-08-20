@@ -6,7 +6,7 @@
 
 require_once __DIR__ . '/../../config.php';
 
-$adminId = requireAdmin();
+$reviewer = requireTrainer();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respondError('Method not allowed', 405);

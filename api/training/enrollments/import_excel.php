@@ -3,7 +3,8 @@
 // NMU TRAINING — Smart Bulk Import & Enroll Trainees
 // Access: Trainer or Admin
 // Supports: .xlsx, .xls, .csv with Arabic / English Headers
-// Smart auto-detection of columns (Academic ID, Name, Email, Password, etc.)
+// Smart auto-detection of columns:
+// [NO., Academic ID, Name, Academic Email, CourseCode, Program, Final Track, Training Platform Email, Password]
 // =========================================================
 
 require_once __DIR__ . '/../../config.php';
@@ -20,12 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $courseId = (int)($_POST['course_id'] ?? 0);
-if (!$courseId || empty($_FILES['excel_file'])) {
-    respondError('Course ID and Excel/CSV file upload are required');
+if (empty($_FILES['excel_file'])) {
+    respondError('Excel/CSV file upload is required');
 }
 
-// Verify trainer assignment to this course (or admin)
-verifyCourseAccess($courseId, $reviewer);
+// If course_id is provided, verify access
+if ($courseId > 0) {
+    verifyCourseAccess($courseId, $reviewer);
+}
 
 $file = $_FILES['excel_file'];
 if ($file['error'] !== UPLOAD_ERR_OK) {
@@ -33,7 +36,7 @@ if ($file['error'] !== UPLOAD_ERR_OK) {
 }
 
 $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-if (!in_array($ext, ['xlsx', 'xls', 'csv'], true)) {
+if (!in_array($ext, ['xlsx', 'xls', 'csv', 'txt'], true)) {
     respondError('Invalid file format. Please upload an Excel (.xlsx, .xls) or CSV file.');
 }
 
@@ -169,56 +172,71 @@ if (!$headerRow) {
 }
 
 $mapping = [
-    'id'       => null,
-    'name'     => null,
-    'email'    => null,
-    'password' => null,
-    'college'  => null,
-    'year'     => null,
-    'major'    => null,
+    'academic_id'    => null,
+    'name'           => null,
+    'academic_email' => null,
+    'course_code'    => null,
+    'program'        => null,
+    'final_track'    => null,
+    'platform_email' => null,
+    'password'       => null,
+    'generic_email'  => null,
 ];
 
-// Step 1: Match by Header Titles
+// Step 1: Exact / Canonical Matches by Header Titles
 foreach ($headerRow as $colKey => $rawHeader) {
     $norm = normalizeColHeader($rawHeader);
     if (empty($norm)) continue;
 
-    // Email
-    if (str_contains($norm, 'بريد') || str_contains($norm, 'email') || str_contains($norm, 'mail')) {
-        $mapping['email'] = $colKey;
+    // Platform Email specifically
+    if (str_contains($norm, 'training platform email') || str_contains($norm, 'platform email') || str_contains($norm, 'بريد المنصه') || str_contains($norm, 'بريد التدريب')) {
+        $mapping['platform_email'] = $colKey;
     }
-    // Student / Academic ID
-    elseif (str_contains($norm, 'جامعي') || str_contains($norm, 'اكاديمي') || str_contains($norm, 'academic id') || str_contains($norm, 'student id') || str_contains($norm, 'كود') || str_contains($norm, 'جلوس')) {
-        $mapping['id'] = $colKey;
+    // Academic Email specifically
+    elseif (str_contains($norm, 'academic email') || str_contains($norm, 'البريد الاكاديمي') || str_contains($norm, 'البريد الجامعي')) {
+        $mapping['academic_email'] = $colKey;
+    }
+    // Generic Email if specific not hit
+    elseif (str_contains($norm, 'email') || str_contains($norm, 'بريد') || str_contains($norm, 'mail')) {
+        $mapping['generic_email'] = $colKey;
+    }
+    // Academic / Student ID
+    elseif (str_contains($norm, 'academic id') || str_contains($norm, 'student id') || str_contains($norm, 'اكاديمي') || str_contains($norm, 'جامعي') || str_contains($norm, 'كود الطالب') || str_contains($norm, 'رقم الجلوس')) {
+        $mapping['academic_id'] = $colKey;
+    }
+    // Course Code
+    elseif (str_contains($norm, 'coursecode') || str_contains($norm, 'course code') || str_contains($norm, 'كود الدوره') || str_contains($norm, 'كود المقرر') || str_contains($norm, 'رمز المقرر') || in_array($norm, ['course', 'مقرر', 'دوره'])) {
+        $mapping['course_code'] = $colKey;
+    }
+    // Program / Major / Department
+    elseif (str_contains($norm, 'program') || str_contains($norm, 'البرنامج') || str_contains($norm, 'تخصص') || str_contains($norm, 'major') || str_contains($norm, 'كليه') || str_contains($norm, 'college') || str_contains($norm, 'قسم')) {
+        $mapping['program'] = $colKey;
+    }
+    // Final Track
+    elseif (str_contains($norm, 'final track') || str_contains($norm, 'المسار النهائي') || str_contains($norm, 'المسار التدريبي') || str_contains($norm, 'مسار') || str_contains($norm, 'track')) {
+        $mapping['final_track'] = $colKey;
     }
     // Full Name
-    elseif (str_contains($norm, 'اسم') || str_contains($norm, 'name') || str_contains($norm, 'طالب')) {
+    elseif (str_contains($norm, 'اسم') || str_contains($norm, 'name') || str_contains($norm, 'طالب') || str_contains($norm, 'متدرب')) {
         $mapping['name'] = $colKey;
     }
     // Password
-    elseif (str_contains($norm, 'password') || str_contains($norm, 'pass') || str_contains($norm, 'مرور') || str_contains($norm, 'سر')) {
+    elseif (str_contains($norm, 'password') || str_contains($norm, 'pass') || str_contains($norm, 'مرور') || str_contains($norm, 'سر') || str_contains($norm, 'باسورد')) {
         $mapping['password'] = $colKey;
     }
-    // College
-    elseif (str_contains($norm, 'كليه') || str_contains($norm, 'college')) {
-        $mapping['college'] = $colKey;
-    }
-    // Major
-    elseif (str_contains($norm, 'تخصص') || str_contains($norm, 'major') || str_contains($norm, 'برنامج')) {
-        $mapping['major'] = $colKey;
-    }
-    // Academic Year
-    elseif (str_contains($norm, 'فرقه') || str_contains($norm, 'سنه') || str_contains($norm, 'year') || str_contains($norm, 'مستوي') || str_contains($norm, 'level')) {
-        $mapping['year'] = $colKey;
-    }
-    // Generic ID if not assigned yet and not Row Number
-    elseif (in_array($norm, ['id', 'student_id', 'الرقم الجامعي']) && !$mapping['id']) {
-        $mapping['id'] = $colKey;
+    // Generic ID fallback if not row number
+    elseif (in_array($norm, ['id', 'student_id', 'الرقم الجامعي']) && !$mapping['academic_id']) {
+        $mapping['academic_id'] = $colKey;
     }
 }
 
+// Fallback email determination
+if (!$mapping['platform_email'] && !$mapping['academic_email'] && $mapping['generic_email']) {
+    $mapping['platform_email'] = $mapping['generic_email'];
+}
+
 // Step 2: Content-Based Auto-Detection Fallback
-if (!$mapping['email'] || !$mapping['id'] || !$mapping['name']) {
+if ((!$mapping['platform_email'] && !$mapping['academic_email']) || !$mapping['academic_id'] || !$mapping['name']) {
     foreach ($rows as $rIdx => $r) {
         if ($rIdx <= $headerRowIdx) continue;
         foreach ($r as $cKey => $val) {
@@ -226,33 +244,51 @@ if (!$mapping['email'] || !$mapping['id'] || !$mapping['name']) {
             if (!$val) continue;
 
             // Detect Email by @
-            if (!$mapping['email'] && filter_var($val, FILTER_VALIDATE_EMAIL)) {
-                $mapping['email'] = $cKey;
+            if (!$mapping['platform_email'] && !$mapping['academic_email'] && filter_var($val, FILTER_VALIDATE_EMAIL)) {
+                $mapping['platform_email'] = $cKey;
             }
             // Detect Student ID by 6-12 digit numbers
-            elseif (!$mapping['id'] && preg_match('/^[0-9]{6,12}$/', $val)) {
-                $mapping['id'] = $cKey;
+            elseif (!$mapping['academic_id'] && preg_match('/^[0-9]{6,12}$/', $val)) {
+                $mapping['academic_id'] = $cKey;
             }
             // Detect Name by Arabic / Multi-word text
             elseif (!$mapping['name'] && preg_match('/[\x{0600}-\x{06FF}]/u', $val) && strpos($val, ' ') !== false) {
                 $mapping['name'] = $cKey;
             }
         }
-        if ($mapping['email'] && $mapping['id'] && $mapping['name']) break;
+        if (($mapping['platform_email'] || $mapping['academic_email']) && $mapping['academic_id'] && $mapping['name']) break;
     }
 }
 
-if (!$mapping['email']) {
-    respondError('Could not identify the Academic Email column. Please ensure your file includes an Academic Email / البريد الأكاديمي column.');
+$primaryEmailCol = $mapping['platform_email'] ?: ($mapping['academic_email'] ?: $mapping['generic_email']);
+
+if (!$primaryEmailCol) {
+    respondError('Could not identify Email column. Please ensure your file includes Academic Email or Training Platform Email column.');
 }
 
 $db = db();
 
-$createdCount  = 0;
-$enrolledCount = 0;
-$updatedCount  = 0;
-$skippedCount  = 0;
-$errors        = [];
+// Ensure users.academic_email column exists
+try {
+    $db->exec("ALTER TABLE users ADD COLUMN academic_email VARCHAR(255) NULL AFTER email");
+} catch (Throwable $e) {}
+
+// Ensure UNIQUE index on trainee_enrollments(trainee_id, course_id) to prevent duplicates
+try {
+    $db->exec("ALTER TABLE trainee_enrollments ADD UNIQUE INDEX idx_te_unique (trainee_id, course_id)");
+} catch (Throwable $e) {
+    // Index already exists — safe to ignore
+}
+
+$createdCount    = 0;
+$enrolledCount   = 0;
+$updatedCount    = 0;
+$skippedCount    = 0;
+$duplicateCount  = 0;
+$errors          = [];
+
+// Cache courses lookup to resolve CourseCode quickly
+$coursesList = $db->query("SELECT id, name, category, course_type FROM training_courses")->fetchAll();
 
 // ── Process Data Rows ────────────────────────────────────────────────────────
 foreach ($rows as $rowIndex => $row) {
@@ -260,81 +296,105 @@ foreach ($rows as $rowIndex => $row) {
         continue;
     }
 
-    $email = trim(strtolower((string)($row[$mapping['email']] ?? '')));
-    if (!$email) {
+    $platformEmail = $mapping['platform_email'] ? trim(strtolower((string)($row[$mapping['platform_email']] ?? ''))) : '';
+    $academicEmail = $mapping['academic_email'] ? trim(strtolower((string)($row[$mapping['academic_email']] ?? ''))) : '';
+    $genericEmail  = $mapping['generic_email']  ? trim(strtolower((string)($row[$mapping['generic_email']] ?? ''))) : '';
+
+    $loginEmail = $platformEmail ?: ($academicEmail ?: $genericEmail);
+    if (!$loginEmail) {
         continue; // Skip empty row
     }
 
-    // Basic email sanitation
-    $email = filter_var($email, FILTER_SANITIZE_EMAIL);
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = "Row $rowIndex: Invalid email address '$email'";
+    $loginEmail = filter_var($loginEmail, FILTER_SANITIZE_EMAIL);
+    if (!filter_var($loginEmail, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = "Row $rowIndex: Invalid email address '$loginEmail'";
         $skippedCount++;
         continue;
     }
 
-    $studentId   = $mapping['id'] ? trim((string)($row[$mapping['id']] ?? '')) : '';
+    $studentId   = $mapping['academic_id'] ? trim((string)($row[$mapping['academic_id']] ?? '')) : '';
     $fullName    = $mapping['name'] ? trim((string)($row[$mapping['name']] ?? '')) : '';
     $rawPassword = $mapping['password'] ? trim((string)($row[$mapping['password']] ?? '')) : '';
-    $collegeKey  = $mapping['college'] ? trim((string)($row[$mapping['college']] ?? '')) : '';
-    $academicYr  = $mapping['year'] ? trim((string)($row[$mapping['year']] ?? '')) : '';
-    $major       = $mapping['major'] ? trim((string)($row[$mapping['major']] ?? '')) : '';
+    $program     = $mapping['program'] ? trim((string)($row[$mapping['program']] ?? '')) : '';
+    $finalTrack  = $mapping['final_track'] ? trim((string)($row[$mapping['final_track']] ?? '')) : '';
+    $courseCode  = $mapping['course_code'] ? trim((string)($row[$mapping['course_code']] ?? '')) : '';
+
+    // Determine target course ID: from row CourseCode if matched, else fallback to $courseId
+    $targetCourseId = $courseId;
+    if ($courseCode) {
+        foreach ($coursesList as $c) {
+            if (
+                strcasecmp((string)$c['id'], $courseCode) === 0 ||
+                strcasecmp((string)$c['category'], $courseCode) === 0 ||
+                strcasecmp((string)$c['name'], $courseCode) === 0 ||
+                stripos($c['name'], $courseCode) !== false
+            ) {
+                $targetCourseId = (int)$c['id'];
+                break;
+            }
+        }
+    }
 
     try {
-        // Check if user already exists
-        $userStmt = $db->prepare("SELECT id, username, role, approval_status, student_id, full_name FROM users WHERE email = ?");
-        $userStmt->execute([$email]);
+        // Check if user already exists by email or student ID
+        $userStmt = $db->prepare("
+            SELECT id, role, approval_status, student_id, full_name, email
+            FROM users
+            WHERE email = ? OR (student_id IS NOT NULL AND student_id = ? AND student_id != '')
+            LIMIT 1
+        ");
+        $userStmt->execute([$loginEmail, $studentId ?: '___none___']);
         $user = $userStmt->fetch();
 
         if (!$user) {
-            // Auto-generate username from email
-            $parts = explode('@', $email);
-            $username = preg_replace('/[^a-zA-Z0-9_]/', '', $parts[0]);
-            if (strlen($username) < 3) {
-                $username = 'trainee_' . ($studentId ?: rand(1000, 9999));
-            }
-
-            // Ensure username uniqueness
-            $chkU = $db->prepare("SELECT id FROM users WHERE username = ?");
-            $chkU->execute([$username]);
-            if ($chkU->fetch()) {
-                $username .= '_' . rand(100, 999);
-            }
-
             // Password from Excel or generated
             $plainPass = $rawPassword ?: ('NmuTrainee#' . rand(1000, 9999));
             $hash = password_hash($plainPass, PASSWORD_DEFAULT);
 
             $insStmt = $db->prepare("
-                INSERT INTO users (email, username, password_hash, full_name, role, student_id, college_key, academic_year, major, approval_status, email_verified, created_at)
-                VALUES (?, ?, ?, ?, 'trainee', ?, ?, ?, ?, 'approved', 1, NOW())
+                INSERT INTO users
+                    (email, password_hash, full_name, role, student_id, academic_id, major, final_track, department, approval_status, email_verified, created_at)
+                VALUES
+                    (?, ?, ?, 'trainee', ?, ?, ?, ?, ?, 'approved', 1, NOW())
             ");
             $insStmt->execute([
-                $email,
-                $username,
+                $loginEmail,
                 $hash,
-                $fullName ?: $username,
+                $fullName ?: explode('@', $loginEmail)[0],
                 $studentId ?: null,
-                $collegeKey ?: null,
-                $academicYr ?: null,
-                $major ?: null
+                $studentId ?: null,
+                $program ?: null,
+                $finalTrack ?: null,
+                $program ?: null
             ]);
             $userId = (int)$db->lastInsertId();
             $createdCount++;
         } else {
             $userId = (int)$user['id'];
             $updates = [];
-            $params = [];
+            $params  = [];
 
-            // Update student ID if provided and different
-            if ($studentId && $user['student_id'] !== $studentId) {
+            // Update student ID / academic ID
+            if ($studentId) {
                 $updates[] = "student_id = ?";
                 $params[] = $studentId;
+                $updates[] = "academic_id = ?";
+                $params[] = $studentId;
             }
-            // Update full name if provided and different
+            // Update full name
             if ($fullName && $user['full_name'] !== $fullName) {
                 $updates[] = "full_name = ?";
                 $params[] = $fullName;
+            }
+            // Update major
+            if ($program) {
+                $updates[] = "major = ?";
+                $params[] = $program;
+            }
+            // Update final track
+            if ($finalTrack) {
+                $updates[] = "final_track = ?";
+                $params[] = $finalTrack;
             }
             // Update password if explicit password provided in Excel
             if (!empty($rawPassword)) {
@@ -355,33 +415,114 @@ foreach ($rows as $rowIndex => $row) {
             }
         }
 
-        // Ensure source column accepts any string
-        try {
-            $db->exec("ALTER TABLE trainee_enrollments MODIFY COLUMN source VARCHAR(50) DEFAULT 'import'");
-        } catch (Throwable $e) {}
+        // Enroll trainee in the target course if we have a valid course ID
+        if ($targetCourseId > 0) {
+            // Check if this trainee is already enrolled in this course
+            $dupCheck = $db->prepare("SELECT id FROM trainee_enrollments WHERE trainee_id = ? AND course_id = ? LIMIT 1");
+            $dupCheck->execute([$userId, $targetCourseId]);
+            $existingEnrollment = $dupCheck->fetchColumn();
 
-        // Enroll trainee in the course
-        $enrStmt = $db->prepare("
-            INSERT INTO trainee_enrollments (trainee_id, course_id, source)
-            VALUES (?, ?, 'import')
-            ON DUPLICATE KEY UPDATE source = 'import'
-        ");
-        $enrStmt->execute([$userId, $courseId]);
-        $enrolledCount++;
+            if ($existingEnrollment) {
+                // Already enrolled — skip, don't create duplicate
+                $duplicateCount++;
+            } else {
+                // Determine target course type & details
+                $targetCourseType = 'internal';
+                $targetCourseName = '';
+                $targetCourseCat  = '';
+                foreach ($coursesList as $c) {
+                    if ((int)$c['id'] === $targetCourseId) {
+                        $targetCourseType = $c['course_type'] ?? 'internal';
+                        $targetCourseName = $c['name'] ?? '';
+                        $targetCourseCat  = $c['category'] ?? '';
+                        break;
+                    }
+                }
+
+                $isCourseExternal = (
+                    $targetCourseType === 'external' || 
+                    stripos($targetCourseName, 'external') !== false || 
+                    stripos($targetCourseName, 'خارجي') !== false || 
+                    stripos($targetCourseCat, 'external') !== false || 
+                    stripos($targetCourseCat, 'خارجي') !== false
+                );
+
+                $trainingType = $isCourseExternal ? 'external' : 'internal';
+
+                // Auto-detect & match official contracted providers (ITI, NTI, CREATIVA, DEPI)
+                $matchedProviderId = null;
+                $trackLower = strtolower($finalTrack);
+                if (str_contains($trackLower, 'iti') || str_contains($trackLower, 'تكنولوجيا المعلومات')) {
+                    $matchedProviderId = 1;
+                    $trainingType = 'external';
+                } elseif (str_contains($trackLower, 'nti') || str_contains($trackLower, 'القومي للاتصالات')) {
+                    $matchedProviderId = 2;
+                    $trainingType = 'external';
+                } elseif (str_contains($trackLower, 'creativa') || str_contains($trackLower, 'كريتيفا') || str_contains($trackLower, 'كرياتيفا')) {
+                    $matchedProviderId = 3;
+                    $trainingType = 'external';
+                } elseif (str_contains($trackLower, 'depi') || str_contains($trackLower, 'رواد مصر الرقمية')) {
+                    $matchedProviderId = 4;
+                    $trainingType = 'external';
+                }
+
+                // All students added to an external course ALWAYS have training_type = 'external' even if track/name is N/A or empty
+                if ($isCourseExternal) {
+                    $trainingType = 'external';
+                }
+
+                // Find or associate Track ID if finalTrack was given
+                $assignedTrackId = null;
+                if ($finalTrack) {
+                    $trStmt = $db->prepare("SELECT id FROM training_topics WHERE course_id = ? AND title LIKE ? LIMIT 1");
+                    $trStmt->execute([$targetCourseId, "%{$finalTrack}%"]);
+                    $assignedTrackId = $trStmt->fetchColumn() ?: null;
+                }
+
+                $enrStmt = $db->prepare("
+                    INSERT INTO trainee_enrollments 
+                        (trainee_id, course_id, course_code, program, final_track, provider_id, track_id, custom_provider_name, training_type, source, enrolled_at)
+                    VALUES 
+                        (?, ?, ?, ?, ?, ?, ?, ?, ?, 'import', NOW())
+                    ON DUPLICATE KEY UPDATE 
+                        course_code = COALESCE(VALUES(course_code), course_code),
+                        program = COALESCE(VALUES(program), program),
+                        final_track = COALESCE(VALUES(final_track), final_track),
+                        provider_id = COALESCE(VALUES(provider_id), provider_id),
+                        track_id = COALESCE(VALUES(track_id), track_id),
+                        custom_provider_name = COALESCE(VALUES(custom_provider_name), custom_provider_name),
+                        training_type = VALUES(training_type),
+                        source = 'import'
+                ");
+                $enrStmt->execute([
+                    $userId,
+                    $targetCourseId,
+                    $courseCode ?: null,
+                    $program ?: null,
+                    $finalTrack ?: null,
+                    $matchedProviderId,
+                    $assignedTrackId,
+                    $finalTrack ?: null,
+                    $trainingType
+                ]);
+                $enrolledCount++;
+            }
+        }
 
     } catch (Exception $e) {
-        $errors[] = "Row $rowIndex ($email): " . $e->getMessage();
+        $errors[] = "Row $rowIndex ($loginEmail): " . $e->getMessage();
         $skippedCount++;
     }
 }
 
 respond([
-    'success' => true,
-    'message' => "Excel import complete. Enrolled: $enrolledCount, New Trainees Created: $createdCount, Updated: $updatedCount, Skipped/Errors: $skippedCount",
+    'success'             => true,
+    'message'             => "Excel import complete. New Enrollments: $enrolledCount, Already Enrolled (skipped): $duplicateCount, New Users Created: $createdCount, Updated: $updatedCount, Skipped/Errors: $skippedCount",
     'created_users_count' => $createdCount,
-    'enrolled_count' => $enrolledCount,
-    'updated_count' => $updatedCount,
-    'skipped_count' => $skippedCount,
-    'detected_columns' => $mapping,
-    'errors' => $errors
+    'enrolled_count'      => $enrolledCount,
+    'duplicate_count'     => $duplicateCount,
+    'updated_count'       => $updatedCount,
+    'skipped_count'       => $skippedCount,
+    'detected_columns'    => $mapping,
+    'errors'              => $errors
 ]);

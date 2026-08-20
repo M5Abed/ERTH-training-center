@@ -85,13 +85,12 @@ if (!$course) {
     respondError('Course not found', 404);
 }
 
-// Access check for trainees: must be enrolled
+// Check trainee enrollment status
+$isEnrolled = true;
 if ($role === 'trainee' && !$isAdmin) {
     $enr = $db->prepare("SELECT id FROM trainee_enrollments WHERE trainee_id = ? AND course_id = ?");
     $enr->execute([$uid, $courseId]);
-    if (!$enr->fetch()) {
-        respondError('Forbidden: Not enrolled in this course', 403);
-    }
+    $isEnrolled = (bool)$enr->fetch();
 }
 
 // Fetch topics ordered by order_index
@@ -167,5 +166,6 @@ respond([
     'total_trainees' => $totalTrainees,
     'total_internal' => $totalInternal,
     'total_external' => $totalExternal,
+    'is_enrolled' => $isEnrolled,
     'my_enrollment' => $myEnrollment
 ]);

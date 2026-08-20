@@ -10,28 +10,72 @@ import {
 } from 'lucide-react';
 import './Landing.css';
 
-/* ── Animated counter ── */
-function Counter({ to, duration = 1800 }) {
+/* ── Animated counter with dynamic updates ── */
+function Counter({ to = 0, duration = 1600, decimals = 0 }) {
+    const targetNum = Number(to) || 0;
     const [v, setV] = useState(0);
     const ref = useRef(null);
-    const done = useRef(false);
+    const isVisibleRef = useRef(false);
+    const currentValRef = useRef(0);
+    const animFrameRef = useRef(null);
+
+    const animateTo = (target) => {
+        if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+        const startVal = currentValRef.current;
+        const startTime = performance.now();
+
+        const tick = (now) => {
+            const progress = Math.min((now - startTime) / duration, 1);
+            // Smooth cubic ease out: 1 - (1 - p)^3
+            const ease = 1 - Math.pow(1 - progress, 3);
+            const current = startVal + (target - startVal) * ease;
+            const displayVal = decimals > 0 ? Number(current.toFixed(decimals)) : Math.round(current);
+
+            currentValRef.current = current;
+            setV(displayVal);
+
+            if (progress < 1) {
+                animFrameRef.current = requestAnimationFrame(tick);
+            } else {
+                currentValRef.current = target;
+                setV(target);
+            }
+        };
+
+        animFrameRef.current = requestAnimationFrame(tick);
+    };
+
     useEffect(() => {
         const obs = new IntersectionObserver(([e]) => {
-            if (e.isIntersecting && !done.current) {
-                done.current = true;
-                const t0 = Date.now();
-                const tick = () => {
-                    const p = Math.min((Date.now() - t0) / duration, 1);
-                    setV(Math.floor((1 - (1 - p) ** 3) * to));
-                    if (p < 1) requestAnimationFrame(tick);
-                };
-                tick(); obs.disconnect();
+            if (e.isIntersecting) {
+                isVisibleRef.current = true;
+                animateTo(targetNum);
             }
-        }, { threshold: 0.3 });
+        }, { threshold: 0.1 });
+
         if (ref.current) obs.observe(ref.current);
-        return () => obs.disconnect();
-    }, [to, duration]);
-    return <span ref={ref}>{v.toLocaleString()}</span>;
+
+        return () => {
+            obs.disconnect();
+            if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+        };
+    }, []);
+
+    // Reactive update whenever `to` prop updates (realtime sync or async fetch)
+    useEffect(() => {
+        if (isVisibleRef.current) {
+            animateTo(targetNum);
+        } else {
+            currentValRef.current = targetNum;
+            setV(targetNum);
+        }
+    }, [targetNum]);
+
+    const formatted = decimals > 0 
+        ? Number(v).toFixed(decimals) 
+        : Math.round(v).toLocaleString();
+
+    return <span ref={ref}>{formatted}</span>;
 }
 
 /* ── Reveal observer ── */
@@ -59,18 +103,46 @@ export default function Landing() {
     // Active track for the Hero Programs Showcase
     const [activeTrack, setActiveTrack] = useState(0);
 
-    const [stepsRef, stepsOn] = useReveal(0.05);
     const [ctaRef, ctaOn] = useReveal(0.15);
 
-    useEffect(() => { getPublicStats().then(setStats).catch(() => {}); }, []);
+    // Real-time synchronization
+    useEffect(() => {
+        let mounted = true;
+        const fetchStats = () => {
+            getPublicStats()
+                .then(data => {
+                    if (mounted && data && typeof data === 'object') {
+                        setStats(data);
+                    }
+                })
+                .catch(() => {});
+        };
+
+        // Initial fetch
+        fetchStats();
+
+        // 15-second realtime background sync
+        const interval = setInterval(fetchStats, 15000);
+
+        // Re-sync on window focus
+        const onFocus = () => fetchStats();
+        window.addEventListener('focus', onFocus);
+
+        return () => {
+            mounted = false;
+            clearInterval(interval);
+            window.removeEventListener('focus', onFocus);
+        };
+    }, []);
+
     useEffect(() => {
         const fn = () => setScrolled(window.scrollY > 30);
         window.addEventListener('scroll', fn);
         return () => window.removeEventListener('scroll', fn);
     }, []);
 
-    // Current Active Track Data
-    const currentTrack = {
+    // Current Active Track Data (Dynamic from stats or fallback)
+    const currentTrack = stats.featuredCourse || {
         id: 'ROB-01',
         title: 'Robotics & Automation Track',
         duration: '8 Weeks · 63 Hours',
@@ -89,15 +161,15 @@ export default function Landing() {
             <header className={`lp-nav${scrolled ? ' lp-nav--solid' : ''}`}>
                 <div className="lp-nav-in">
                     <Link to="/" className="lp-logo">
-                        <img src="/assets/university_logo.png" alt="NMU ERTH" style={{ height: '40px', width: 'auto' }} />
+                        <img src="/assets/university_logo.png" alt="NMU Training Center" style={{ height: '40px', width: 'auto' }} />
                         <div className="lp-logo-text">
-                            <span className="lp-logo-brand">NMU ERTH</span>
+                            <span className="lp-logo-brand">NMU</span>
                             <span className="lp-logo-sub">TRAINING CENTER</span>
                         </div>
                     </Link>
                     <nav className="lp-navlinks">
                         <a href="#tracks" className="lp-nl">Program</a>
-                        <a href="#pipeline" className="lp-nl">Pipeline</a>
+                        <a href="#advantages" className="lp-nl">Why NMU</a>
                         <Link to="/verify" className="lp-nl">Verify Certificate</Link>
                     </nav>
                     <div className="lp-nav-end">
@@ -123,7 +195,7 @@ export default function Landing() {
                         
                         <h1 className="lp-h1">
                             <span className="lp-h1-sub">FIELD TRAINING HUB</span>
-                            <span className="lp-h1-main">ERTH TRAINING CENTER</span>
+                            <span className="lp-h1-main">TRAINING CENTER</span>
                         </h1>
 
                         <p className="lp-sub">
@@ -159,7 +231,9 @@ export default function Landing() {
                             </div>
                             <div className="lp-spec-divider" />
                             <div className="lp-spec-item">
-                                <span className="lp-spec-val">100%</span>
+                                <span className="lp-spec-val">
+                                    <Counter to={stats.verifiedCertificatesRate ?? 100} />%
+                                </span>
                                 <span className="lp-spec-lbl">VERIFIABLE DIPLOMAS</span>
                             </div>
                         </div>
@@ -217,51 +291,8 @@ export default function Landing() {
                 </div>
             </section>
 
-            {/* ── SECTION 01: PIPELINE / HOW IT WORKS ── */}
-            <section id="pipeline" className="lp-sect lp-pipe-sect">
-                <div className="lp-sect-in" ref={stepsRef}>
-                    <div className={`lp-sh lp-sh--left ${stepsOn ? 'lp-sh--on' : ''}`}>
-                        <div className="lp-sh-text">
-                            <span className="lp-label">TRAINING PIPELINE</span>
-                            <h2>Four Steps to Certified Competency</h2>
-                        </div>
-                    </div>
-
-                    <div className={`lp-pipeline-grid ${stepsOn ? 'lp-pipeline-grid--on' : ''}`}>
-                        {[
-                            {
-                                num: '01 // REGISTER',
-                                title: 'Create Profile & Select Track',
-                                desc: 'Set up your trainee credentials and select the engineering track aligned with your goals.'
-                            },
-                            {
-                                num: '02 // ENROLL',
-                                title: 'Course & Lab Admission',
-                                desc: 'Apply to cohort courses and access structured curriculum materials and laboratory sessions.'
-                            },
-                            {
-                                num: '03 // LABS & PROJECT',
-                                title: 'Practical Labs & Capstone',
-                                desc: 'Execute hands-on assignments, write code, build hardware, and submit your capstone project.'
-                            },
-                            {
-                                num: '04 // CERTIFICATION',
-                                title: 'Issuance of Verifiable Diploma',
-                                desc: 'Receive your digitally signed diploma, complete with verification hash and shareable QR seal.'
-                            }
-                        ].map((step, i) => (
-                            <div key={i} className="lp-pipe-card">
-                                <div className="lp-pipe-num">{step.num}</div>
-                                <h3 className="lp-pipe-title">{step.title}</h3>
-                                <p className="lp-pipe-desc">{step.desc}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
             {/* ── SECTION 03: INSTITUTIONAL ADVANTAGES ── */}
-            <section className="lp-sect lp-inst-sect">
+            <section id="advantages" className="lp-sect lp-inst-sect">
                 <div className="lp-sect-in">
                     <div className="lp-inst-grid">
                         
@@ -295,19 +326,28 @@ export default function Landing() {
                                 </div>
                                 <div className="lp-icf-metrics">
                                     <div className="lp-icf-m">
-                                        <span className="lp-icf-val">98.4%</span>
+                                        <span className="lp-icf-val">
+                                            <Counter to={stats.satisfactionRate ?? 98.4} decimals={1} />%
+                                        </span>
                                         <span className="lp-icf-lbl">Trainee Satisfaction</span>
                                     </div>
                                     <div className="lp-icf-m">
-                                        <span className="lp-icf-val">100%</span>
+                                        <span className="lp-icf-val">
+                                            <Counter to={stats.verifiedCertificatesRate ?? 100} />%
+                                        </span>
                                         <span className="lp-icf-lbl">Verified Certificates</span>
                                     </div>
                                     <div className="lp-icf-m">
-                                        <span className="lp-icf-val">12+</span>
+                                        <span className="lp-icf-val">
+                                            <Counter to={stats.totalModules ?? stats.totalTopics ?? 12} />+
+                                        </span>
                                         <span className="lp-icf-lbl">Specialized Modules</span>
                                     </div>
                                     <div className="lp-icf-m">
-                                        <span className="lp-icf-val" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}><Star size={15} fill="currentColor" /> 4.9</span>
+                                        <span className="lp-icf-val" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>
+                                            <Star size={15} fill="currentColor" />
+                                            <Counter to={stats.trainerRating ?? 4.9} decimals={1} />
+                                        </span>
                                         <span className="lp-icf-lbl">Trainer Rating</span>
                                     </div>
                                 </div>
@@ -349,7 +389,7 @@ export default function Landing() {
                     </div>
                     <div className="lp-footer-links">
                         <a href="#tracks" className="lp-nl">Program</a>
-                        <a href="#pipeline" className="lp-nl">Pipeline</a>
+                        <a href="#advantages" className="lp-nl">Why ERTH</a>
                         <Link to="/verify" className="lp-nl">Verification</Link>
                         <Link to="/auth" className="lp-nl">Sign In</Link>
                     </div>

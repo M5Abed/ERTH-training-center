@@ -30,7 +30,7 @@ export default function IdeaLeaderboard() {
     const [selectedTeamProject, setSelectedTeamProject] = useState(null);
 
     useEffect(() => {
-        fetch('/api/training/courses/list.php')
+        fetch('/api/training/courses/list.php', { credentials: 'include' })
             .then(r => r.json())
             .then(d => {
                 const list = d.courses || [];
@@ -47,7 +47,7 @@ export default function IdeaLeaderboard() {
         setLoading(true);
         try {
             const url = '/api/training/leaderboard/list.php?' + (courseFilter ? `course_id=${courseFilter}` : '');
-            const res = await fetch(url);
+            const res = await fetch(url, { credentials: 'include' });
             const data = await res.json();
             if (res.ok) {
                 setProjects(data.projects || []);
@@ -59,7 +59,7 @@ export default function IdeaLeaderboard() {
             // If a specific course is selected and user is trainer/admin, fetch their existing votes
             if (courseFilter && isTrainer) {
                 try {
-                    const vRes = await fetch(`/api/training/votes/course_votes.php?course_id=${courseFilter}`);
+                    const vRes = await fetch(`/api/training/votes/course_votes.php?course_id=${courseFilter}`, { credentials: 'include' });
                     const vData = await vRes.json();
                     if (vRes.ok && vData.success) {
                         setMyVotes(vData.my_votes || []);
@@ -101,6 +101,7 @@ export default function IdeaLeaderboard() {
         try {
             const res = await fetch('/api/training/votes/course_votes_submit.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     course_id: parseInt(courseFilter, 10),
@@ -128,6 +129,7 @@ export default function IdeaLeaderboard() {
         try {
             const res = await fetch('/api/training/courses/voting_status.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     course_id: parseInt(courseFilter, 10),

@@ -21,16 +21,16 @@ $db = db();
 
 try {
     if ($courseId > 0) {
-        // Return providers associated with this specific course
+        // Return providers associated with this course + all official contracted providers by default
         $stmt = $db->prepare("
             SELECT p.*,
-                   cep.id AS course_provider_id,
+                   COALESCE(cep.id, 0) AS course_provider_id,
                    (SELECT COUNT(*) FROM training_topics tt WHERE tt.course_id = ? AND tt.provider_id = p.id) AS track_count,
                    (SELECT COUNT(*) FROM trainee_enrollments te WHERE te.course_id = ? AND te.provider_id = p.id) AS trainee_count
             FROM external_training_providers p
-            JOIN course_external_providers cep ON cep.provider_id = p.id
-            WHERE cep.course_id = ? AND (p.status = 'active' OR ? = 1)
-            ORDER BY p.is_contracted DESC, p.name ASC
+            LEFT JOIN course_external_providers cep ON (cep.provider_id = p.id AND cep.course_id = ?)
+            WHERE (cep.course_id IS NOT NULL OR p.is_contracted = 1) AND (p.status = 'active' OR ? = 1)
+            ORDER BY p.is_contracted DESC, p.id ASC
         ");
         $stmt->execute([$courseId, $courseId, $courseId, $isAdmin ? 1 : 0]);
         $providers = $stmt->fetchAll();

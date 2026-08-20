@@ -175,8 +175,8 @@ export default function Topbar({ onMenuClick }) {
 
                 {/* Logo */}
                 <Link to="/" className="topbar-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <img src="/assets/university_logo.png" alt="NMU ERTH Training Center" className="topbar-logo-img" style={{ height: '36px', width: 'auto' }} />
-                    <span className="topbar-logo-text">NMU ERTH<span className="topbar-logo-accent"> Training Center</span></span>
+                    <img src="/assets/university_logo.png" alt="NMU Training Center" className="topbar-logo-img" style={{ height: '36px', width: 'auto' }} />
+                    <span className="topbar-logo-text">NMU<span className="topbar-logo-accent"> Training Center</span></span>
                 </Link>
 
                 {/* Desktop Nav Links */}

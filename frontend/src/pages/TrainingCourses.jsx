@@ -41,7 +41,7 @@ export default function TrainingCourses() {
     const fetchCourses = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/training/courses/list.php');
+            const res = await fetch('/api/training/courses/list.php', { credentials: 'include' });
             const data = await res.json();
             if (res.ok && data.courses) {
                 setCourses(data.courses);

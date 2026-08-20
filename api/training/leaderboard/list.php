@@ -1,6 +1,6 @@
-<?php
+﻿<?php
 // =========================================================
-// NMU TRAINING — Academic Leaderboard & End-of-Course Voting Results
+// NMU TRAINING â€” Academic Leaderboard & End-of-Course Voting Results
 // GET /api/training/leaderboard/list.php?course_id=X
 // Access: Trainee, Trainer, or Admin
 // =========================================================
@@ -47,7 +47,6 @@ $sql = "
         u.full_name AS trainee_name,
         u.student_id,
         u.email AS trainee_email,
-        u.avatar_url AS trainee_avatar,
         te.final_score AS evaluation_score,
         te.status AS evaluation_status,
         te.evaluated_at,
@@ -171,9 +170,7 @@ $studentSql = "
         u.full_name,
         u.student_id,
         u.email,
-        u.avatar_url,
         u.major,
-        u.college_key,
         te_enr.course_id,
         tc.name AS course_name,
         te.final_score AS evaluation_score,
@@ -238,3 +235,4 @@ respond([
     'students'      => $students,
     'top_5_voted'   => $top5VotedList
 ]);
+

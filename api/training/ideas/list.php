@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// NMU TRAINING — List All Trainee Submitted Projects / Ideas
+// NMU TRAINING â€” List All Trainee Submitted Projects / Ideas
 // Access: Trainee (sees own & team ideas), Trainer / Admin (sees all submitted ideas)
 // =========================================================
 
@@ -15,7 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);
 }
 
-$courseId = isset($_GET['course_id']) && $_GET['course_id'] !== '' ? (int) $_GET['course_id'] : null;
+$rawCourseId = $_GET['course_id'] ?? null;
+$courseId = !empty($rawCourseId) ? resolveCourseId($rawCourseId) : null;
 $statusFilter = isset($_GET['status']) && $_GET['status'] !== '' ? trim($_GET['status']) : null;
 
 $db = db();
@@ -44,6 +45,9 @@ $whereSql = $whereClauses ? "WHERE " . implode(" AND ", $whereClauses) : "";
 
 $sql = "
     SELECT ti.*, 
+           pc.category AS catalog_category,
+           pc.level AS catalog_level,
+           pc.skills AS catalog_skills,
            u.full_name AS trainee_name, 
            u.email AS trainee_email, 
            u.student_id,
@@ -53,6 +57,7 @@ $sql = "
     FROM training_ideas ti
     JOIN users u ON ti.owner_id = u.id
     JOIN training_courses tc ON ti.course_id = tc.id
+    LEFT JOIN projects_catalog pc ON ti.catalog_project_id = pc.id
     LEFT JOIN users rev ON ti.reviewed_by = rev.id
     $whereSql
     ORDER BY ti.updated_at DESC
@@ -68,7 +73,8 @@ function attachTeamMembers($db, array &$ideas, int $currentUserId) {
     try {
         $mStmt = $db->prepare("
             SELECT tim.idea_id, tim.user_id, tim.role, 
-                   u.full_name, u.student_id, u.email, u.avatar_url, u.username,
+                   u.full_name, u.student_id, u.email,
+                   u.username, u.avatar_url,
                    u.major, u.academic_year, u.department
             FROM training_idea_members tim
             JOIN users u ON tim.user_id = u.id
@@ -83,14 +89,14 @@ function attachTeamMembers($db, array &$ideas, int $currentUserId) {
                 'user_id' => (int) $m['user_id'],
                 'id' => (int) $m['user_id'],
                 'role' => $m['role'],
-                'full_name' => $m['full_name'] ?: $m['username'] ?: $m['email'],
+                'full_name' => $m['full_name'] ?: ($m['username'] ?? $m['email']),
                 'student_id' => $m['student_id'],
                 'email' => $m['email'],
-                'avatar_url' => $m['avatar_url'],
-                'username' => $m['username'],
-                'major' => $m['major'],
-                'academic_year' => $m['academic_year'],
-                'department' => $m['department']
+                'avatar_url' => $m['avatar_url'] ?? null,
+                'username' => $m['username'] ?? null,
+                'major' => $m['major'] ?? null,
+                'academic_year' => $m['academic_year'] ?? null,
+                'department' => $m['department'] ?? null
             ];
         }
     } catch (Exception $e) {
@@ -230,6 +236,39 @@ $stmt = $db->prepare($sql);
 $stmt->execute($params);
 $ideas = $stmt->fetchAll();
 
+// Load canonical catalog map for fallback
+$staticCatMap = [];
+if (file_exists(__DIR__ . '/catalog_64_data.php')) {
+    require_once __DIR__ . '/catalog_64_data.php';
+    if (function_exists('getCatalog64')) {
+        foreach (getCatalog64() as $ci) {
+            $staticCatMap[(int)$ci['id']] = $ci['category'];
+        }
+    }
+}
+
+foreach ($ideas as &$idea) {
+    $cProjId = (int)($idea['catalog_project_id'] ?? 0);
+    $resolvedCat = null;
+
+    if ($cProjId > 0 && isset($staticCatMap[$cProjId])) {
+        $resolvedCat = $staticCatMap[$cProjId];
+    } elseif (!empty($idea['catalog_category'])) {
+        $resolvedCat = $idea['catalog_category'];
+    } elseif (!empty($idea['proposal_json'])) {
+        $pDec = json_decode($idea['proposal_json'], true);
+        if (!empty($pDec['category'])) {
+            $resolvedCat = $pDec['category'];
+        }
+    }
+
+    if (!$resolvedCat) {
+        $resolvedCat = 'software';
+    }
+
+    $idea['category'] = $resolvedCat;
+}
+
 attachVotesAndTrainers($db, $ideas, $uid, $role, $isAdmin);
 attachTeamMembers($db, $ideas, $uid);
 
@@ -237,3 +276,4 @@ respond([
     'success' => true,
     'ideas' => $ideas
 ]);
+

@@ -72,9 +72,9 @@
     align-items: center;
     justify-content: center;
     font-family: 'JetBrains Mono', 'Inter', -apple-system, sans-serif;
-    font-size: clamp(12rem, 26vw, 38rem);
+    font-size: clamp(4.5rem, 18vw, 22rem);
     font-weight: 900;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.02em;
     color: transparent;
     -webkit-text-stroke: 1.5px rgba(15, 23, 42, 0.055);
     text-stroke: 1.5px rgba(15, 23, 42, 0.055);
@@ -85,11 +85,26 @@
     line-height: 1;
     text-align: center;
     text-transform: uppercase;
+    max-width: 100vw;
+    box-sizing: border-box;
 }
 
 [data-theme="dark"] .lp-bg-wm {
     -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.05);
     text-stroke: 1.5px rgba(255, 255, 255, 0.05);
+}
+
+@media (max-width: 768px) {
+    .lp-bg-wm {
+        font-size: clamp(5.2rem, 22.5vw, 9.5rem);
+        -webkit-text-stroke: 1.2px rgba(15, 23, 42, 0.055);
+        text-stroke: 1.2px rgba(15, 23, 42, 0.055);
+        padding: 0 0.5rem;
+    }
+    [data-theme="dark"] .lp-bg-wm {
+        -webkit-text-stroke: 1.2px rgba(255, 255, 255, 0.05);
+        text-stroke: 1.2px rgba(255, 255, 255, 0.05);
+    }
 }
 
 /* ── UNIQUE ARCHITECTURAL AMBIENT BACKGROUND ── */
@@ -913,64 +928,6 @@
     font-weight: 500;
 }
 
-/* ── SECTION 02: PIPELINE ── */
-.lp-pipeline-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1.25rem;
-    opacity: 0;
-    transform: translateY(16px);
-    transition: opacity 0.4s ease, transform 0.4s ease;
-}
-.lp-pipeline-grid--on {
-    opacity: 1;
-    transform: none;
-}
-.lp-pipe-card {
-    background: var(--bg-surface, #ffffff);
-    border: 1px solid var(--border-medium, #cbd5e1);
-    border-radius: var(--radius-lg, 12px);
-    padding: 1.75rem 1.4rem;
-    display: flex;
-    flex-direction: column;
-    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-}
-.lp-pipe-card:hover {
-    transform: translateY(-2px);
-    border-color: #0f172a;
-    box-shadow: 0 8px 20px -4px rgba(15, 23, 42, 0.08);
-}
-[data-theme="dark"] .lp-pipe-card {
-    background: #0a0a0c;
-    border-color: rgba(255, 255, 255, 0.14);
-    box-shadow: none;
-}
-[data-theme="dark"] .lp-pipe-card:hover {
-    border-color: rgba(255, 255, 255, 0.35);
-}
-
-.lp-pipe-num {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: var(--accent, #ea580c);
-    letter-spacing: 0.05em;
-    margin-bottom: 0.8rem;
-}
-.lp-pipe-title {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: var(--text-hi, #0f172a);
-    margin-bottom: 0.5rem;
-    line-height: 1.35;
-}
-.lp-pipe-desc {
-    font-size: 0.84rem;
-    color: var(--text-mid, #334155);
-    line-height: 1.55;
-}
-
 /* ── SECTION 03: INSTITUTIONAL ADVANTAGES ── */
 .lp-inst-sect {
     background: rgba(241, 245, 249, 0.4);
@@ -1193,13 +1150,44 @@
 @media (max-width: 1024px) {
     .lp-hero-grid { grid-template-columns: 1fr; gap: 2.5rem; }
     .lp-cap-grid { grid-template-columns: 1fr; }
-    .lp-pipeline-grid { grid-template-columns: repeat(2, 1fr); }
     .lp-inst-grid { grid-template-columns: 1fr; gap: 2.5rem; }
 }
 
+@media (max-width: 768px) {
+    .lp-nav {
+        padding: 0.65rem 0.85rem;
+    }
+    .lp-nav-in {
+        gap: 0.5rem;
+        justify-content: space-between;
+    }
+    .lp-navlinks {
+        display: none !important;
+    }
+    .lp-logo img {
+        height: 32px;
+    }
+    .lp-logo-brand {
+        font-size: 0.95rem;
+    }
+    .lp-logo-sub {
+        font-size: 0.55rem;
+    }
+    .lp-cta-btn {
+        padding: 0.45rem 0.85rem;
+        font-size: 0.82rem;
+    }
+}
+
 @media (max-width: 640px) {
-    .lp-pipeline-grid { grid-template-columns: 1fr; }
-    .lp-hero { padding: 1.5rem 1rem 4rem; }
-    .lp-sect { padding: 4rem 1rem; }
-    .lp-footer-in { flex-direction: column; align-items: flex-start; }
+    .lp-hero { padding: 1.5rem 0.75rem 3.5rem; }
+    .lp-sect { padding: 3rem 0.75rem; }
+    .lp-cta-sect { padding: 4rem 0.75rem; }
+    .lp-cta-in { padding: 2rem 1.25rem; }
+    .lp-cta-acts { flex-direction: column; width: 100%; }
+    .lp-cta-acts .btn { width: 100%; justify-content: center; }
+    .lp-hero-acts { flex-direction: column; width: 100%; }
+    .lp-hero-acts .btn { width: 100%; justify-content: center; }
+    .lp-icf-grid { grid-template-columns: 1fr; }
+    .lp-footer-in { flex-direction: column; align-items: flex-start; gap: 1rem; }
 }

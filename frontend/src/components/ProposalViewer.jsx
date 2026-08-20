@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-    FileText, Download, Sparkles, CheckCircle2, User, Users, Calendar,
+    FileText, Download, CheckCircle2, User, Users, Calendar,
     BookOpen, Loader2, X, AlertCircle, Shield, Target, Compass, AlertTriangle,
     Layers, Cpu, Layout, Code, ShieldAlert, ShieldCheck, Hammer, Activity,
-    Bookmark, Paperclip, Copy, Check, Search, Filter
+    Bookmark, Paperclip, Copy, Check, Search, Filter, Edit3, Save, PenLine
 } from 'lucide-react';
 import { downloadProposalDocx } from '../services/api';
 import './ProposalViewer.css';
@@ -44,9 +44,9 @@ export default function ProposalViewer({
     const [searchQuery, setSearchQuery] = useState('');
     const [copiedSec, setCopiedSec] = useState(null);
 
-    // Live Section Edit (Case A: Custom Ideas ONLY)
+    // Live Manual Section Edit
     const [editingSection, setEditingSection] = useState(null);
-    const [editInstruction, setEditInstruction] = useState('');
+    const [editContent, setEditContent] = useState('');
     const [savingEdit, setSavingEdit] = useState(false);
     const [editError, setEditError] = useState('');
     const [editSuccess, setEditSuccess] = useState('');
@@ -76,7 +76,7 @@ export default function ProposalViewer({
         setLoading(true);
         setError('');
         try {
-            const res = await fetch(`/api/training/ideas/proposal_get.php?idea_id=${ideaId}`);
+            const res = await fetch(`/api/training/ideas/proposal_get.php?idea_id=${ideaId}`, { credentials: 'include' });
             const data = await res.json();
             if (res.ok && data.proposal) {
                 setProposal(data.proposal);
@@ -98,33 +98,35 @@ export default function ProposalViewer({
 
     const handleOpenEdit = (sec) => {
         setEditingSection(sec);
-        setEditInstruction('');
+        setEditContent(sec.content || '');
         setEditError('');
         setEditSuccess('');
     };
 
     const handleSaveSectionEdit = async () => {
-        if (!editInstruction.trim() || !editingSection) return;
+        if (!editingSection || !ideaId) return;
         setSavingEdit(true);
         setEditError('');
         try {
-            const res = await fetch('/api/training/ideas/proposal_edit_section.php', {
+            const res = await fetch('/api/training/ideas/proposal_save.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     idea_id: ideaId,
                     section_key: editingSection.key,
-                    instruction: editInstruction.trim()
+                    content: editContent,
+                    section_title: editingSection.title || ''
                 })
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                // Update targeted section only
+                // Update targeted section directly in local state
                 setProposal(prev => {
                     if (!prev || !prev.sections) return prev;
                     const nextSections = prev.sections.map(s => {
                         if (s.key === editingSection.key) {
-                            return { ...s, content: data.updated_content, source: 'ai_edited' };
+                            return { ...s, content: editContent, source: 'trainee_edit', last_edited_at: new Date().toISOString() };
                         }
                         return s;
                     });
@@ -132,16 +134,16 @@ export default function ProposalViewer({
                     if (onProposalUpdated) onProposalUpdated(updated);
                     return updated;
                 });
-                setEditSuccess(lang === 'ar' ? 'تم تحديث هذا القسم بنجاح' : 'Section updated successfully');
+                setEditSuccess(lang === 'ar' ? 'تم حفظ التعديلات بنجاح' : 'Section updated successfully');
                 setTimeout(() => {
                     setEditingSection(null);
                     setEditSuccess('');
                 }, 800);
             } else {
-                setEditError(data.error || 'Failed to update section');
+                setEditError(data.error || (lang === 'ar' ? 'فشل حفظ التعديل' : 'Failed to update section'));
             }
         } catch (e) {
-            setEditError('Error connecting to AI revision service');
+            setEditError(lang === 'ar' ? 'حدث خطأ في الاتصال أثناء حفظ التعديل' : 'Error connecting to proposal service');
         } finally {
             setSavingEdit(false);
         }
@@ -176,10 +178,6 @@ export default function ProposalViewer({
     const title = proposal.project_title || proposal.title || 'Training Project';
     const category = proposal.category || 'software';
     const isDocLabel = documentLabel === 'documentation';
-
-    // Strict ZERO-AI rule for the 64 catalog ideas
-    const isCatalogSeed = proposal.source === 'catalog_seed' || proposal.catalog_project_id != null;
-    const allowAiEdit = canEdit && !isCatalogSeed;
 
     const displayTitle = isDocLabel
         ? (lang === 'ar' ? 'توثيق المشروع الرسمي المعتمد' : 'Official Project Documentation & Technical Report')
@@ -331,16 +329,16 @@ export default function ProposalViewer({
                                             <span>{copiedSec === sec.key ? (lang === 'ar' ? 'تم النسخ' : 'Copied') : (lang === 'ar' ? 'نسخ' : 'Copy')}</span>
                                         </button>
 
-                                        {/* AI Edit ONLY for custom student ideas */}
-                                        {allowAiEdit && (
+                                        {/* Direct Manual Edit */}
+                                        {canEdit && (
                                             <button
                                                 type="button"
-                                                className="btn-ai-edit-section"
+                                                className="btn-manual-edit-section"
                                                 onClick={() => handleOpenEdit(sec)}
-                                                title={lang === 'ar' ? 'طلب تعديل ذكي لهذا القسم بالذكاء الاصطناعي' : 'AI-revise this section'}
+                                                title={lang === 'ar' ? 'تعديل نص هذا القسم يدوياً' : 'Manually edit this section'}
                                             >
-                                                <Sparkles size={13} />
-                                                <span>{lang === 'ar' ? 'تعديل ذكي' : 'AI Edit'}</span>
+                                                <Edit3 size={13} />
+                                                <span>{lang === 'ar' ? 'تعديل' : 'Edit'}</span>
                                             </button>
                                         )}
                                     </div>
@@ -376,67 +374,53 @@ export default function ProposalViewer({
                 )}
             </div>
 
-            {/* AI Section Revision Modal (Custom Ideas ONLY) */}
-            {editingSection && allowAiEdit && (
-                <div className="ai-edit-modal-overlay" onClick={() => !savingEdit && setEditingSection(null)}>
-                    <div className="ai-edit-modal-card" onClick={e => e.stopPropagation()}>
-                        <div className="ai-edit-modal-header">
+            {/* Manual Section Edit Modal */}
+            {editingSection && canEdit && (
+                <div className="manual-edit-modal-overlay" onClick={() => !savingEdit && setEditingSection(null)}>
+                    <div className="manual-edit-modal-card" onClick={e => e.stopPropagation()}>
+                        <div className="manual-edit-modal-header">
                             <h4>
-                                <Sparkles size={18} style={{ color: '#c084fc' }} />
-                                <span>{lang === 'ar' ? `تعديل قسم: ${editingSection.title}` : `Revise Section: ${editingSection.title}`}</span>
+                                <Edit3 size={18} className="text-primary" />
+                                <span>{lang === 'ar' ? `تعديل قسم: ${editingSection.title || editingSection.key}` : `Edit Section: ${editingSection.title || editingSection.key}`}</span>
                             </h4>
                             <button
-                                className="btn btn-ghost btn-icon"
+                                type="button"
+                                className="manual-edit-close-btn"
                                 onClick={() => setEditingSection(null)}
                                 disabled={savingEdit}
+                                title={lang === 'ar' ? 'إغلاق' : 'Close'}
                             >
                                 <X size={18} />
                             </button>
                         </div>
 
-                        <div className="ai-edit-modal-body">
+                        <div className="manual-edit-modal-body">
                             {editError && <div className="alert alert-error" style={{ marginBottom: '1rem' }}>{editError}</div>}
                             {editSuccess && <div className="alert alert-success" style={{ marginBottom: '1rem' }}>{editSuccess}</div>}
 
-                            <label>
-                                {lang === 'ar'
-                                    ? 'اكتب تعليماتك للتعديل (سيقوم الذكاء الاصطناعي بتعديل هذا القسم فقط دون تغيير باقي الوثيقة):'
-                                    : 'Specify how you want this section revised (AI will update ONLY this section):'}
-                            </label>
-                            <textarea
-                                rows="3"
-                                placeholder={lang === 'ar'
-                                    ? 'مثال: اجعل صياغة المشكلة أكثر تركيزاً على المستخدمين كبار السن، أو اختصر منهجية العمل...'
-                                    : 'e.g. Make the problem statement more specific to healthcare kiosks, or shorten this section to 2 paragraphs...'}
-                                value={editInstruction}
-                                onChange={e => setEditInstruction(e.target.value)}
-                            />
-
-                            <div className="quick-prompts">
-                                <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'flex', alignItems: 'center' }}>
-                                    {lang === 'ar' ? 'اقتراحات سريعة:' : 'Quick Prompts:'}
+                            <div className="manual-edit-label-row">
+                                <label className="manual-edit-label">
+                                    {lang === 'ar'
+                                        ? 'محتوى القسم (يمكنك كتابة وتعديل النص بحرية):'
+                                        : 'Section Content (edit text directly):'}
+                                </label>
+                                <span className="manual-edit-counter-badge">
+                                    {editContent.length} {lang === 'ar' ? 'حرف' : 'chars'} • {editContent.trim() ? editContent.trim().split(/\s+/).filter(Boolean).length : 0} {lang === 'ar' ? 'كلمة' : 'words'}
                                 </span>
-                                {[
-                                    { en: 'Make it more formal and academic', ar: 'اجعل الصياغة أكثر أكاديمية ورسمية' },
-                                    { en: 'Add focus on real-time performance', ar: 'ركز أكثر على الأداء والسرعة اللحظية' },
-                                    { en: 'Shorten and simplify', ar: 'اختصر ولخص النقاط الأساسية' },
-                                ].map((qp, i) => (
-                                    <button
-                                        key={i}
-                                        type="button"
-                                        className="quick-prompt-btn"
-                                        onClick={() => setEditInstruction(lang === 'ar' ? qp.ar : qp.en)}
-                                    >
-                                        {lang === 'ar' ? qp.ar : qp.en}
-                                    </button>
-                                ))}
                             </div>
+                            <textarea
+                                rows="12"
+                                className="manual-edit-textarea"
+                                placeholder={lang === 'ar' ? 'اكتب محتوى القسم هنا...' : 'Enter section content here...'}
+                                value={editContent}
+                                onChange={e => setEditContent(e.target.value)}
+                            />
                         </div>
 
-                        <div className="ai-edit-modal-footer">
+                        <div className="manual-edit-modal-footer">
                             <button
                                 type="button"
-                                className="btn btn-ghost"
+                                className="manual-edit-cancel-btn"
                                 onClick={() => setEditingSection(null)}
                                 disabled={savingEdit}
                             >
@@ -444,13 +428,12 @@ export default function ProposalViewer({
                             </button>
                             <button
                                 type="button"
-                                className="btn btn-primary"
+                                className="manual-edit-save-btn"
                                 onClick={handleSaveSectionEdit}
-                                disabled={savingEdit || !editInstruction.trim()}
-                                style={{ background: 'linear-gradient(135deg, #a855f7, #6366f1)', border: 'none', gap: '6px' }}
+                                disabled={savingEdit}
                             >
-                                {savingEdit ? <Loader2 className="spin" size={15} /> : <Sparkles size={15} />}
-                                <span>{savingEdit ? (lang === 'ar' ? 'جاري التعديل...' : 'Revising...') : (lang === 'ar' ? 'تطبيق التعديل' : 'Apply AI Revision')}</span>
+                                {savingEdit ? <Loader2 className="spin" size={15} /> : <Save size={15} />}
+                                <span>{savingEdit ? (lang === 'ar' ? 'جاري الحفظ...' : 'Saving...') : (lang === 'ar' ? 'حفظ التعديلات' : 'Save Changes')}</span>
                             </button>
                         </div>
                     </div>
@@ -459,4 +442,3 @@ export default function ProposalViewer({
         </div>
     );
 }
-

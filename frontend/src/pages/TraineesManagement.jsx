@@ -5,7 +5,8 @@ import {
     Users, Search, FileSpreadsheet, Download,
     BookOpen, Lightbulb, Loader2, X, Upload, FileCheck,
     ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
-    Edit2, Save, Key, UserCheck, Shield, Trash2, AlertTriangle
+    Edit2, Save, Key, UserCheck, Shield, Trash2, AlertTriangle,
+    Sparkles, Building2, Calendar, Globe, ExternalLink
 } from 'lucide-react';
 import './TraineesManagement.css';
 
@@ -43,20 +44,31 @@ export default function TraineesManagement() {
     const [deletingTrainee, setDeletingTrainee] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+    // Delete All Trainees
+    const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+    const [deleteAllInput, setDeleteAllInput]         = useState('');
+    const [deletingAll, setDeletingAll]               = useState(false);
+    const [deleteAllError, setDeleteAllError]         = useState('');
+
+    const authHeaders = (extra = {}) => ({
+        ...extra,
+        ...(user?.id ? { 'X-User-Id': String(user.id), 'Authorization': `Bearer ${user.id}` } : {})
+    });
+
     const totalPages = useMemo(() => {
         return Math.max(1, Math.ceil(total / perPage));
     }, [total, perPage]);
 
     useEffect(() => {
-        fetch('/api/training/courses/list.php')
+        fetch('/api/training/courses/list.php', { credentials: 'include', headers: authHeaders() })
             .then(r => r.json())
             .then(d => setCourses(d.courses || []))
             .catch(() => {});
-    }, []);
+    }, [user]);
 
     useEffect(() => {
         fetchTrainees();
-    }, [selectedCourse, searchQuery, page, perPage]);
+    }, [selectedCourse, searchQuery, page, perPage, user]);
 
     const fetchTrainees = async () => {
         setLoading(true);
@@ -64,7 +76,7 @@ export default function TraineesManagement() {
             let url = `/api/training/trainees/list.php?page=${page}&per_page=${perPage}&`;
             if (selectedCourse) url += `course_id=${selectedCourse}&`;
             if (searchQuery)    url += `search=${encodeURIComponent(searchQuery)}&`;
-            const res  = await fetch(url);
+            const res  = await fetch(url, { credentials: 'include', headers: authHeaders() });
             const data = await res.json();
             if (res.ok) {
                 setTrainees(data.trainees || []);
@@ -90,7 +102,9 @@ export default function TraineesManagement() {
         try {
             const res  = await fetch('/api/training/enrollments/import_excel.php', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                credentials: 'include',
+                headers: authHeaders()
             });
             const data = await res.json();
             if (res.ok) {
@@ -120,6 +134,8 @@ export default function TraineesManagement() {
             full_name: trainee.full_name || '',
             student_id: trainee.student_id || '',
             email: trainee.email || '',
+            final_track: trainee.final_track || '',
+            training_start_date: trainee.training_start_date || '',
             password: ''
         });
         setEditError('');
@@ -127,22 +143,24 @@ export default function TraineesManagement() {
         setShowDeleteConfirm(false);
     };
 
-    const handleDeleteTrainee = async () => {
-        if (!editingTrainee) return;
-        const targetTraineeId = editingTrainee.trainee_id || editingTrainee.id;
+    const handleDeleteTrainee = async (traineeParam = null) => {
+        const target = traineeParam || editingTrainee;
+        if (!target) return;
+        const targetTraineeId = target.trainee_id || target.id || target.enrollment_id;
         setDeletingTrainee(true);
         setEditError('');
 
         try {
             const res = await fetch('/api/training/trainees/delete.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ trainee_id: targetTraineeId })
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ trainee_id: targetTraineeId }),
+                credentials: 'include'
             });
             const data = await res.json();
             if (res.ok && data.success) {
                 // Remove from local list
-                setTrainees(prev => prev.filter(t => (t.trainee_id || t.id) !== targetTraineeId));
+                setTrainees(prev => prev.filter(t => (t.trainee_id || t.id || t.enrollment_id) !== targetTraineeId));
                 setTotal(prev => Math.max(0, prev - 1));
                 setEditingTrainee(null);
                 setShowDeleteConfirm(false);
@@ -165,21 +183,24 @@ export default function TraineesManagement() {
         try {
             const res = await fetch('/api/training/trainees/update.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     trainee_id: editingTrainee.trainee_id || editingTrainee.enrollment_id,
                     full_name: editForm.full_name,
                     student_id: editForm.student_id,
                     email: editForm.email,
+                    final_track: editForm.final_track,
+                    training_start_date: editForm.training_start_date,
                     password: editForm.password || undefined
-                })
+                }),
+                credentials: 'include'
             });
             const data = await res.json();
             if (res.ok && data.success) {
                 setEditSuccess(true);
-                // Update local list state
+                // Update in local state
                 setTrainees(prev => prev.map(t => {
-                    if ((t.trainee_id || t.enrollment_id) === (editingTrainee.trainee_id || editingTrainee.enrollment_id)) {
+                    if ((t.trainee_id || t.id) === (editingTrainee.trainee_id || editingTrainee.id)) {
                         return {
                             ...t,
                             full_name: editForm.full_name,
@@ -200,6 +221,37 @@ export default function TraineesManagement() {
             setEditError('Server connection failed');
         } finally {
             setSavingEdit(false);
+        }
+    };
+
+    const handleDeleteAll = async (e) => {
+        e.preventDefault();
+        if (deleteAllInput.trim().toLowerCase() !== 'delete') {
+            setDeleteAllError(lang === 'ar' ? 'يجب كتابة "delete" للتأكيد' : 'You must type "delete" to confirm');
+            return;
+        }
+        setDeletingAll(true);
+        setDeleteAllError('');
+
+        try {
+            const res = await fetch('/api/training/trainees/delete_all.php', {
+                method: 'POST',
+                headers: authHeaders(),
+                credentials: 'include'
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setTrainees([]);
+                setTotal(0);
+                setShowDeleteAllModal(false);
+                setDeleteAllInput('');
+            } else {
+                setDeleteAllError(data.error || 'Failed to delete trainees');
+            }
+        } catch (err) {
+            setDeleteAllError('Server connection failed');
+        } finally {
+            setDeletingAll(false);
         }
     };
 
@@ -250,6 +302,10 @@ export default function TraineesManagement() {
                         </button>
                         <button className="btn btn-outline" onClick={() => handleExport('xlsx')} disabled={exporting}>
                             <Download size={16} /> XLSX
+                        </button>
+                        <button className="btn btn-danger" onClick={() => { setShowDeleteAllModal(true); setDeleteAllInput(''); setDeleteAllError(''); }}>
+                            <Trash2 size={16} />
+                            {lang === 'ar' ? 'حذف جميع المتدربين' : 'Delete All Trainees'}
                         </button>
                     </div>
                 )}
@@ -309,6 +365,7 @@ export default function TraineesManagement() {
                                 <th>{lang === 'ar' ? 'الرقم الجامعي' : 'Student ID'}</th>
                                 <th>{lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}</th>
                                 <th>{lang === 'ar' ? 'الدورات المقيد بها' : 'Enrolled Courses'}</th>
+                                <th>{lang === 'ar' ? 'المسار وجهة التدريب' : 'Track & Provider'}</th>
                                 <th>{lang === 'ar' ? 'الأفكار المقترحة' : 'Submitted Ideas'}</th>
                                 {isTrainer && <th style={{ textAlign: 'center' }}>{lang === 'ar' ? 'إجراءات' : 'Actions'}</th>}
                             </tr>
@@ -347,21 +404,75 @@ export default function TraineesManagement() {
                                             </div>
                                         </td>
                                         <td>
+                                            {t.final_track || t.provider_name ? (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                    {t.final_track && (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem', fontWeight: 600, color: '#2563eb', background: 'rgba(37, 99, 235, 0.08)', padding: '2px 7px', borderRadius: '6px' }}>
+                                                            <Sparkles size={11} /> {t.final_track}
+                                                        </span>
+                                                    )}
+                                                    {t.provider_name && (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.76rem', color: 'var(--text-1)' }}>
+                                                            <Building2 size={11} /> {t.provider_name}
+                                                            {t.provider_website && (
+                                                                <a href={t.provider_website} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', display: 'inline-flex' }}>
+                                                                    <ExternalLink size={10} />
+                                                                </a>
+                                                            )}
+                                                        </span>
+                                                    )}
+                                                    {t.training_start_date && (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.73rem', color: 'var(--text-muted)' }}>
+                                                            <Calendar size={10} /> {lang === 'ar' ? `بدأ: ${t.training_start_date}` : `Started: ${t.training_start_date}`}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>-</span>
+                                            )}
+                                        </td>
+                                        <td>
                                             <span className={`tm-stat-badge ${t.idea_count > 0 ? 'active' : ''}`}>
                                                 <Lightbulb size={12} /> {t.idea_count}
                                             </span>
                                         </td>
                                         {isTrainer && (
                                             <td style={{ textAlign: 'center' }}>
-                                                <button
-                                                    type="button"
-                                                    className="tm-row-edit-btn"
-                                                    onClick={() => startEditTrainee(t)}
-                                                    title={lang === 'ar' ? 'تعديل بيانات المتدرب والاسم' : 'Edit Trainee Name & Details'}
-                                                >
-                                                    <Edit2 size={14} />
-                                                    <span>{lang === 'ar' ? 'تعديل' : 'Edit'}</span>
-                                                </button>
+                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                    <button
+                                                        type="button"
+                                                        className="tm-row-edit-btn"
+                                                        onClick={() => startEditTrainee(t)}
+                                                        title={lang === 'ar' ? 'تعديل بيانات المتدرب والاسم' : 'Edit Trainee Name & Details'}
+                                                    >
+                                                        <Edit2 size={14} />
+                                                        <span>{lang === 'ar' ? 'تعديل' : 'Edit'}</span>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="tm-row-delete-btn"
+                                                        onClick={() => {
+                                                            startEditTrainee(t);
+                                                            setShowDeleteConfirm(true);
+                                                        }}
+                                                        style={{
+                                                            background: 'rgba(239, 68, 68, 0.08)',
+                                                            color: '#ef4444',
+                                                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                            borderRadius: '6px',
+                                                            padding: '0.35rem 0.6rem',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            fontSize: '0.8rem',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                        title={lang === 'ar' ? 'حذف المتدرب' : 'Delete Trainee'}
+                                                    >
+                                                        <Trash2 size={14} />
+                                                        <span>{lang === 'ar' ? 'حذف' : 'Delete'}</span>
+                                                    </button>
+                                                </div>
                                             </td>
                                         )}
                                     </tr>
@@ -534,6 +645,31 @@ export default function TraineesManagement() {
                             </div>
 
                             <div className="form-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <Sparkles size={14} style={{ color: '#2563eb' }} />
+                                    {lang === 'ar' ? 'المسار التقني التخصصي' : 'Technical Track'}
+                                </label>
+                                <input
+                                    type="text"
+                                    value={editForm.final_track}
+                                    onChange={e => setEditForm({ ...editForm, final_track: e.target.value })}
+                                    placeholder={lang === 'ar' ? 'مثال: Web Development / Mobile Dev' : 'e.g. Web Development, Mobile Dev'}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <Calendar size={14} style={{ color: '#f59e0b' }} />
+                                    {lang === 'ar' ? 'تاريخ بدء التدريب (Started Date)' : 'Training Start Date'}
+                                </label>
+                                <input
+                                    type="date"
+                                    value={editForm.training_start_date}
+                                    onChange={e => setEditForm({ ...editForm, training_start_date: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="form-group">
                                 <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <span>{lang === 'ar' ? 'تعيين كلمة مرور جديدة (اختياري)' : 'Reset Password (Optional)'}</span>
                                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -613,13 +749,27 @@ export default function TraineesManagement() {
                                 </h2>
                                 <p className="hint-text">
                                     {lang === 'ar'
-                                        ? 'قم برفع ملف Excel (.xlsx, .xls) يحتوي على الأعمدة: Academic ID, Full Name, Email, Password'
-                                        : 'Upload an Excel sheet (.xlsx, .xls) containing columns: Academic ID, Full Name, Email, Password'}
+                                        ? 'قم برفع ملف Excel (.xlsx, .xls) أو CSV يحتوي على الأعمدة: [NO., Academic ID, Name, Academic Email, CourseCode, Program, Final Track, Training Platform Email, Password]'
+                                        : 'Upload an Excel (.xlsx, .xls) or CSV containing: [NO., Academic ID, Name, Academic Email, CourseCode, Program, Final Track, Training Platform Email, Password]'}
                                 </p>
                             </div>
                             <button type="button" className="modal-close-btn" onClick={() => setShowExcelModal(false)}>
                                 <X size={18} />
                             </button>
+                        </div>
+
+                        <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-2, #f1f5f9)', padding: '0.65rem 0.95rem', borderRadius: '8px', fontSize: '0.82rem' }}>
+                            <span>
+                                {lang === 'ar' ? 'هل تحتاج إلى النموذج القياسي؟' : 'Need the standard template?'}
+                            </span>
+                            <a 
+                                href="/api/training/enrollments/template.php"
+                                className="btn btn-ghost btn-sm"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', textDecoration: 'none', color: 'var(--primary, #002D56)', fontWeight: 600 }}
+                                download="Students_Import_Template.csv"
+                            >
+                                <Download size={13} /> {lang === 'ar' ? 'تحميل نموذج Excel' : 'Download Template (CSV)'}
+                            </a>
                         </div>
 
                         {importResult && (
@@ -675,6 +825,62 @@ export default function TraineesManagement() {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete All Modal */}
+            {showDeleteAllModal && (
+                <div className="modal-overlay" onClick={() => setShowDeleteAllModal(false)}>
+                    <div className="modal-box modal-sm" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+                        <div className="modal-header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+                            <div className="modal-title" style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', fontWeight: 700 }}>
+                                <AlertTriangle size={22} />
+                                {lang === 'ar' ? 'حذف جميع المتدربين' : 'Delete All Trainees'}
+                            </div>
+                            <button className="modal-close" onClick={() => setShowDeleteAllModal(false)}><X size={20} /></button>
+                        </div>
+                        <div className="modal-body" style={{ paddingTop: '10px' }}>
+                            <p style={{ color: 'var(--text-secondary, #94a3b8)', fontSize: '0.9rem', marginBottom: '1.25rem', lineHeight: 1.6 }}>
+                                {lang === 'ar' 
+                                    ? 'هل أنت متأكد من حذف جميع المتدربين من النظام بشكل نهائي؟ لا يمكن التراجع عن هذا الإجراء.' 
+                                    : 'Are you sure you want to permanently delete ALL trainees from the system? This action cannot be undone.'}
+                            </p>
+                            <form onSubmit={handleDeleteAll}>
+                                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                                    <label style={{ color: '#ef4444', fontWeight: 600, display: 'block', marginBottom: '0.4rem', fontSize: '0.88rem' }}>
+                                        {lang === 'ar' ? 'اكتب "delete" للتأكيد' : 'Type "delete" to confirm'}
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        value={deleteAllInput}
+                                        onChange={e => setDeleteAllInput(e.target.value)}
+                                        placeholder="delete"
+                                        style={{ border: '1px solid #fca5a5', width: '100%', padding: '0.6rem 0.8rem', borderRadius: '8px', background: 'var(--surface-2, #1e293b)', color: '#fff', fontSize: '0.95rem' }}
+                                        autoComplete="off"
+                                        autoFocus
+                                    />
+                                </div>
+                                {deleteAllError && (
+                                    <div style={{ color: '#dc2626', fontSize: '0.85rem', marginBottom: '1rem', background: '#fee2e2', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid #fca5a5' }}>
+                                        {deleteAllError}
+                                    </div>
+                                )}
+                                <div className="modal-actions" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                                    <button type="button" className="btn btn-ghost" onClick={() => setShowDeleteAllModal(false)} disabled={deletingAll}>
+                                        {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                                    </button>
+                                    <button 
+                                        type="submit" 
+                                        className="btn btn-danger" 
+                                        disabled={deletingAll || deleteAllInput.trim().toLowerCase() !== 'delete'}
+                                        style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '0.55rem 1.2rem', borderRadius: '8px', fontWeight: 600 }}
+                                    >
+                                        {deletingAll ? <Loader2 size={18} className="spin" /> : (lang === 'ar' ? 'حذف الكل' : 'Delete All')}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
             )}

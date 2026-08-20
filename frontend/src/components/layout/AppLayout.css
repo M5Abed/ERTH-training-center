@@ -24,6 +24,12 @@
 
 @media (max-width: 768px) {
     .app-content {
-        padding: 1rem;
+        padding: 1rem 0.85rem 2.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .app-content {
+        padding: 0.75rem 0.5rem 2rem;
     }
 }

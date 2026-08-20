@@ -109,10 +109,10 @@ export default function Sidebar({ open, onClose }) {
                 <div className="sidebar-header">
                     {/* Logo acts as home link */}
                     <NavLink to="/" className="sidebar-logo" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <img src="/logo.png" alt="ERTH Training Center" style={{ height: '32px' }} />
-                        <span className="logo-text">ERTH<span className="logo-accent"> Training Center</span></span>
+                        <img src="/assets/university_logo.png" alt="NMU Training Center" style={{ height: '36px', width: 'auto', objectFit: 'contain' }} />
+                        <span className="logo-text">NMU<span className="logo-accent"> Training Center</span></span>
                     </NavLink>
-                    <button className="sidebar-close" onClick={onClose}><X size={20} /></button>
+                    <button className="sidebar-close" onClick={onClose} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '8px', color: 'var(--text-2)' }}><X size={20} /></button>
                 </div>
 
                 <nav className="sidebar-nav">
@@ -322,6 +322,7 @@ export default function Sidebar({ open, onClose }) {
                                     try {
                                         const res = await fetch('/api/auth/delete-account.php', { 
                                             method: 'POST',
+                                            credentials: 'include',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ password: deletePassword })
                                         });

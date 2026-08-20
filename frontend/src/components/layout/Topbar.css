@@ -221,12 +221,31 @@
 
 /* Responsive */
 @media (max-width: 900px) {
+    .topbar { padding: 0 1.25rem; height: 58px; }
     .topbar-nav { display: none; }
     .topbar-hamburger { display: flex; }
     .topbar-user-name { display: none; }
 }
+
 @media (max-width: 480px) {
-    .topbar { padding: 0 0.85rem; }
-    .topbar-lang-btn { display: none; }
-    .notif-dropdown { width: calc(100vw - 2rem); right: -0.5rem; }
+    .topbar { padding: 0 0.75rem; height: 54px; gap: 0.4rem; }
+    .topbar-logo-text { font-size: 0.9rem; }
+    .topbar-logo { margin-inline-end: 0.5rem; }
+    .topbar-lang-btn { padding: 0 6px; font-size: 0.7rem; }
+    .notif-dropdown { 
+        width: min(340px, calc(100vw - 1.5rem)); 
+        right: -1rem; 
+    }
+    [dir="rtl"] .notif-dropdown { 
+        right: auto; 
+        left: -1rem; 
+    }
+    .topbar-user-dropdown {
+        width: min(240px, calc(100vw - 1.5rem));
+        right: 0;
+    }
+    [dir="rtl"] .topbar-user-dropdown {
+        right: auto;
+        left: 0;
+    }
 }

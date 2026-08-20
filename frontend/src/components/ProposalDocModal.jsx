@@ -359,7 +359,7 @@ TC-05   | Emergency Obstruction   | Physical obstacle in path   | Immediate serv
         subtitle: 'Supporting Evidence and Project Records',
         guidance: 'Appendix A: Full source code or repository information.\nAppendix B: Datasheets, wiring, calibration settings, robot configuration, or API commands.\nAppendix C: Weekly training log, attendance evidence, photographs, additional test results, and team contribution table.',
         ai: false,
-        defaultContent: `Appendix A: Source Code & Repository\n• GitHub Repository: https://github.com/nmu-erth-training-center/project-submission\n• Build Instructions: See README.md for Docker setup and dependency installation.\n\nAppendix B: Hardware Wiring & Pinout Reference\n• I2C Bus: SDA -> Pin 3, SCL -> Pin 5\n• UART Serial: TX -> Pin 8, RX -> Pin 10 (Baudrate 115200)\n• Camera: CSI Ribbon Cable Interface 0\n\nAppendix C: Field Training Weekly Logs & Attendance Record\n• Weekly training log verified and signed by academic supervisor.`,
+        defaultContent: `Appendix A: Source Code & Repository\n• GitHub Repository: https://github.com/nmu-training-center/project-submission\n• Build Instructions: See README.md for Docker setup and dependency installation.\n\nAppendix B: Hardware Wiring & Pinout Reference\n• I2C Bus: SDA -> Pin 3, SCL -> Pin 5\n• UART Serial: TX -> Pin 8, RX -> Pin 10 (Baudrate 115200)\n• Camera: CSI Ribbon Cable Interface 0\n\nAppendix C: Field Training Weekly Logs & Attendance Record\n• Weekly training log verified and signed by academic supervisor.`,
         hint: 'Supporting code repositories, wiring schematics, calibration datasheets, and weekly training logs.'
     }
 ];
@@ -411,7 +411,9 @@ function PageCard({ pageDef, savedContent, source, onSave, ideaId, readOnly, isL
         setSaving(true); setSaveErr('');
         try {
             const res  = await fetch('/api/training/ideas/proposal_save.php', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ idea_id: ideaId, section_key: pageDef.key, content: draft, section_title: pageDef.title }),
             });
             const data = await res.json();
@@ -613,6 +615,7 @@ export default function ProposalDocModal({
         try {
             const res = await fetch('/api/training/ideas/proposal_save.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     idea_id: ideaId,
@@ -669,6 +672,7 @@ export default function ProposalDocModal({
         try {
             const res = await fetch('/api/training/ideas/ai_fill_proposal.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     idea_id: ideaId,
@@ -759,6 +763,7 @@ export default function ProposalDocModal({
         try {
             const res  = await fetch('/api/training/ideas/evaluate.php', {
                 method:  'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body:    JSON.stringify({ idea_id: ideaId, status, feedback }),
             });

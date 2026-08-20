@@ -57,7 +57,7 @@ export default function TeammateSelector({
         setErrorMsg('');
         try {
             const url = `/api/training/ideas/search_teammates.php?course_id=${courseId}&q=${encodeURIComponent(q)}&current_idea_id=${currentIdeaId || ''}`;
-            const res = await fetch(url);
+            const res = await fetch(url, { credentials: 'include' });
             const data = await res.json();
             if (res.ok && data.candidates) {
                 setCandidates(data.candidates);

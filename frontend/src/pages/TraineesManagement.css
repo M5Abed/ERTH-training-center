@@ -364,6 +364,30 @@
 }
 
 @media (max-width: 640px) {
+    .trainees-mgmt-page {
+        padding: 1rem 0.5rem 2.5rem;
+    }
+    .tm-header h1 {
+        font-size: 1.35rem;
+    }
+    .tm-actions {
+        width: 100%;
+    }
+    .tm-actions .btn {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+    .tm-filter-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .tm-select-wrapper {
+        border-left: none;
+        border-top: 1px solid var(--border);
+        padding-left: 0;
+        padding-top: 0.5rem;
+        width: 100%;
+    }
     .tm-pagination {
         flex-direction: column;
         align-items: center;

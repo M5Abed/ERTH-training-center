@@ -198,8 +198,7 @@ export function getCollegeByKey(key) {
 
 /**
  * SKILLS_BY_COLLEGE — maps each college key to an array of skill IDs
- * that are most relevant for that college. Used in Onboarding.jsx to
- * prioritize and filter the skills shown to each student.
+ * that are most relevant for that college.
  */
 export const SKILLS_BY_COLLEGE = {
     cs: [

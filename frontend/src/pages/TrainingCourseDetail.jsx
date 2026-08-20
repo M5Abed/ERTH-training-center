@@ -48,6 +48,9 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
     const [topics, setTopics] = useState([]);
     const [trainers, setTrainers] = useState([]);
     const [trainees, setTrainees] = useState([]);
+    const [traineeSearchQuery, setTraineeSearchQuery] = useState('');
+    const [traineeSortCol, setTraineeSortCol] = useState('name');
+    const [traineeSortDir, setTraineeSortDir] = useState('asc');
     
     // Trainers Management state
     const [availableTrainers, setAvailableTrainers] = useState([]);
@@ -72,7 +75,7 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
     const [showEditCourseModal, setShowEditCourseModal] = useState(false);
     const [isUpdatingCourse, setIsUpdatingCourse] = useState(false);
     const [editCourseForm, setEditCourseForm] = useState({
-        name: '', description: '', start_date: '', end_date: '', duration_hours: 40, category: '', level: ''
+        name: '', description: '', start_date: '', end_date: '', duration_hours: 40, category: '', level: '', course_type: 'both'
     });
 
     // External Training & Providers State
@@ -108,6 +111,11 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
     const [showDeleteCourseModal, setShowDeleteCourseModal] = useState(false);
     const [isDeletingCourse, setIsDeletingCourse] = useState(false);
 
+    const authHeaders = (extra = {}) => ({
+        ...extra,
+        ...(user?.id ? { 'X-User-Id': String(user.id), 'Authorization': `Bearer ${user.id}` } : {})
+    });
+
     const openEditCourseModal = () => {
         setEditCourseForm({
             name: course?.name || '',
@@ -116,7 +124,8 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
             end_date: course?.end_date || '',
             duration_hours: course?.duration_hours || 40,
             category: course?.category || '',
-            level: course?.level || ''
+            level: course?.level || '',
+            course_type: course?.course_type || 'both'
         });
         setShowEditCourseModal(true);
     };
@@ -127,7 +136,8 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
         try {
             const res = await fetch('/api/training/courses/update.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     course_id: courseId,
                     ...editCourseForm
@@ -154,7 +164,7 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
             const res = await fetch('/api/training/courses/delete.php', {
                 method: 'POST',
                 credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ id: courseId })
             });
             let data = {};
@@ -316,9 +326,13 @@ void loop() {
         if (!courseId) return;
         setLoadingCriteria(true);
         try {
-            const res = await fetch(`/api/training/criteria/list.php?course_id=${courseId}`);
-            const data = await res.json();
-            if (res.ok && data.criteria && data.criteria.length > 0) {
+            const res = await fetch(`/api/training/criteria/list.php?course_id=${courseId}`, { credentials: 'include' });
+            let data = null;
+            try {
+                data = await res.json();
+            } catch (jsonErr) {}
+
+            if (res.ok && data && data.criteria && data.criteria.length > 0) {
                 setCourseCriteria(data.criteria.map((c, i) => ({
                     id: c.id,
                     name: c.name,
@@ -329,7 +343,6 @@ void loop() {
                 setCourseCriteria(defaultRubrics.map((d, i) => ({ ...d, order_index: i })));
             }
         } catch (e) {
-            console.error('Failed to fetch criteria:', e);
             setCourseCriteria(defaultRubrics.map((d, i) => ({ ...d, order_index: i })));
         } finally {
             setLoadingCriteria(false);
@@ -412,6 +425,7 @@ void loop() {
 
             const res = await fetch('/api/training/criteria/save.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
@@ -469,7 +483,7 @@ void loop() {
         if (!courseId) return;
         setLoadingVoting(true);
         try {
-            const res = await fetch(`/api/training/votes/course_votes.php?course_id=${courseId}`);
+            const res = await fetch(`/api/training/votes/course_votes.php?course_id=${courseId}`, { credentials: 'include' });
             const data = await res.json();
             if (res.ok && data.success) {
                 setVotingProjects(data.projects || []);
@@ -534,6 +548,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/votes/course_votes_submit.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     course_id: parseInt(courseId, 10),
@@ -560,6 +575,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/courses/voting_status.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     course_id: parseInt(courseId, 10),
@@ -596,7 +612,7 @@ void loop() {
     const loadCourseDetail = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/training/courses/get.php?id=${courseId}`);
+            const res = await fetch(`/api/training/courses/get.php?id=${courseId}`, { credentials: 'include' });
             const data = await res.json();
             if (res.ok && data.course) {
                 setCourse(data.course);
@@ -671,7 +687,7 @@ void loop() {
 
     const fetchExternalProviders = async () => {
         try {
-            const res = await fetch(`/api/training/providers/list.php?course_id=${courseId}`);
+            const res = await fetch(`/api/training/providers/list.php?course_id=${courseId}`, { credentials: 'include' });
             const data = await res.json();
             if (res.ok && data.providers) {
                 setCourseExternalProviders(data.providers);
@@ -683,7 +699,7 @@ void loop() {
 
     const fetchAllGlobalProviders = async () => {
         try {
-            const res = await fetch('/api/training/providers/list.php?all=1');
+            const res = await fetch('/api/training/providers/list.php?all=1', { credentials: 'include' });
             const data = await res.json();
             if (res.ok && data.providers) {
                 setAllGlobalProviders(data.providers);
@@ -696,7 +712,7 @@ void loop() {
     const fetchVerificationRequests = async () => {
         setLoadingVerifications(true);
         try {
-            const res = await fetch(`/api/training/verification/list.php?course_id=${courseId}`);
+            const res = await fetch(`/api/training/verification/list.php?course_id=${courseId}`, { credentials: 'include' });
             const data = await res.json();
             if (res.ok && data.verifications) {
                 setVerificationRequests(data.verifications);
@@ -714,6 +730,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/providers/create.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     course_id: courseId,
@@ -803,6 +820,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/verification/review.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     course_id: parseInt(courseId, 10),
@@ -838,6 +856,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/enrollments/assign_external.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     course_id: parseInt(courseId, 10),
@@ -887,15 +906,73 @@ void loop() {
 
     const fetchTrainees = async () => {
         try {
-            const res = await fetch(`/api/training/enrollments/list.php?course_id=${courseId}`);
+            const res = await fetch(`/api/training/enrollments/list.php?course_id=${courseId}`, { credentials: 'include' });
             const data = await res.json();
             if (res.ok) setTrainees(data.trainees || []);
         } catch (e) { console.error(e); }
     };
 
+    const handleRemoveTrainee = async (traineeId, traineeName) => {
+        if (!window.confirm(lang === 'ar' 
+            ? `هل أنت متأكد من حذف المتدرب (${traineeName}) من هذه الدورة التدريبية؟` 
+            : `Are you sure you want to remove trainee (${traineeName}) from this course?`)) {
+            return;
+        }
+        try {
+            const res = await fetch('/api/training/enrollments/remove.php', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    course_id: parseInt(courseId, 10),
+                    trainee_id: parseInt(traineeId, 10)
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                fetchTrainees();
+                loadCourseDetail();
+            } else {
+                alert(data.error || (lang === 'ar' ? 'فشل حذف المتدرب' : 'Failed to remove trainee'));
+            }
+        } catch (e) {
+            console.error(e);
+            alert(lang === 'ar' ? 'حدث خطأ في الاتصال أثناء الحذف' : 'Network error while removing trainee');
+        }
+    };
+
+    const handleRemoveAllTrainees = async () => {
+        const confirmMsg = lang === 'ar' 
+            ? 'تحذير: سيتم حذف جميع المتدربين المسجلين في هذه الدورة التدريبية بالإضافة إلى تقييماتهم وشهاداتهم. هل أنت متأكد؟'
+            : 'Warning: This will remove ALL enrolled trainees, their evaluations, and certificates from this course. Are you sure?';
+        if (!window.confirm(confirmMsg)) return;
+
+        try {
+            const res = await fetch('/api/training/enrollments/remove_all.php', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    course_id: parseInt(courseId, 10),
+                    confirmation: 'delete'
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                fetchTrainees();
+                loadCourseDetail();
+            } else {
+                alert(data.error || (lang === 'ar' ? 'فشل حذف المتدربين' : 'Failed to remove trainees'));
+            }
+        } catch (e) {
+            console.error(e);
+            alert(lang === 'ar' ? 'حدث خطأ أثناء مسح المتدربين' : 'Network error while clearing trainees');
+        }
+    };
+
     const fetchIdeas = async () => {
         try {
-            const res = await fetch(`/api/training/ideas/get.php?course_id=${courseId}`);
+            const res = await fetch(`/api/training/ideas/get.php?course_id=${courseId}`, { credentials: 'include' });
             const data = await res.json();
             if (res.ok) {
                 if (isTrainee) {
@@ -924,7 +1001,7 @@ void loop() {
 
     const fetchDocs = async () => {
         try {
-            const res = await fetch(`/api/training/docs/list.php?course_id=${courseId}`);
+            const res = await fetch(`/api/training/docs/list.php?course_id=${courseId}`, { credentials: 'include' });
             const data = await res.json();
             if (res.ok) setDocs(data.docs || []);
         } catch (e) { console.error(e); }
@@ -933,11 +1010,11 @@ void loop() {
     const fetchEvals = async () => {
         try {
             if (isTrainee) {
-                const res = await fetch(`/api/training/evaluations/get.php?course_id=${courseId}`);
+                const res = await fetch(`/api/training/evaluations/get.php?course_id=${courseId}`, { credentials: 'include' });
                 const data = await res.json();
                 if (res.ok) setMyEval(data.evaluation);
             } else {
-                const res = await fetch(`/api/training/evaluations/list.php?course_id=${courseId}`);
+                const res = await fetch(`/api/training/evaluations/list.php?course_id=${courseId}`, { credentials: 'include' });
                 const data = await res.json();
                 if (res.ok) setAllEvals(data.evaluations || []);
             }
@@ -950,6 +1027,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/topics/create.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     course_id: courseId,
@@ -974,6 +1052,7 @@ void loop() {
             try {
                 const res = await fetch('/api/training/content/add_url.php', {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         topic_id: selectedTopicId,
@@ -999,6 +1078,7 @@ void loop() {
             try {
                 const res = await fetch('/api/training/content/upload.php', {
                     method: 'POST',
+                    credentials: 'include',
                     body: formData
                 });
                 if (res.ok) {
@@ -1014,7 +1094,7 @@ void loop() {
         setSearchingTrainers(true);
         setHasSearched(true);
         try {
-            const res = await fetch(`/api/users/search-trainers.php?q=${encodeURIComponent(searchTrainerQuery)}`);
+            const res = await fetch(`/api/users/search-trainers.php?q=${encodeURIComponent(searchTrainerQuery)}`, { credentials: 'include' });
             const data = await res.json();
             setAvailableTrainers(data || []);
         } catch (e) {
@@ -1029,6 +1109,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/courses/assign_trainer.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ course_id: courseId, trainer_id: trainerId })
             });
@@ -1051,6 +1132,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/courses/remove_trainer.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ assignment_id: assignmentId })
             });
@@ -1075,6 +1157,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/topics/delete.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: topicId })
             });
@@ -1099,6 +1182,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/content/delete.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: materialId })
             });
@@ -1127,6 +1211,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/enrollments/import_excel.php', {
                 method: 'POST',
+                credentials: 'include',
                 body: formData
             });
             const data = await res.json();
@@ -1149,6 +1234,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/ideas/ai_generate.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ keywords: aiKeyword })
             });
@@ -1173,19 +1259,27 @@ void loop() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    course_id: courseId,
+                    course_id: course?.id || courseId,
                     title: ideaTitleEn,
                     description: ideaDescEn,
                     tech_stack: techStack,
                     problem_statement: problemStmt,
                     expected_output: expectedOutput,
-                    teammate_ids: selectedTeammates.map(t => t.id || t.user_id)
-                })
+                    teammate_ids: isExternalCourse ? [] : selectedTeammates.map(t => t.id || t.user_id)
+                }),
+                credentials: 'include'
             });
-            const data = await res.json();
+            const text = await res.text();
+            let data = {};
+            try {
+                data = JSON.parse(text);
+            } catch (err) {
+                data = { error: text || 'Server returned invalid response' };
+            }
+
             if (res.ok && data.success) {
                 fetchIdeas();
-                alert(lang === 'ar' ? 'تم حفظ وإرسال فكرة المشروع وفريق العمل بنجاح' : 'Project idea and team members saved successfully');
+                alert(lang === 'ar' ? 'تم حفظ وإرسال فكرة المشروع بنجاح' : 'Project idea saved successfully');
             } else {
                 const msg = data.error || (lang === 'ar' ? 'حدث خطأ أثناء حفظ الفكرة' : 'Failed to save project idea');
                 setIdeaSubmitError(msg);
@@ -1193,7 +1287,7 @@ void loop() {
             }
         } catch (e) { 
             console.error(e); 
-            setIdeaSubmitError('Network error');
+            setIdeaSubmitError(e?.message || 'Network error');
         }
         finally { setSubmittingIdea(false); }
     };
@@ -1202,6 +1296,7 @@ void loop() {
         try {
             await fetch('/api/training/ideas/evaluate.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ idea_id: ideaId, status, feedback })
             });
@@ -1242,6 +1337,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/docs/upload.php', {
                 method: 'POST',
+                credentials: 'include',
                 body: formData
             });
 
@@ -1286,6 +1382,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/docs/delete.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: docId })
             });
@@ -1319,7 +1416,7 @@ void loop() {
 
     useEffect(() => {
         if (!selectedTraineeForEval || !courseId) return;
-        fetch(`/api/training/evaluations/get.php?course_id=${courseId}&trainee_id=${selectedTraineeForEval}`)
+        fetch(`/api/training/evaluations/get.php?course_id=${courseId}&trainee_id=${selectedTraineeForEval}`, { credentials: 'include' })
             .then(r => r.json())
             .then(d => {
                 const currentCriteria = (courseCriteria && courseCriteria.length > 0) ? courseCriteria : defaultRubrics;
@@ -1386,6 +1483,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/evaluations/submit.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     course_id: courseId,
@@ -1434,6 +1532,7 @@ void loop() {
 
             const res = await fetch('/api/training/docs/upload.php', {
                 method: 'POST',
+                credentials: 'include',
                 body: formData
             });
             const data = await res.json();
@@ -1458,7 +1557,7 @@ void loop() {
         setIssuingCertId(traineeId);
         try {
             // First check if certificate has already been issued
-            const res = await fetch(`/api/training/certificates/get.php?course_id=${courseId}&trainee_id=${traineeId}`);
+            const res = await fetch(`/api/training/certificates/get.php?course_id=${courseId}&trainee_id=${traineeId}`, { credentials: 'include' });
             const data = await res.json();
             if (res.ok && data.certificate) {
                 setCertData({
@@ -1497,6 +1596,7 @@ void loop() {
         try {
             const res = await fetch('/api/training/certificates/issue.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ course_id: courseId, trainee_id: certData.traineeId })
             });
@@ -1525,7 +1625,7 @@ void loop() {
     const handleViewCertificate = async (traineeId, traineeName) => {
         setIssuingCertId(traineeId);
         try {
-            const res = await fetch(`/api/training/certificates/get.php?course_id=${courseId}&trainee_id=${traineeId}`);
+            const res = await fetch(`/api/training/certificates/get.php?course_id=${courseId}&trainee_id=${traineeId}`, { credentials: 'include' });
             const data = await res.json();
             if (res.ok && data.certificate) {
                 setCertData({
@@ -1587,14 +1687,18 @@ void loop() {
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
                         <h1 style={{ margin: 0 }}>{course.name}</h1>
-                        <span className="badge" style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', fontSize: '0.8rem', padding: '3px 10px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                            <GraduationCap size={13} />
-                            {lang === 'ar' ? `داخلي: ${totalInternal}` : `Internal: ${totalInternal}`}
-                        </span>
-                        <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.25)', fontSize: '0.8rem', padding: '3px 10px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                            <Building2 size={13} />
-                            {lang === 'ar' ? `خارجي: ${totalExternal}` : `External: ${totalExternal}`}
-                        </span>
+                        {course.course_type === 'both' && (
+                            <>
+                                <span className="badge" style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', fontSize: '0.8rem', padding: '3px 10px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                    <GraduationCap size={13} />
+                                    {lang === 'ar' ? `داخلي: ${totalInternal}` : `Internal: ${totalInternal}`}
+                                </span>
+                                <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.25)', fontSize: '0.8rem', padding: '3px 10px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                    <Building2 size={13} />
+                                    {lang === 'ar' ? `خارجي: ${totalExternal}` : `External: ${totalExternal}`}
+                                </span>
+                            </>
+                        )}
                     </div>
                     <p>{course.description}</p>
                 </div>
@@ -1602,14 +1706,6 @@ void loop() {
                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                         <button className="btn btn-secondary" onClick={openEditCourseModal}>
                             <Edit3 size={18} /> {lang === 'ar' ? 'تعديل بيانات الدورة' : 'Edit Course'}
-                        </button>
-                        <button className="btn btn-primary" onClick={() => setShowAddStudentModal(true)}>
-                            <UserPlus size={18} />
-                            {lang === 'ar' ? 'إضافة متدرب' : 'Add Student'}
-                        </button>
-                        <button className="btn btn-outline" onClick={() => setShowExcelModal(true)}>
-                            <FileSpreadsheet size={18} />
-                            {lang === 'ar' ? 'استيراد كشف المتدربين (Excel)' : 'Import Trainees (Excel)'}
                         </button>
                         <button className="btn btn-danger" onClick={() => setShowDeleteCourseModal(true)}>
                             <Trash2 size={18} />
@@ -1624,7 +1720,7 @@ void loop() {
                 <button className={`tab-btn ${activeTab === 'topics' ? 'active' : ''}`} onClick={() => setActiveTab('topics')} data-magy-key="topics">
                     <BookOpen size={16} /> {lang === 'ar' ? 'المحتوى والمواد التدريبية' : 'Course Content & Materials'}
                 </button>
-                {isTrainer && (
+                {isTrainer && course?.course_type === 'external' && (
                     <button className={`tab-btn ${activeTab === 'external' ? 'active' : ''}`} onClick={() => setActiveTab('external')} data-magy-key="external">
                         <Building2 size={16} /> {lang === 'ar' ? 'التدريب الخارجي والجهات' : 'External Training & Providers'}
                     </button>
@@ -1698,6 +1794,7 @@ void loop() {
                                                         try {
                                                             await fetch('/api/training/progress/mark.php', {
                                                                 method: 'POST',
+                                                                credentials: 'include',
                                                                 headers: { 'Content-Type': 'application/json' },
                                                                 body: JSON.stringify({ topic_id: t.id })
                                                             });
@@ -1776,7 +1873,7 @@ void loop() {
             )}
 
             {/* Tab: External Training & Providers Hub */}
-            {activeTab === 'external' && isTrainer && (
+            {activeTab === 'external' && isTrainer && course?.course_type === 'external' && (
                 <div className="tab-content external-training-container">
                     {/* Header Banner */}
                     <div className="external-header-banner">
@@ -2144,142 +2241,370 @@ void loop() {
             {/* Tab 2: Trainees & Excel Import */}
             {activeTab === 'trainees' && (
                 <div className="tab-content">
-                    <div className="tab-action-bar">
-                        <h3>{isTrainer 
-                            ? (lang === 'ar' ? 'كشف المتدربين المقيدين' : 'Enrolled Trainees') 
-                            : (lang === 'ar' ? 'أعضاء فريق العمل المعتمد' : 'My Project Team Members')}
-                        </h3>
+                    <div className="tab-action-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+                        <div>
+                            <h3 style={{ margin: 0 }}>{isTrainer 
+                                ? (lang === 'ar' ? 'كشف المتدربين المقيدين' : 'Enrolled Trainees') 
+                                : (lang === 'ar' ? 'أعضاء فريق العمل المعتمد' : 'My Project Team Members')}
+                            </h3>
+                            {isTrainer && (
+                                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                    {lang === 'ar' ? `إجمالي المتدربين: ${trainees.length}` : `Total Trainees: ${trainees.length}`}
+                                </p>
+                            )}
+                        </div>
                         {isTrainer && (
-                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                                 <button className="btn btn-primary btn-sm" onClick={() => setShowAddStudentModal(true)}>
                                     <UserPlus size={16} /> {lang === 'ar' ? 'إضافة متدرب' : 'Add Student'}
                                 </button>
                                 <button className="btn btn-outline btn-sm" onClick={() => setShowExcelModal(true)}>
                                     <FileSpreadsheet size={16} /> {lang === 'ar' ? 'استيراد Excel' : 'Import Excel'}
                                 </button>
+                                {trainees.length > 0 && (
+                                    <button className="btn btn-danger btn-sm" onClick={handleRemoveAllTrainees} title={lang === 'ar' ? 'حذف جميع المتدربين المسجلين' : 'Clear All Trainees'}>
+                                        <Trash2 size={16} /> {lang === 'ar' ? 'حذف جميع المتدربين' : 'Clear Trainees'}
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
 
+                    {/* Search Input for Trainees */}
+                    {isTrainer && trainees.length > 0 && (
+                        <div style={{ position: 'relative', marginBottom: '1.25rem', width: '100%' }}>
+                            <Search 
+                                size={18} 
+                                style={{ 
+                                    position: 'absolute', 
+                                    left: lang === 'ar' ? 'unset' : '14px', 
+                                    right: lang === 'ar' ? '14px' : 'unset', 
+                                    top: '50%', 
+                                    transform: 'translateY(-50%)', 
+                                    color: '#94a3b8',
+                                    pointerEvents: 'none' 
+                                }} 
+                            />
+                            <input 
+                                type="text"
+                                value={traineeSearchQuery}
+                                onChange={e => setTraineeSearchQuery(e.target.value)}
+                                placeholder={lang === 'ar' 
+                                    ? 'بحث بالاسم، البريد الإلكتروني، الرقم الجامعي، أو جهة ومسار التدريب...' 
+                                    : 'Search by name, email, student ID, track, or provider...'}
+                                style={{
+                                    width: '100%',
+                                    padding: lang === 'ar' ? '0.7rem 2.75rem 0.7rem 1rem' : '0.7rem 1rem 0.7rem 2.75rem',
+                                    borderRadius: '10px',
+                                    border: '1.5px solid var(--border, #e2e8f0)',
+                                    background: 'var(--bg-0, #ffffff)',
+                                    color: 'var(--text-0, #0f172a)',
+                                    fontSize: '0.92rem',
+                                    outline: 'none',
+                                    boxSizing: 'border-box'
+                                }}
+                            />
+                            {traineeSearchQuery && (
+                                <button
+                                    type="button"
+                                    onClick={() => setTraineeSearchQuery('')}
+                                    style={{
+                                        position: 'absolute',
+                                        right: lang === 'ar' ? 'unset' : '14px',
+                                        left: lang === 'ar' ? '14px' : 'unset',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: '#94a3b8',
+                                        fontSize: '0.9rem',
+                                        padding: '4px'
+                                    }}
+                                >
+                                    ✕
+                                </button>
+                            )}
+                        </div>
+                    )}
+
                     {(() => {
-                        const displayList = isTrainer 
+                        let baseList = isTrainer 
                             ? trainees 
                             : (myIdea?.team_members && myIdea.team_members.length > 0 
                                 ? myIdea.team_members 
-                                : [{ trainee_id: user?.id, full_name: user?.full_name, email: user?.email, student_id: user?.student_id, role: 'leader', source: 'Self' }]);
+                                : [{ trainee_id: user?.id, full_name: user?.full_name, email: user?.email, student_id: user?.student_id, role: 'leader' }]);
 
-                        if (displayList.length === 0) {
+                        const q = (traineeSearchQuery || '').trim().toLowerCase();
+                        const filteredList = q 
+                            ? baseList.filter(tr => {
+                                const name = (tr.full_name || tr.username || '').toLowerCase();
+                                const email = (tr.email || tr.academic_email || '').toLowerCase();
+                                const sid = String(tr.student_id || tr.academic_id || '').toLowerCase();
+                                const provider = String(tr.provider_name || tr.custom_provider_name || '').toLowerCase();
+                                const track = String(tr.track_name || tr.final_track || '').toLowerCase();
+                                return name.includes(q) || email.includes(q) || sid.includes(q) || provider.includes(q) || track.includes(q);
+                            })
+                            : baseList;
+
+                        const isExternalCourse = (course?.course_type === 'external') || (totalExternal > 0 && totalInternal === 0);
+
+                        const handleTraineeSort = (col) => {
+                            if (traineeSortCol === col) {
+                                setTraineeSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+                            } else {
+                                setTraineeSortCol(col);
+                                setTraineeSortDir('asc');
+                            }
+                        };
+
+                        const renderSortIcon = (col) => {
+                            if (traineeSortCol !== col) {
+                                return <span style={{ opacity: 0.35, fontSize: '0.72rem', marginInlineStart: '5px' }}>⇅</span>;
+                            }
+                            return traineeSortDir === 'asc' 
+                                ? <ChevronUp size={13} style={{ display: 'inline', verticalAlign: 'middle', marginInlineStart: '4px', color: '#2563eb' }} />
+                                : <ChevronDown size={13} style={{ display: 'inline', verticalAlign: 'middle', marginInlineStart: '4px', color: '#2563eb' }} />;
+                        };
+
+                        const sortedDisplayList = [...filteredList].sort((a, b) => {
+                            let valA = '';
+                            let valB = '';
+
+                            if (traineeSortCol === 'num') {
+                                return 0;
+                            } else if (traineeSortCol === 'name') {
+                                valA = (a.full_name || a.username || a.email || '').toLowerCase();
+                                valB = (b.full_name || b.username || b.email || '').toLowerCase();
+                            } else if (traineeSortCol === 'email') {
+                                valA = (a.email || '').toLowerCase();
+                                valB = (b.email || '').toLowerCase();
+                            } else if (traineeSortCol === 'student_id') {
+                                valA = String(a.student_id || a.academic_id || '').toLowerCase();
+                                valB = String(b.student_id || b.academic_id || '').toLowerCase();
+                            } else if (traineeSortCol === 'provider') {
+                                valA = (a.provider_name || a.custom_provider_name || a.training_type || '').toLowerCase();
+                                valB = (b.provider_name || b.custom_provider_name || b.training_type || '').toLowerCase();
+                            } else if (traineeSortCol === 'started_date') {
+                                valA = a.training_start_date || a.enrolled_at || '';
+                                valB = b.training_start_date || b.enrolled_at || '';
+                            } else if (traineeSortCol === 'role') {
+                                valA = a.role || '';
+                                valB = b.role || '';
+                            }
+
+                            if (valA < valB) return traineeSortDir === 'asc' ? -1 : 1;
+                            if (valA > valB) return traineeSortDir === 'asc' ? 1 : -1;
+                            return 0;
+                        });
+
+                        if (sortedDisplayList.length === 0) {
                             return (
                                 <div className="empty-tab">
                                     <Users size={36} />
-                                    <p>{isTrainer ? (lang === 'ar' ? 'لا يوجد متدربون مقيدون بعد.' : 'No trainees enrolled yet.') : (lang === 'ar' ? 'لم يتم تعيين فريق عمل بعد.' : 'No team members assigned yet.')}</p>
+                                    <p>{q 
+                                        ? (lang === 'ar' ? 'لا يوجد متدربون يطابقون نتائج البحث.' : 'No trainees match your search query.') 
+                                        : (isTrainer ? (lang === 'ar' ? 'لا يوجد متدربون مقيدون بعد.' : 'No trainees enrolled yet.') : (lang === 'ar' ? 'لم يتم تعيين فريق عمل بعد.' : 'No team members assigned yet.'))
+                                    }</p>
                                 </div>
                             );
                         }
 
                         return (
-                            <table className="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>{lang === 'ar' ? 'الاسم' : 'Name'}</th>
-                                        <th>{lang === 'ar' ? 'البريد الإلكتروني' : 'Email'}</th>
-                                        <th>{lang === 'ar' ? 'الرقم الجامعي' : 'Student ID'}</th>
-                                        {isTrainer && <th>{lang === 'ar' ? 'نوع التدريب والجهة' : 'Training Type & Provider'}</th>}
-                                        <th>{isTrainer ? (lang === 'ar' ? 'المصدر' : 'Source') : (lang === 'ar' ? 'الدور' : 'Role')}</th>
-                                        {isTrainer && <th>{lang === 'ar' ? 'الإجراءات والشهادة' : 'Actions / Certificate'}</th>}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {displayList.map((tr, idx) => (
-                                        <tr key={tr.trainee_id || tr.user_id || tr.id || idx}>
-                                            <td>{idx + 1}</td>
-                                            <td>
-                                                <strong>{tr.full_name || tr.username || tr.email}</strong>
-                                                {tr.role === 'leader' && (
-                                                    <span style={{ marginLeft: '6px', fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.15)', color: '#d97706', fontWeight: 700 }}>
-                                                        {lang === 'ar' ? 'قائد الفريق' : 'Team Leader'}
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td>{tr.email || '-'}</td>
-                                            <td>{tr.student_id || '-'}</td>
-                                            {isTrainer && (
-                                                <td>
-                                                    {tr.training_type === 'external' ? (
-                                                        <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.25)', fontSize: '0.76rem', gap: '4px' }}>
-                                                            <Building2 size={12} />
-                                                            {tr.provider_name || tr.custom_provider_name || (lang === 'ar' ? 'تدريب خارجي' : 'External')}
-                                                            {tr.track_name ? ` • ${tr.track_name}` : ''}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="badge" style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', fontSize: '0.76rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                            <GraduationCap size={12} />
-                                                            {lang === 'ar' ? 'تدريب داخلي' : 'Internal'}
-                                                            {tr.track_name ? ` • ${tr.track_name}` : ''}
+                            <div className="table-responsive data-table-wrapper" style={{ overflowX: 'auto', width: '100%', borderRadius: '12px', border: '1px solid var(--border, #e2e8f0)', background: 'var(--bg-0, #ffffff)', WebkitOverflowScrolling: 'touch' }}>
+                                <table className="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th 
+                                                onClick={() => handleTraineeSort('num')} 
+                                                style={{ width: '48px', textAlign: 'center', cursor: 'pointer', userSelect: 'none' }}
+                                                title={lang === 'ar' ? 'ترتيب' : 'Sort'}
+                                            >
+                                                # {renderSortIcon('num')}
+                                            </th>
+                                            <th 
+                                                onClick={() => handleTraineeSort('name')} 
+                                                style={{ minWidth: '220px', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}
+                                                title={lang === 'ar' ? 'ترتيب حسب الاسم' : 'Sort by Name'}
+                                            >
+                                                {lang === 'ar' ? 'الاسم' : 'Name'} {renderSortIcon('name')}
+                                            </th>
+                                            <th 
+                                                onClick={() => handleTraineeSort('email')} 
+                                                style={{ minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}
+                                                title={lang === 'ar' ? 'ترتيب حسب البريد الإلكتروني' : 'Sort by Email'}
+                                            >
+                                                {lang === 'ar' ? 'البريد الإلكتروني' : 'Email'} {renderSortIcon('email')}
+                                            </th>
+                                            <th 
+                                                onClick={() => handleTraineeSort('student_id')} 
+                                                style={{ minWidth: '130px', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}
+                                                title={lang === 'ar' ? 'ترتيب حسب الرقم الجامعي' : 'Sort by Student ID'}
+                                            >
+                                                {lang === 'ar' ? 'الرقم الجامعي' : 'Student ID'} {renderSortIcon('student_id')}
+                                            </th>
+                                            {isTrainer ? (
+                                                <th 
+                                                    onClick={() => handleTraineeSort('provider')} 
+                                                    style={{ minWidth: '180px', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}
+                                                    title={lang === 'ar' ? 'ترتيب حسب نوع التدريب والجهة' : 'Sort by Training Type & Provider'}
+                                                >
+                                                    {lang === 'ar' ? 'نوع التدريب والجهة' : 'Training Type & Provider'} {renderSortIcon('provider')}
+                                                </th>
+                                            ) : (
+                                                <th 
+                                                    onClick={() => handleTraineeSort('role')} 
+                                                    style={{ minWidth: '100px', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}
+                                                    title={lang === 'ar' ? 'ترتيب حسب الدور' : 'Sort by Role'}
+                                                >
+                                                    {lang === 'ar' ? 'الدور' : 'Role'} {renderSortIcon('role')}
+                                                </th>
+                                            )}
+                                            {isExternalCourse && (
+                                                <th 
+                                                    onClick={() => handleTraineeSort('started_date')} 
+                                                    style={{ minWidth: '150px', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}
+                                                    title={lang === 'ar' ? 'ترتيب حسب تاريخ البدء' : 'Sort by Started Date'}
+                                                >
+                                                    {lang === 'ar' ? 'تاريخ البدء' : 'Started Date'} {renderSortIcon('started_date')}
+                                                </th>
+                                            )}
+                                            {isTrainer && <th style={{ minWidth: '170px', whiteSpace: 'nowrap' }}>{lang === 'ar' ? 'الإجراءات والشهادة' : 'Actions / Certificate'}</th>}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {sortedDisplayList.map((tr, idx) => (
+                                            <tr key={tr.trainee_id || tr.user_id || tr.id || idx}>
+                                                <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>{idx + 1}</td>
+                                                <td style={{ whiteSpace: 'nowrap' }}>
+                                                    <strong style={{ display: 'inline-block', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>{tr.full_name || tr.username || tr.email}</strong>
+                                                    {!isExternalCourse && tr.role === 'leader' && (
+                                                        <span style={{ marginInlineStart: '8px', fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.15)', color: '#d97706', fontWeight: 700, display: 'inline-block', whiteSpace: 'nowrap' }}>
+                                                            {lang === 'ar' ? 'قائد الفريق' : 'Team Leader'}
                                                         </span>
                                                     )}
                                                 </td>
-                                            )}
-                                            <td>
+                                                <td style={{ whiteSpace: 'nowrap' }}>{tr.email || '-'}</td>
+                                                <td style={{ whiteSpace: 'nowrap', fontFamily: 'var(--font-mono, monospace)' }}>{tr.student_id || '-'}</td>
                                                 {isTrainer ? (
-                                                    <span className="source-tag">{tr.source || 'Registered'}</span>
-                                                ) : (
-                                                    <span style={{ fontWeight: 600, color: tr.role === 'leader' ? '#d97706' : '#2563eb' }}>
-                                                        {tr.role === 'leader' ? (lang === 'ar' ? 'قائد' : 'Leader') : (lang === 'ar' ? 'عضو' : 'Member')}
-                                                    </span>
-                                                )}
-                                            </td>
-                                            {isTrainer && (
-                                                <td>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        {isAdmin && (
-                                                            <button
-                                                                className="btn btn-ghost btn-sm"
-                                                                style={{ padding: '2px 6px', fontSize: '0.74rem' }}
-                                                                title={lang === 'ar' ? 'تعديل مسار ونوع التدريب' : 'Reassign Track / Provider'}
-                                                                onClick={() => {
-                                                                    setReassignStudent(tr);
-                                                                    setReassignForm({
-                                                                        training_type: tr.training_type || 'internal',
-                                                                        provider_id: tr.provider_id ? String(tr.provider_id) : '',
-                                                                        track_id: tr.track_id ? String(tr.track_id) : '',
-                                                                        custom_provider_name: tr.custom_provider_name || '',
-                                                                        custom_provider_website: tr.custom_provider_website || '',
-                                                                        custom_provider_linkedin: tr.custom_provider_linkedin || ''
-                                                                    });
-                                                                    setShowReassignStudentModal(true);
-                                                                }}
-                                                            >
-                                                                <Edit3 size={13} /> {lang === 'ar' ? 'تعديل المسار' : 'Track'}
-                                                            </button>
-                                                        )}
-
-                                                        {(tr.evaluation_status === 'pass' || (Number(tr.evaluation_score) >= 60)) ? (
-                                                            <button 
-                                                                className="btn btn-outline btn-sm"
-                                                                style={{ gap: '0.35rem', borderColor: 'var(--amber)', color: 'var(--amber)', fontSize: '0.74rem', padding: '2px 8px' }}
-                                                                disabled={issuingCertId === (tr.trainee_id || tr.id)}
-                                                                onClick={() => handleIssueCertificate(tr.trainee_id || tr.id, tr.full_name)}
-                                                            >
-                                                                <Award size={13} />
-                                                                {issuingCertId === (tr.trainee_id || tr.id) ? '...' : (lang === 'ar' ? 'الشهادة' : 'Cert')}
-                                                            </button>
+                                                    <td>
+                                                        {tr.training_type === 'external' ? (
+                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+                                                                <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.25)', fontSize: '0.76rem', gap: '4px', whiteSpace: 'nowrap' }}>
+                                                                    <Building2 size={12} />
+                                                                    {tr.provider_name || tr.custom_provider_name || (lang === 'ar' ? 'تدريب خارجي' : 'External')}
+                                                                    {tr.track_name ? ` • ${tr.track_name}` : ''}
+                                                                </span>
+                                                                {(tr.custom_provider_website || tr.provider_website_url) && (
+                                                                    <a 
+                                                                        href={tr.custom_provider_website || tr.provider_website_url} 
+                                                                        target="_blank" 
+                                                                        rel="noopener noreferrer" 
+                                                                        title={lang === 'ar' ? 'رابط الموقع الرسمي لجهة التدريب' : 'Official Provider Website'}
+                                                                        style={{ color: '#2563eb', display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
+                                                                    >
+                                                                        <Globe size={13} />
+                                                                    </a>
+                                                                )}
+                                                                {(tr.custom_provider_linkedin || tr.provider_linkedin_url) && (
+                                                                    <a 
+                                                                        href={tr.custom_provider_linkedin || tr.provider_linkedin_url} 
+                                                                        target="_blank" 
+                                                                        rel="noopener noreferrer" 
+                                                                        title={lang === 'ar' ? 'رابط صفحة LinkedIn لجهة التدريب' : 'Official Provider LinkedIn'}
+                                                                        style={{ color: '#0284c7', display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
+                                                                    >
+                                                                        <Linkedin size={13} />
+                                                                    </a>
+                                                                )}
+                                                            </div>
                                                         ) : (
-                                                            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                                                                {tr.evaluation_status === 'fail' 
-                                                                    ? <span style={{ color: '#ef4444', fontWeight: 600 }}>{lang === 'ar' ? 'راسب' : 'Failed'}</span>
-                                                                    : '—'
-                                                                }
+                                                            <span className="badge" style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', fontSize: '0.76rem', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                                                                <GraduationCap size={12} />
+                                                                {lang === 'ar' ? 'تدريب داخلي' : 'Internal'}
+                                                                {tr.track_name ? ` • ${tr.track_name}` : ''}
                                                             </span>
                                                         )}
-                                                    </div>
-                                                </td>
-                                            )}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                                    </td>
+                                                ) : (
+                                                    <td style={{ whiteSpace: 'nowrap' }}>
+                                                        <span style={{ fontWeight: 600, color: tr.role === 'leader' ? '#d97706' : '#2563eb' }}>
+                                                            {tr.role === 'leader' ? (lang === 'ar' ? 'قائد' : 'Leader') : (lang === 'ar' ? 'عضو' : 'Member')}
+                                                        </span>
+                                                    </td>
+                                                )}
+                                                {isExternalCourse && (
+                                                    <td style={{ whiteSpace: 'nowrap' }}>
+                                                        {tr.training_start_date ? (
+                                                            <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#d97706', border: '1px solid rgba(245, 158, 11, 0.25)', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                                <Calendar size={12} />
+                                                                {tr.training_start_date}
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>-</span>
+                                                        )}
+                                                    </td>
+                                                )}
+                                                {isTrainer && (
+                                                    <td>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+                                                            {isAdmin && (
+                                                                <button
+                                                                    className="btn btn-ghost btn-sm"
+                                                                    style={{ padding: '2px 6px', fontSize: '0.74rem' }}
+                                                                    title={lang === 'ar' ? 'تعديل مسار ونوع التدريب' : 'Reassign Track / Provider'}
+                                                                    onClick={() => {
+                                                                        setReassignStudent(tr);
+                                                                        setReassignForm({
+                                                                            training_type: tr.training_type || 'internal',
+                                                                            provider_id: tr.provider_id ? String(tr.provider_id) : '',
+                                                                            track_id: tr.track_id ? String(tr.track_id) : '',
+                                                                            custom_provider_name: tr.custom_provider_name || '',
+                                                                            custom_provider_website: tr.custom_provider_website || '',
+                                                                            custom_provider_linkedin: tr.custom_provider_linkedin || ''
+                                                                        });
+                                                                        setShowReassignStudentModal(true);
+                                                                    }}
+                                                                >
+                                                                    <Edit3 size={13} /> {lang === 'ar' ? 'تعديل المسار' : 'Track'}
+                                                                </button>
+                                                            )}
+
+                                                            {(tr.evaluation_status === 'pass' || (Number(tr.evaluation_score) >= 60)) ? (
+                                                                <button 
+                                                                    className="btn btn-outline btn-sm"
+                                                                    style={{ gap: '0.35rem', borderColor: 'var(--amber)', color: 'var(--amber)', fontSize: '0.74rem', padding: '2px 8px' }}
+                                                                    disabled={issuingCertId === (tr.trainee_id || tr.id)}
+                                                                    onClick={() => handleIssueCertificate(tr.trainee_id || tr.id, tr.full_name)}
+                                                                >
+                                                                    <Award size={13} />
+                                                                    {issuingCertId === (tr.trainee_id || tr.id) ? '...' : (lang === 'ar' ? 'الشهادة' : 'Cert')}
+                                                                </button>
+                                                            ) : (
+                                                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                                                                    {tr.evaluation_status === 'fail' 
+                                                                        ? <span style={{ color: '#ef4444', fontWeight: 600 }}>{lang === 'ar' ? 'راسب' : 'Failed'}</span>
+                                                                        : '—'
+                                                                    }
+                                                                </span>
+                                                            )}
+
+                                                            <button
+                                                                className="btn btn-ghost btn-sm"
+                                                                style={{ padding: '2px 6px', fontSize: '0.74rem', color: '#dc2626' }}
+                                                                title={lang === 'ar' ? 'حذف المتدرب من الدورة' : 'Remove Student'}
+                                                                onClick={() => handleRemoveTrainee(tr.trainee_id || tr.id, tr.full_name || tr.username)}
+                                                            >
+                                                                <Trash2 size={13} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         );
                     })()}
                 </div>
@@ -2427,15 +2752,22 @@ void loop() {
                                     </div>
                                 </div>
 
-                                {/* Teammate Selector Component */}
-                                <TeammateSelector 
-                                    courseId={courseId}
-                                    selectedTeammates={selectedTeammates}
-                                    onTeammatesChange={setSelectedTeammates}
-                                    currentIdeaId={myIdea?.id}
-                                    disabled={submittingIdea}
-                                    readOnly={myIdea && !myIdea.is_team_leader}
-                                />
+                                {/* Teammate Selector Component — Only for Internal Courses (External projects are individual) */}
+                                {!isExternalCourse ? (
+                                    <TeammateSelector 
+                                        courseId={courseId}
+                                        selectedTeammates={selectedTeammates}
+                                        onTeammatesChange={setSelectedTeammates}
+                                        currentIdeaId={myIdea?.id}
+                                        disabled={submittingIdea}
+                                        readOnly={myIdea && !myIdea.is_team_leader}
+                                    />
+                                ) : (
+                                    <div style={{ padding: '0.85rem 1rem', background: 'rgba(59, 130, 246, 0.06)', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-1)' }}>
+                                        <User size={16} style={{ color: '#2563eb' }} />
+                                        <span>{lang === 'ar' ? 'مشاريع التدريب الخارجي هي مشاريع فردية مستقلة لكل طالب (Individual Project).' : 'External training projects are strictly individual.'}</span>
+                                    </div>
+                                )}
 
                                 {(!myIdea || myIdea.is_team_leader) && (
                                     <button type="submit" className="btn btn-primary btn-lg" style={{ marginTop: '0.5rem', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '8px' }} disabled={submittingIdea}>
@@ -2704,9 +3036,9 @@ void loop() {
                                     </h4>
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.15rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.15rem', width: '100%', boxSizing: 'border-box' }}>
                                     {courseCriteria.map((c, idx) => (
-                                        <div key={c.id || idx} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        <div key={c.id || idx} style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', width: '100%', boxSizing: 'border-box' }}>
                                             <input 
                                                 type="text" 
                                                 value={c.name}
@@ -2714,36 +3046,51 @@ void loop() {
                                                 placeholder={lang === 'ar' ? 'اسم المعيار' : 'Criterion Name'}
                                                 style={{
                                                     flex: 1,
-                                                    padding: '0.65rem 0.95rem',
+                                                    minWidth: 0,
+                                                    padding: '0.65rem 0.85rem',
                                                     borderRadius: '8px',
                                                     border: '1px solid var(--border, #cbd5e1)',
                                                     background: 'var(--bg-0, #ffffff)',
                                                     fontSize: '0.92rem',
                                                     fontWeight: 500,
                                                     color: 'var(--text-0, #0f172a)',
-                                                    outline: 'none'
+                                                    outline: 'none',
+                                                    boxSizing: 'border-box'
                                                 }}
                                             />
-                                            <input 
-                                                type="number"
-                                                min="1"
-                                                max="100"
-                                                value={c.weight}
-                                                onChange={e => handleCriterionFieldChange(idx, 'weight', e.target.value)}
-                                                style={{
-                                                    width: '75px',
-                                                    textAlign: 'center',
-                                                    padding: '0.65rem 0.5rem',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid var(--border, #cbd5e1)',
-                                                    background: 'var(--bg-0, #ffffff)',
-                                                    fontSize: '0.92rem',
-                                                    fontWeight: 600,
-                                                    color: 'var(--text-0, #0f172a)',
-                                                    outline: 'none'
-                                                }}
-                                            />
-                                            <span style={{ color: 'var(--text-muted, #64748b)', fontWeight: 600, fontSize: '0.95rem', minWidth: '16px' }}>%</span>
+                                            <div style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '2px',
+                                                background: 'var(--bg-0, #ffffff)',
+                                                border: '1px solid var(--border, #cbd5e1)',
+                                                borderRadius: '8px',
+                                                padding: '0 0.45rem',
+                                                flexShrink: 0,
+                                                height: '38px',
+                                                boxSizing: 'border-box'
+                                            }}>
+                                                <input 
+                                                    type="number" 
+                                                    min="1" 
+                                                    max="100" 
+                                                    value={c.weight} 
+                                                    onChange={e => handleCriterionFieldChange(idx, 'weight', e.target.value)}
+                                                    style={{
+                                                        width: '42px',
+                                                        textAlign: 'center',
+                                                        padding: '0',
+                                                        border: 'none',
+                                                        background: 'transparent',
+                                                        fontSize: '0.92rem',
+                                                        fontWeight: 700,
+                                                        color: 'var(--text-0, #0f172a)',
+                                                        outline: 'none',
+                                                        boxSizing: 'border-box'
+                                                    }}
+                                                />
+                                                <span style={{ color: 'var(--text-muted, #64748b)', fontWeight: 700, fontSize: '0.85rem' }}>%</span>
+                                            </div>
                                             <button
                                                 type="button"
                                                 onClick={() => handleDeleteCriterion(idx)}
@@ -2757,7 +3104,8 @@ void loop() {
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
-                                                    borderRadius: '6px'
+                                                    borderRadius: '6px',
+                                                    flexShrink: 0
                                                 }}
                                             >
                                                 <Trash2 size={16} />
@@ -2890,18 +3238,13 @@ void loop() {
                                                     return null;
                                                 }).filter(Boolean);
 
-                                                const fTraineesFallback = (trainees || [])
-                                                    .filter(tr => !(allIdeas || []).some(idea => idea.team_members?.some(tm => tm.user_id === parseInt(tr.trainee_id))))
-                                                    .filter(tr => tr.full_name?.toLowerCase().includes(q) || tr.student_id?.toLowerCase().includes(q) || tr.email?.toLowerCase().includes(q));
-                                                
-                                                const fTraineesOnly = (trainees || [])
-                                                    .filter(tr => tr.full_name?.toLowerCase().includes(q) || tr.student_id?.toLowerCase().includes(q) || tr.email?.toLowerCase().includes(q));
-
                                                 return (
                                                     <div style={{ width: '100%', maxHeight: '280px', overflowY: 'auto', borderRadius: '10px', border: '1.5px solid var(--border)', background: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-                                                        {fIdeas.length === 0 && fTraineesOnly.length === 0 && fTraineesFallback.length === 0 ? (
-                                                            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>
-                                                                {lang === 'ar' ? 'لا يوجد نتائج.' : 'No results found.'}
+                                                        {fIdeas.length === 0 ? (
+                                                            <div style={{ padding: '1.5rem 1rem', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.9rem' }}>
+                                                                {evalSearchQuery 
+                                                                    ? (lang === 'ar' ? 'لا يوجد نتائج مطابقة للبحث.' : 'No matching results found.') 
+                                                                    : (lang === 'ar' ? 'لا يوجد متدربون لديهم مشاريع مقدمة بعد للتقييم. (يجب على المتدرب تقديم أو الانضمام لفكرة مشروع أولاً ليتم تقييمه).' : 'No trainees have submitted or joined a project idea yet. (A project idea is required for evaluation).')}
                                                             </div>
                                                         ) : null}
 
@@ -2929,55 +3272,12 @@ void loop() {
                                                                     >
                                                                         <span>{tm.full_name} ({tm.student_id ? `${tm.student_id} - ` : ''}{tm.email})</span>
                                                                         <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '6px', background: '#e2e8f0', color: '#334155', fontWeight: 700 }}>
-                                                                            {tm.role === 'leader' ? 'Leader' : 'Member'}
+                                                                            {tm.role === 'leader' ? (lang === 'ar' ? 'قائد' : 'Leader') : (lang === 'ar' ? 'عضو' : 'Member')}
                                                                         </span>
                                                                     </div>
                                                                 ))}
                                                             </div>
                                                         ))}
-
-                                                        {fTraineesOnly.length > 0 && (!allIdeas || allIdeas.length === 0) && fTraineesOnly.map(tr => (
-                                                            <div 
-                                                                key={tr.trainee_id} 
-                                                                onClick={() => setSelectedTraineeForEval(tr.trainee_id)}
-                                                                style={{
-                                                                    padding: '0.75rem 1rem',
-                                                                    cursor: 'pointer',
-                                                                    borderBottom: '1px solid var(--border)',
-                                                                    background: selectedTraineeForEval == tr.trainee_id ? 'rgba(0, 45, 86, 0.08)' : '#ffffff',
-                                                                    color: selectedTraineeForEval == tr.trainee_id ? 'var(--primary)' : 'inherit',
-                                                                    fontWeight: selectedTraineeForEval == tr.trainee_id ? 700 : 500,
-                                                                    transition: 'background 0.15s'
-                                                                }}
-                                                            >
-                                                                {tr.full_name} ({tr.student_id ? `${tr.student_id} - ` : ''}{tr.email})
-                                                            </div>
-                                                        ))}
-
-                                                        {allIdeas && allIdeas.length > 0 && fTraineesFallback.length > 0 && (
-                                                            <div>
-                                                                <div style={{ padding: '0.65rem 1rem', background: '#f8fafc', fontSize: '0.85rem', fontWeight: 800, color: '#475569', borderBottom: '1px solid var(--border)', borderTop: '1px solid var(--border)' }}>
-                                                                    {lang === 'ar' ? 'متدربين بدون مشروع' : 'Trainees without a project'}
-                                                                </div>
-                                                                {fTraineesFallback.map(tr => (
-                                                                    <div 
-                                                                        key={tr.trainee_id} 
-                                                                        onClick={() => setSelectedTraineeForEval(tr.trainee_id)}
-                                                                        style={{
-                                                                            padding: '0.75rem 1rem',
-                                                                            cursor: 'pointer',
-                                                                            borderBottom: '1px solid var(--border)',
-                                                                            background: selectedTraineeForEval == tr.trainee_id ? 'rgba(0, 45, 86, 0.08)' : '#ffffff',
-                                                                            color: selectedTraineeForEval == tr.trainee_id ? 'var(--primary)' : 'inherit',
-                                                                            fontWeight: selectedTraineeForEval == tr.trainee_id ? 700 : 500,
-                                                                            transition: 'background 0.15s'
-                                                                        }}
-                                                                    >
-                                                                        {tr.full_name} ({tr.student_id ? `${tr.student_id} - ` : ''}{tr.email})
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
                                                     </div>
                                                 );
                                             })()}
@@ -3906,6 +4206,19 @@ void loop() {
                                     <label>{lang === 'ar' ? 'مستوى المهارة' : 'Skill Level'}</label>
                                     <input type="text" value={editCourseForm.level} onChange={e => setEditCourseForm({...editCourseForm, level: e.target.value})} />
                                 </div>
+                            </div>
+                            <div className="form-group">
+                                <label>{lang === 'ar' ? 'نوع التدريب للدورة' : 'Training Course Type'}</label>
+                                <select 
+                                    className="form-control"
+                                    value={editCourseForm.course_type || 'both'} 
+                                    onChange={e => setEditCourseForm({...editCourseForm, course_type: e.target.value})}
+                                    style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border)' }}
+                                >
+                                    <option value="both">{lang === 'ar' ? 'تدريب داخلي وخارجي معاً (Internal & External)' : 'Internal & External (Both)'}</option>
+                                    <option value="internal">{lang === 'ar' ? 'تدريب داخلي فقط (Internal Only)' : 'Internal Training Only'}</option>
+                                    <option value="external">{lang === 'ar' ? 'تدريب ميداني خارجي فقط (External Only)' : 'External Training Only'}</option>
+                                </select>
                             </div>
                             <div className="modal-actions">
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowEditCourseModal(false)}>

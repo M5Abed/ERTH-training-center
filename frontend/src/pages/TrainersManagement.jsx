@@ -17,6 +17,7 @@ export default function TrainersManagement() {
     const [fullName, setFullName] = useState('');
     const [password, setPassword] = useState('');
     const [department, setDepartment] = useState('');
+    const [role, setRole] = useState('trainer');
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -28,12 +29,12 @@ export default function TrainersManagement() {
     const fetchTrainers = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/training/trainers/list.php');
+            const res = await fetch('/api/training/trainers/list.php', { credentials: 'include' });
             const data = await res.json();
             if (res.ok && data.trainers && data.trainers.length > 0) {
                 setTrainers(data.trainers);
             } else {
-                const uRes = await fetch('/api/admin/users.php');
+                const uRes = await fetch('/api/admin/users.php', { credentials: 'include' });
                 const uData = await uRes.json();
                 if (uRes.ok && uData.users) {
                     setTrainers(uData.users.filter(u => u.role === 'trainer' || u.role === 'ta' || u.role === 'professor' || u.is_admin));
@@ -55,11 +56,13 @@ export default function TrainersManagement() {
         try {
             const res = await fetch('/api/admin/create_trainer.php', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     email,
                     full_name: fullName,
                     password,
+                    role,
                     department: department || 'Faculty of Computer Science and Engineering'
                 })
             });
@@ -70,6 +73,7 @@ export default function TrainersManagement() {
                 setFullName(''); 
                 setPassword(''); 
                 setDepartment('');
+                setRole('trainer');
                 fetchTrainers();
                 setTimeout(() => {
                     setShowModal(false);
@@ -358,6 +362,30 @@ export default function TrainersManagement() {
                                     onChange={e => setDepartment(e.target.value)}
                                     placeholder="e.g. Computer Science & AI"
                                 />
+                            </div>
+
+                            <div className="form-group">
+                                <label>Academic & Supervision Role *</label>
+                                <select
+                                    value={role}
+                                    onChange={e => setRole(e.target.value)}
+                                    className="form-control"
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.65rem 0.85rem',
+                                        borderRadius: '8px',
+                                        border: '1.5px solid var(--border, #cbd5e1)',
+                                        background: 'var(--bg-0, #ffffff)',
+                                        color: 'var(--text-0, #0f172a)',
+                                        fontSize: '0.92rem'
+                                    }}
+                                >
+                                    <option value="trainer">Trainer / Summer Course Instructor (مدرب دورة تدريبية)</option>
+                                    <option value="professor">Professor / Faculty Doctor (أستاذ دكتور / عضو هيئة تدريس)</option>
+                                    <option value="ta">Teaching Assistant - TA (معيد / مساعد تدريس)</option>
+                                    <option value="supervisor">Academic / Field Supervisor (مشرف أكاديمي / ميداني)</option>
+                                    <option value="admin">System Administrator (مسؤول نظام)</option>
+                                </select>
                             </div>
 
                             <div className="trainers-modal-actions">

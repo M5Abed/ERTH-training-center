@@ -69,17 +69,42 @@ if (!empty($password)) {
     $params[]  = password_hash($password, PASSWORD_DEFAULT);
 }
 
-if (empty($updates)) {
+$finalTrack         = trim(sanitizeString($data['final_track'] ?? ''));
+$trainingStartDate  = trim(sanitizeString($data['training_start_date'] ?? ''));
+
+if ($finalTrack !== '') {
+    $updates[] = "final_track = ?";
+    $params[]  = $finalTrack;
+}
+
+if (empty($updates) && $trainingStartDate === '') {
     respondError('No changes provided');
 }
 
-$params[] = $traineeId;
-$updSql = "UPDATE users SET " . implode(', ', $updates) . " WHERE id = ?";
-$updStmt = $db->prepare($updSql);
-$updStmt->execute($params);
+if (!empty($updates)) {
+    $params[] = $traineeId;
+    $updSql = "UPDATE users SET " . implode(', ', $updates) . " WHERE id = ?";
+    $updStmt = $db->prepare($updSql);
+    $updStmt->execute($params);
+}
+
+if ($trainingStartDate !== '' || $finalTrack !== '') {
+    $eUpdates = [];
+    $eParams = [];
+    if ($trainingStartDate !== '') {
+        $eUpdates[] = "training_start_date = ?";
+        $eParams[] = $trainingStartDate;
+    }
+    if ($finalTrack !== '') {
+        $eUpdates[] = "final_track = ?";
+        $eParams[] = $finalTrack;
+    }
+    $eParams[] = $traineeId;
+    $db->prepare("UPDATE trainee_enrollments SET " . implode(', ', $eUpdates) . " WHERE trainee_id = ?")->execute($eParams);
+}
 
 // Fetch updated trainee
-$fetchStmt = $db->prepare("SELECT id, full_name, email, student_id, role FROM users WHERE id = ?");
+$fetchStmt = $db->prepare("SELECT id, full_name, email, student_id, final_track, role FROM users WHERE id = ?");
 $fetchStmt->execute([$traineeId]);
 $updatedUser = $fetchStmt->fetch();
 

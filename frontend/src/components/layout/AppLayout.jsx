@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import ExternalTrackSelectionModal from '../ExternalTrackSelectionModal';
 import { useI18n } from '../../contexts/I18nContext';
 import './AppLayout.css';
 
@@ -12,6 +13,7 @@ export default function AppLayout() {
     return (
         <div className="app-layout">
             <div className="bg-glow" />
+            <ExternalTrackSelectionModal />
             {/* Sidebar kept only for mobile slide-out */}
             <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
             <div className="app-main">

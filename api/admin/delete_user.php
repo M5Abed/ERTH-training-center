@@ -5,6 +5,7 @@
  * Body: { user_id }
  */
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../users/delete_helper.php';
 
 $uid = requireAdmin();
 $data = body();
@@ -15,33 +16,10 @@ if (!$targetId)
 if ($targetId === $uid)
     respondError('Cannot delete your own account');
 
-// Cascade-delete in the right order (FK constraints)
-$db = db();
-
-// 1. Notifications to user
-$db->prepare("DELETE FROM notifications WHERE user_id = ?")->execute([$targetId]);
-
-// 2. Trainee Enrollments & Topic Progress
-$db->prepare("DELETE FROM trainee_enrollments WHERE trainee_id = ?")->execute([$targetId]);
-$db->prepare("DELETE FROM trainee_topic_progress WHERE trainee_id = ?")->execute([$targetId]);
-
-// 3. Training Ideas owned by user
-$ownedIdeas = $db->prepare("SELECT id FROM training_ideas WHERE owner_id = ?");
-$ownedIdeas->execute([$targetId]);
-foreach ($ownedIdeas->fetchAll() as $idea) {
-    $ideaId = $idea['id'];
-    $db->prepare("DELETE FROM training_documents WHERE idea_id = ?")->execute([$ideaId]);
-    $db->prepare("DELETE FROM training_votes WHERE idea_id = ?")->execute([$ideaId]);
-    $db->prepare("DELETE FROM training_ideas WHERE id = ?")->execute([$ideaId]);
+try {
+    cascadeDeleteUser(db(), $targetId);
+    respond(['success' => true]);
+} catch (Throwable $e) {
+    error_log("Admin delete user error: " . $e->getMessage());
+    respondError('Failed to delete user');
 }
-
-// 4. Trainer Assignments
-$db->prepare("DELETE FROM trainer_assignments WHERE trainer_id = ?")->execute([$targetId]);
-
-// 5. Registration Requests
-$db->prepare("DELETE FROM registration_requests WHERE user_id = ?")->execute([$targetId]);
-
-// 6. Finally, delete the user
-$db->prepare("DELETE FROM users WHERE id = ?")->execute([$targetId]);
-
-respond(['ok' => true, 'deleted_user_id' => $targetId]);

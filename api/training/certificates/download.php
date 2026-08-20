@@ -1,6 +1,6 @@
-<?php
+﻿<?php
 // =========================================================
-// NMU TRAINING — Download PDF Certificate
+// NMU TRAINING â€” Download PDF Certificate
 // Access: Public verification or Authenticated User
 // =========================================================
 
@@ -22,7 +22,7 @@ $cert = false;
 if ($code) {
     $stmt = $db->prepare("
         SELECT tc.*,
-               COALESCE(u.full_name, u.username) AS trainee_name, u.student_id,
+               u.full_name AS trainee_name, u.student_id,
                c.name AS course_title,
                COALESCE(issuer.full_name, issuer.username) AS issuer_name
         FROM training_certificates tc
@@ -38,7 +38,7 @@ if ($code) {
 if (!$cert && $courseId && $traineeId) {
     $stmt = $db->prepare("
         SELECT tc.*,
-               COALESCE(u.full_name, u.username) AS trainee_name, u.student_id,
+               u.full_name AS trainee_name, u.student_id,
                c.name AS course_title,
                COALESCE(issuer.full_name, issuer.username) AS issuer_name
         FROM training_certificates tc
@@ -264,3 +264,4 @@ header('Content-Disposition: inline; filename="' . $filename . '"');
 header('Content-Length: ' . strlen($pdfContent));
 echo $pdfContent;
 exit;
+

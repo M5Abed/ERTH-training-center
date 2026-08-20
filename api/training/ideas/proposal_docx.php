@@ -39,8 +39,36 @@ try {
     if (!$idea) respondError('Idea not found or access denied', 404);
 
     // ── Load catalog and find matching project ─────────────────────────────────
-    require_once __DIR__ . '/catalog_64_data.php';
-    $catalog   = getCatalog64();
+    $catalog = [];
+    if (file_exists(__DIR__ . '/catalog_64_data.php')) {
+        require_once __DIR__ . '/catalog_64_data.php';
+        if (function_exists('getCatalog64')) {
+            $catalog = getCatalog64();
+        }
+    }
+    if (empty($catalog)) {
+        try {
+            $catRows = $db->query("SELECT id, title, category, level, skills FROM projects_catalog")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($catRows as $cr) {
+                $pId = (int)$cr['id'];
+                $secRows = $db->prepare("SELECT section_key, content FROM proposals_pregenerated WHERE catalog_project_id = ?");
+                $secRows->execute([$pId]);
+                $sections = [];
+                while ($sr = $secRows->fetch(PDO::FETCH_ASSOC)) {
+                    $sections[$sr['section_key']] = $sr['content'];
+                }
+                $catalog[] = [
+                    'id'            => $pId,
+                    'title'         => $cr['title'],
+                    'category'      => $cr['category'],
+                    'level'         => $cr['level'],
+                    'skills'        => $cr['skills'],
+                    'display_order' => $pId,
+                    'sections'      => $sections,
+                ];
+            }
+        } catch (Throwable $e) {}
+    }
     $catProject = null;
 
     // Priority 1: explicit catalog_project_id

@@ -20,37 +20,58 @@ if (!$courseId) {
 
 $db = db();
 
-// Fetch existing criteria
-$stmt = $db->prepare("
-    SELECT id, course_id, name, weight, order_index
-    FROM course_eval_criteria
-    WHERE course_id = ?
-    ORDER BY order_index ASC, id ASC
-");
-$stmt->execute([$courseId]);
-$criteria = $stmt->fetchAll();
-
-// Auto-seed legacy defaults if none exist for this course
-if (empty($criteria)) {
-    $defaults = [
-        ['Attendance',      15.00, 0],
-        ['Architecture',    20.00, 1],
-        ['Implementation',  25.00, 2],
-        ['Presentation',    20.00, 3],
-        ['Documentation',   20.00, 4],
-    ];
-
-    $ins = $db->prepare("
-        INSERT INTO course_eval_criteria (course_id, name, weight, order_index)
-        VALUES (?, ?, ?, ?)
+// Ensure table exists
+try {
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS course_eval_criteria (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            course_id INT NOT NULL,
+            name VARCHAR(150) NOT NULL,
+            weight DECIMAL(5,2) NOT NULL,
+            order_index INT NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_cec_course (course_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
-    foreach ($defaults as [$name, $weight, $idx]) {
-        $ins->execute([$courseId, $name, $weight, $idx]);
-    }
+} catch (Throwable $e) {}
 
-    // Re-fetch after seeding
+$criteria = [];
+$defaults = [
+    ['name' => 'Attendance',      'weight' => 15.00, 'order_index' => 0],
+    ['name' => 'Architecture',    'weight' => 20.00, 'order_index' => 1],
+    ['name' => 'Implementation',  'weight' => 25.00, 'order_index' => 2],
+    ['name' => 'Presentation',    'weight' => 20.00, 'order_index' => 3],
+    ['name' => 'Documentation',   'weight' => 20.00, 'order_index' => 4],
+];
+
+try {
+    // Fetch existing criteria
+    $stmt = $db->prepare("
+        SELECT id, course_id, name, weight, order_index
+        FROM course_eval_criteria
+        WHERE course_id = ?
+        ORDER BY order_index ASC, id ASC
+    ");
     $stmt->execute([$courseId]);
     $criteria = $stmt->fetchAll();
+
+    // Auto-seed legacy defaults if none exist for this course
+    if (empty($criteria)) {
+        $ins = $db->prepare("
+            INSERT INTO course_eval_criteria (course_id, name, weight, order_index)
+            VALUES (?, ?, ?, ?)
+        ");
+        foreach ($defaults as $d) {
+            $ins->execute([$courseId, $d['name'], $d['weight'], $d['order_index']]);
+        }
+
+        // Re-fetch after seeding
+        $stmt->execute([$courseId]);
+        $criteria = $stmt->fetchAll();
+    }
+} catch (Throwable $e) {
+    error_log('Criteria fetch error: ' . $e->getMessage());
+    $criteria = $defaults;
 }
 
-respond(['criteria' => $criteria]);
+respond(['criteria' => !empty($criteria) ? $criteria : $defaults]);

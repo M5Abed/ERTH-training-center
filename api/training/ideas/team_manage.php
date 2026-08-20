@@ -1,6 +1,6 @@
 <?php
 // =========================================================
-// NMU TRAINING — Team Management & Member Add/Remove
+// NMU TRAINING â€” Team Management & Member Add/Remove
 // Access: Idea Leader / Owner, Admin (or member self-leave)
 // =========================================================
 
@@ -45,8 +45,9 @@ $courseId = (int) $idea['course_id'];
 $ownerId = (int) $idea['owner_id'];
 
 // Check if current user is owner/leader
+$isTrainer = ($isAdmin || in_array($role, ['trainer', 'professor', 'ta', 'lecturer', 'supervisor', 'instructor', 'evaluator'], true));
 $isLeader = ($uid === $ownerId);
-if (!$isLeader && !$isAdmin) {
+if (!$isLeader && !$isAdmin && !$isTrainer) {
     $checkLeader = $db->prepare("SELECT 1 FROM training_idea_members WHERE idea_id = ? AND user_id = ? AND role = 'leader'");
     $checkLeader->execute([$ideaId, $uid]);
     if ($checkLeader->fetch()) {
@@ -55,24 +56,24 @@ if (!$isLeader && !$isAdmin) {
 }
 
 if ($action === 'add') {
-    if (!$isLeader && !$isAdmin) {
-        respondError('Only the team leader or an administrator can add team members', 403);
+    if (!$isLeader && !$isAdmin && !$isTrainer) {
+        respondError('Only the team leader, trainer, or an administrator can add team members', 403);
     }
 
     // Resolve target user
     $targetUser = null;
     if ($targetUserId > 0) {
-        $uStmt = $db->prepare("SELECT id, full_name, email, student_id, username, role, avatar_url, major, academic_year, department FROM users WHERE id = ?");
+        $uStmt = $db->prepare("SELECT id, full_name, email, student_id, role, major, academic_year, department FROM users WHERE id = ?");
         $uStmt->execute([$targetUserId]);
         $targetUser = $uStmt->fetch();
     } elseif ($targetIdentifier !== '') {
         $uStmt = $db->prepare("
-            SELECT id, full_name, email, student_id, username, role, avatar_url, major, academic_year, department 
+            SELECT id, full_name, email, student_id, role, major, academic_year, department 
             FROM users 
-            WHERE LOWER(student_id) = LOWER(?) OR LOWER(email) = LOWER(?) OR LOWER(username) = LOWER(?) OR CAST(id AS CHAR) = ?
+            WHERE LOWER(student_id) = LOWER(?) OR LOWER(email) = LOWER(?) OR CAST(id AS CHAR) = ?
             LIMIT 1
         ");
-        $uStmt->execute([$targetIdentifier, $targetIdentifier, $targetIdentifier, $targetIdentifier]);
+        $uStmt->execute([$targetIdentifier, $targetIdentifier, $targetIdentifier]);
         $targetUser = $uStmt->fetch();
     }
 
@@ -152,9 +153,9 @@ if ($action === 'add') {
         respondError('Target user ID is required to remove a team member', 400);
     }
 
-    // Check permissions: leader, admin, or the user themselves leaving
-    if (!$isLeader && !$isAdmin && $uid !== $targetUserId) {
-        respondError('Forbidden: You can only remove members if you are team leader or leaving the team yourself', 403);
+    // Check permissions: leader, admin, trainer, or the user themselves leaving
+    if (!$isLeader && !$isAdmin && !$isTrainer && $uid !== $targetUserId) {
+        respondError('Forbidden: You can only remove members if you are team leader, trainer, administrator, or leaving the team yourself', 403);
     }
 
     if ($targetUserId === $ownerId) {
@@ -195,7 +196,7 @@ if ($action === 'add') {
 // Fetch and return fresh team members list
 $mStmt = $db->prepare("
     SELECT tim.idea_id, tim.user_id, tim.role, 
-           u.full_name, u.student_id, u.email, u.avatar_url, u.username,
+           u.full_name, u.student_id, u.email,
            u.major, u.academic_year, u.department
     FROM training_idea_members tim
     JOIN users u ON tim.user_id = u.id
@@ -211,11 +212,11 @@ foreach ($members as $m) {
         'user_id' => (int) $m['user_id'],
         'id' => (int) $m['user_id'],
         'role' => $m['role'],
-        'full_name' => $m['full_name'] ?: $m['username'] ?: $m['email'],
+        'full_name' => $m['full_name'] ?: $m['email'],
         'student_id' => $m['student_id'],
         'email' => $m['email'],
-        'avatar_url' => $m['avatar_url'],
-        'username' => $m['username'],
+        'avatar_url' => null,
+        'username' => null,
         'major' => $m['major'],
         'academic_year' => $m['academic_year'],
         'department' => $m['department']
@@ -227,3 +228,4 @@ respond([
     'message' => $action === 'add' ? 'Team member added successfully' : 'Team member removed successfully',
     'team_members' => $formattedMembers
 ]);
+

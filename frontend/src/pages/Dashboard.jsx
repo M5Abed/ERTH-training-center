@@ -7,7 +7,8 @@ import {
     Zap, ArrowRight, BookOpen, Lightbulb, CheckCircle2, Shield,
     Clock, Upload, ExternalLink, TrendingUp,
     Cpu, ChevronRight, Download, BarChart3, Award,
-    UserCheck, Crown, User, ThumbsUp, Sparkles, AlertCircle, Check
+    UserCheck, Crown, User, ThumbsUp, Sparkles, AlertCircle, Check,
+    Building2, Calendar
 } from 'lucide-react';
 import './Dashboard.css';
 
@@ -30,7 +31,7 @@ export default function Dashboard() {
         let isMounted = true;
         async function loadStats() {
             try {
-                const res = await fetch('/api/training/dashboard_stats.php');
+                const res = await fetch('/api/training/dashboard_stats.php', { credentials: 'include' });
                 if (res.ok) {
                     const data = await res.json();
                     if (isMounted) setStats(data);
@@ -54,7 +55,7 @@ export default function Dashboard() {
 
         async function loadProjectData() {
             try {
-                const res = await fetch('/api/training/ideas/list.php');
+                const res = await fetch('/api/training/ideas/list.php', { credentials: 'include' });
                 if (!res.ok) {
                     if (isMounted) setProjLoading(false);
                     return;
@@ -67,7 +68,7 @@ export default function Dashboard() {
                     setMyProject(proj);
 
                     try {
-                        const docsRes = await fetch(`/api/training/docs/list.php?idea_id=${proj.id}`);
+                        const docsRes = await fetch(`/api/training/docs/list.php?idea_id=${proj.id}`, { credentials: 'include' });
                         if (docsRes.ok) {
                             const docsData = await docsRes.json();
                             if (isMounted && docsData.docs) {
@@ -142,6 +143,13 @@ export default function Dashboard() {
                                 ? 'نظام إدارة التدريب الميداني — جامعة المنصورة الجديدة'
                                 : 'NMU Field Training Management System — ERTH Program'}
                         </p>
+                        {(profile?.final_track || user?.final_track) && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.45rem' }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.3)', padding: '3px 9px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: 600 }}>
+                                    <Sparkles size={12} /> {lang === 'ar' ? 'المسار المعتمد:' : 'Track:'} {profile?.final_track || user?.final_track}
+                                </span>
+                            </div>
+                        )}
                     </div>
                 </div>
                 <Link to={isTrainee ? '/submitted-projects' : '/courses'} className="dash-banner-btn">

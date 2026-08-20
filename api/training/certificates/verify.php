@@ -1,6 +1,6 @@
-<?php
+﻿<?php
 // =========================================================
-// NMU TRAINING — Public Certificate Verification API
+// NMU TRAINING â€” Public Certificate Verification API
 // Access: Public (No Auth Required)
 // =========================================================
 
@@ -26,7 +26,7 @@ try {
     if ($code) {
         $stmt = $db->prepare("
             SELECT tc.*,
-                   COALESCE(u.full_name, u.username) AS trainee_name, u.student_id, u.email AS trainee_email,
+                   u.full_name AS trainee_name, u.student_id, u.email AS trainee_email,
                    c.id AS course_id, c.name AS course_title, c.name AS course_title,
                    c.start_date, c.end_date,
                    c.description, c.description,
@@ -44,7 +44,7 @@ try {
     if (!$cert && $courseId && $traineeId) {
         $stmt = $db->prepare("
             SELECT tc.*,
-                   COALESCE(u.full_name, u.username) AS trainee_name, u.student_id, u.email AS trainee_email,
+                   u.full_name AS trainee_name, u.student_id, u.email AS trainee_email,
                    c.id AS course_id, c.name AS course_title, c.name AS course_title,
                    c.start_date, c.end_date,
                    c.description, c.description,
@@ -62,7 +62,7 @@ try {
     if (!$cert) {
         if ($courseId && $traineeId) {
             $chk = $db->prepare("
-                SELECT u.id AS trainee_id, COALESCE(u.full_name, u.username) AS trainee_name, u.student_id, u.email AS trainee_email,
+                SELECT u.id AS trainee_id, u.full_name AS trainee_name, u.student_id, u.email AS trainee_email,
                        c.id AS course_id, c.name AS course_title, c.name AS course_title,
                        c.start_date, c.end_date,
                        c.description, c.description
@@ -175,3 +175,4 @@ respond([
     'topics'   => $topics,
     'trainers' => $trainers
 ]);
+

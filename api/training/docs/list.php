@@ -44,7 +44,10 @@ try {
     $params = [];
 
     if ($ideaId > 0) {
-        $whereClauses[] = "td.idea_id = ?";
+        $whereClauses[] = "(td.idea_id = ? OR (td.idea_id IS NULL AND td.course_id = (SELECT course_id FROM training_ideas WHERE id = ?) AND td.trainee_id IN (SELECT user_id FROM training_idea_members WHERE idea_id = ? UNION SELECT owner_id FROM training_ideas WHERE id = ?)))";
+        $params[] = $ideaId;
+        $params[] = $ideaId;
+        $params[] = $ideaId;
         $params[] = $ideaId;
     } elseif ($courseId > 0) {
         $whereClauses[] = "(td.course_id = ? OR td.idea_id IN (SELECT id FROM training_ideas WHERE course_id = ?))";
@@ -57,13 +60,13 @@ try {
         $params[] = $targetTraineeId;
     } elseif ($role === 'trainee' && !$isAdmin && !$ideaId) {
         if ($courseId > 0) {
-            $whereClauses[] = "(td.trainee_id = ? OR td.course_id = ? OR td.idea_id IN (SELECT id FROM training_ideas WHERE trainee_id = ? OR owner_id = ?))";
+            $whereClauses[] = "(td.trainee_id = ? OR td.course_id = ? OR td.idea_id IN (SELECT id FROM training_ideas WHERE owner_id = ? UNION SELECT idea_id FROM training_idea_members WHERE user_id = ?))";
             $params[] = $uid;
             $params[] = $courseId;
             $params[] = $uid;
             $params[] = $uid;
         } else {
-            $whereClauses[] = "(td.trainee_id = ? OR td.idea_id IN (SELECT id FROM training_ideas WHERE trainee_id = ? OR owner_id = ?))";
+            $whereClauses[] = "(td.trainee_id = ? OR td.idea_id IN (SELECT id FROM training_ideas WHERE owner_id = ? UNION SELECT idea_id FROM training_idea_members WHERE user_id = ?))";
             $params[] = $uid;
             $params[] = $uid;
             $params[] = $uid;
@@ -90,7 +93,12 @@ try {
     $stmt->execute($params);
     $docs = $stmt->fetchAll();
 
-    respond(['success' => true, 'docs' => $docs]);
+    respond([
+        'success'   => true, 
+        'docs'      => $docs,
+        'documents' => $docs,
+        'total'     => count($docs)
+    ]);
 } catch (Throwable $e) {
     respondError('Server error: ' . $e->getMessage(), 500);
 }
