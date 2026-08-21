@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -9,17 +9,211 @@ import {
     ExternalLink, Code, UserCheck, Layers, Bot, Cpu, Zap, Crown,
     FolderOpen, Shield, Link as LinkIcon, Activity, UserPlus, Check,
     Video, Globe, ArrowRight, Award, RefreshCw, AlertTriangle, HardDrive, Lock,
-    Building2, FileCheck, ShieldCheck, Eye, Wand2, GraduationCap, Target, Info
+    Building2, FileCheck, ShieldCheck, Eye, Wand2, GraduationCap, Target, Info,
+    Smartphone, ShieldAlert, FileUp, ClipboardCopy, CheckCircle, Save, Lightbulb, Mail
 } from 'lucide-react';
 import TeammateSelector from '../components/TeammateSelector';
 import MemberDetailModal from '../components/MemberDetailModal';
 import ProposalViewer from '../components/ProposalViewer';
 import ProposalDocModal from '../components/ProposalDocModal';
+import { useToast, useConfirm } from '../components/Toast';
 import { downloadProposalDocx } from '../services/api';
+import { EXTERNAL_TRACK_PROJECTS, EXTERNAL_TRACK_CATEGORIES } from '../data/externalTrackProjects';
 import './TrainingCourseDetail.css';
 import './TraineeProjects.css';
 
-export default function TraineeProjects() {
+const TRACK_SUGGESTED_IDEAS = {
+    web: [
+        {
+            title: 'E-Commerce Platform for Local Artisans',
+            titleAr: 'منصة تجارة إلكترونية للحرف اليدوية المحلية',
+            desc: 'A full-featured responsive web platform connecting local handmade craftsmen with buyers, featuring shopping carts, order tracking, and online payments.',
+            descAr: 'منصة ويب متكاملة ومتجاوبة تربط الحرفيين المحليين بالمشترين، مع سلة تسوق، وتتبع الطلبات، والدفع الإلكتروني.'
+        },
+        {
+            title: 'University Clinic & Appointment Booking Portal',
+            titleAr: 'بوابة حجز مواعيد العيادات الطبية الجامعية',
+            desc: 'A web-based healthcare management and reservation system allowing students and staff to schedule doctor appointments, view lab results, and manage medical records.',
+            descAr: 'نظام إدارة وحجوزات طبية عبر الويب يتيح للطلاب وأعضاء هيئة التدريس حجز مواعيد الأطباء، والاطلاع على نتائج التحاليل، وإدارة السجلات الطبية.'
+        },
+        {
+            title: 'Student Internship & Field Training Placement Portal',
+            titleAr: 'منصة التقديم والتدريب الميداني لطلاب الجامعة',
+            desc: 'A centralized portal connecting university trainees with companies offering internship opportunities, automated supervisor approvals, and progress report submissions.',
+            descAr: 'منصة موحدة تربط المتدربين بالشركات التي تقدم فرص تدريب ميداني، مع نظام موافقة المشرفين ورفع تقارير الإنجاز الدورية.'
+        },
+        {
+            title: 'Real Estate & Property Rental Management System',
+            titleAr: 'نظام إدارة وتأجير العقارات والوحدات السكنية',
+            desc: 'A modern web application for landlords and tenants to browse verified property listings, submit rental applications, and handle digital lease agreements.',
+            descAr: 'تطبيق ويب حديث لأصحاب العقارات والمستأجرين لاستعراض الوحدات المتاحة، وتقديم طلبات الإيجار، وتوثيق عقود الإيجار الرقمية.'
+        },
+        {
+            title: 'Freelance Services Marketplace & Escrow Platform',
+            titleAr: 'سوق رقمي لخدمات العمل الحر والخدمات المصغرة',
+            desc: 'An online marketplace enabling freelance professionals to post service gigs, negotiate client project requirements, and manage milestone deliverables safely.',
+            descAr: 'سوق إلكتروني يمكّن المستقلين من عرض خدماتهم، والتفاوض مع العملاء على متطلبات المشاريع، وتسليم المراحل بأمان.'
+        },
+        {
+            title: 'Restaurant Online Ordering & Table Reservation System',
+            titleAr: 'نظام طلبات المطاعم وحجز الطاولات الإلكتروني',
+            desc: 'A smart web system featuring interactive digital menus, QR table ordering, kitchen order dispatching, and automated invoice generation.',
+            descAr: 'نظام ويب ذكي يشمل قوائم طعام تفاعلية، وطلب عبر رمز QR على الطاولات، وإرسال الطلبات للمطبخ، وإصدار الفواتير آلياً.'
+        },
+        {
+            title: 'Course Management & Virtual Learning Portal (LMS Lite)',
+            titleAr: 'نظام إدارة المقررات والتعلم الإلكتروني المبسط',
+            desc: 'An educational portal allowing instructors to publish course materials, create weekly assignments, conduct quizzes, and track trainee completion progress.',
+            descAr: 'بوابة تعليمية تتيح للمدربين نشر المواد التدريبية، وإنشاء الواجبات الأسبوعية، وإجراء الاختبارات، ومتابعة نسبة إنجاز المتدربين.'
+        },
+        {
+            title: 'Event Management & Digital Ticketing Platform',
+            titleAr: 'منصة تنظيم الفعاليات والمؤتمرات وحجز التذاكر',
+            desc: 'A web platform for organizing academic conferences and workshops with online registration, QR badge validation, and speaker schedules.',
+            descAr: 'منصة ويب لتنظيم المؤتمرات وورش العمل الأكاديمية مع التسجيل الإلكتروني، والتحقق من بطاقات الحضور عبر QR، وجداول المتحدثين.'
+        },
+        {
+            title: 'Customer Support Helpdesk & Ticketing System',
+            titleAr: 'نظام خدمة العملاء والدعم الفني وإدارة التذاكر',
+            desc: 'A customer support portal featuring ticket lifecycles, priority assignment, live agent assignment, and customer satisfaction feedback surveys.',
+            descAr: 'بوابة دعم فني تشمل دورة حياة التذاكر، وتحديد أولويات المشاكل، وتوزيع التذاكر على الفنيين، واستطلاعات رضا العملاء.'
+        },
+        {
+            title: 'Digital Portfolio & Interactive CV Builder',
+            titleAr: 'موقع إنشاء معارض الأعمال والسير الذاتية التفاعلية',
+            desc: 'A dynamic web builder allowing graduates to showcase technical projects, customize portfolio templates, and generate shareable live links and PDF resumes.',
+            descAr: 'أداة ويب ديناميكية تتيح للخريجين استعراض مشاريعهم التقنية، وتخصيص قوالب السيرة الذاتية، وتوليد روابط حية وملفات PDF جاهزة للمشاركة.'
+        }
+    ],
+    mobile: [
+        {
+            title: 'Campus Navigation & Indoor Interactive Guide App',
+            titleAr: 'تطبيق الملاحة والإرشاد الذكي داخل الحرم الجامعي',
+            desc: 'A cross-platform mobile application providing interactive campus maps, lecture hall localization, schedule notifications, and route directions.',
+            descAr: 'تطبيق هاتف ذكي يوفر خرائط تفاعلية للحرم الجامعي، وتحديد مواقع قاعات المحاضرات، وإشعارات الجداول الدراسية، وتوجيهات المسار.'
+        },
+        {
+            title: 'Personal Expense Tracker & Smart Budgeting App',
+            titleAr: 'تطبيق إدارة المصروفات والميزانية المالية الشخصية',
+            desc: 'A mobile finance assistant helping users log daily expenses, set budget thresholds, view categorized spending charts, and receive saving tips.',
+            descAr: 'مساعد مالي للهواتف يساعد المستخدمين على تسجيل المصروفات اليومية، وتحديد سقف الميزانية، والاطلاع على الرسوم البيانية للنفقات.'
+        },
+        {
+            title: 'Fitness Workout Companion & Daily Nutrition Planner',
+            titleAr: 'تطبيق متابعة التمارين الرياضية والحمية الغذائية',
+            desc: 'A fitness mobile app with custom workout timers, exercise video guides, calorie tracking, and daily water hydration reminders.',
+            descAr: 'تطبيق لياقة بدنية يتضمن مؤقتات للتمارين، ودليل مرئي للحركات، وتتبع السعرات الحرارية، وتنبيهات شرب الماء اليومية.'
+        },
+        {
+            title: 'Smart Grocery Delivery & Local Supermarket Order App',
+            titleAr: 'تطبيق طلب وتوصيل مقاضي البقالة والمتاجر المحلية',
+            desc: 'A quick-commerce mobile app allowing users to browse nearby grocery stores, build dynamic shopping lists, and track delivery drivers in real-time.',
+            descAr: 'تطبيق تجارة سريعة يتيح للمستخدمين تصفح محلات البقالة القريبة، وإنشاء قوائم تسوق ذكية، وتتبع مندوب التوصيل لحظياً على الخريطة.'
+        },
+        {
+            title: 'Telehealth & Quick Doctor Consultation App',
+            titleAr: 'تطبيق الاستشارات الطبية وحجز المواعيد عن بعد',
+            desc: 'A mobile telehealth solution for patients to schedule video consultations, chat with certified medical specialists, and store e-prescriptions.',
+            descAr: 'تطبيق رعاية صحية عن بعد يتيح للمرضى حجز استشارات مرئية، والمحادثة مع الأطباء المتخصصين، وحفظ الروشتات الإلكترونية.'
+        },
+        {
+            title: 'University Carpooling & Ride Sharing App',
+            titleAr: 'تطبيق مشاركة الرحلات والتنقل المشترك لطلاب الجامعة',
+            desc: 'A safe peer-to-peer carpooling mobile app connecting university students and staff traveling on matching daily commuting routes.',
+            descAr: 'تطبيق آمن لمشاركة الرحلات يربط طلاب وموظفي الجامعة المسافرين على نفس المسارات اليومية لتوفير تكلفة الوقود والوقت.'
+        },
+        {
+            title: 'Productivity Habit Tracker & Focus Timer App',
+            titleAr: 'تطبيق بناء العادات اليومية وتنظيم المهام وتقنية بومودورو',
+            desc: 'A sleek habit development mobile app with streak tracking, Pomodoro focus timers, and motivational daily productivity analytics.',
+            descAr: 'تطبيق أنيق لبناء العادات اليومية مع تتبع أيام الالتزام المتتالية، ومؤقت تركيز بومودورو، وإحصائيات إنتاجية محفزة.'
+        },
+        {
+            title: 'Medicine Reminder & Prescription Refill App',
+            titleAr: 'تطبيق تذكير مواعيد الأدوية وطلب إعادة صرف الروشتات',
+            desc: 'A smart healthcare reminder app that alerts users to take prescription dosages on time, scans pill packaging, and tracks pharmacy refills.',
+            descAr: 'تطبيق ذكي للتنبيه بمواعيد تناول جرعات الأدوية بدقة، مع مسح علب الدواء، وتتبع مواعيد إعادة صرف الوصفات من الصيدلية.'
+        },
+        {
+            title: 'Community Lost & Found Finder App',
+            titleAr: 'تطبيق المجتمع للإبلاغ عن المفقودات والمقتنيات والعثور عليها',
+            desc: 'A community mobile application allowing users to report lost or found items with geo-tagged images, categories, and secure return claims.',
+            descAr: 'تطبيق مجتمعي يتيح الإبلاغ عن المقتنيات المفقودة أو التي تم العثور عليها مع الصور والموقع الجغرافي ونظام استلام آمن.'
+        },
+        {
+            title: 'Interactive Language Learning & Flashcard Quiz App',
+            titleAr: 'تطبيق تفاعلي لتعلم اللغات وبطاقات الاستذكار السريع',
+            desc: 'A gamified mobile application featuring spaced-repetition flashcards, audio pronunciation practice, and daily vocabulary quizzes.',
+            descAr: 'تطبيق تفاعلي مرح لتعلم اللغات عبر بطاقات التكرار المتباعد، وتدريبات النطق الصوتي، واختبارات المفردات اليومية.'
+        }
+    ],
+    cyber: [
+        {
+            title: 'Automated Web Vulnerability Scanner & Port Inspector',
+            titleAr: 'أداة مسح واكتشاف الثغرات الأمنية وفحص المنافذ تلقائياً',
+            desc: 'A security analysis tool that scans web endpoints for OWASP Top 10 vulnerabilities (SQLi, XSS, SSRF), verifies open ports, and generates remediation reports.',
+            descAr: 'أداة تحليل أمني تفحص تطبيقات الويب لكشف ثغرات OWASP Top 10 (مثل حقن SQL وحقن XSS)، وفحص المنافذ المفتوحة، وتوليد تقارير المعالجة.'
+        },
+        {
+            title: 'Secure Password Manager & Vault with AES-256 Encryption',
+            titleAr: 'خزنة ومدير كلمات المرور المشفر بخوارزمية AES-256',
+            desc: 'A zero-knowledge password management system featuring client-side cryptographic hashing, password strength scoring, and breach notification checks.',
+            descAr: 'نظام إدارة كلمات مرور بمعمارية Zero-Knowledge مع تشفير طرفي قوي، وتقييم قوة كلمات المرور، وفحص التسريبات الأمنية.'
+        },
+        {
+            title: 'Phishing Email & Malicious URL Detection Engine',
+            titleAr: 'محرك كشف رسائل البريد الاحتيالي والروابط الخبيثة',
+            desc: 'A cybersecurity tool analyzing email headers, SPF/DKIM verification, domain age, and lexical features of URLs to detect phishing threats.',
+            descAr: 'أداة أمن سيبراني تحلل ترويسات البريد الإلكتروني، وفحص SPF/DKIM، وعمر النطاق، والخصائص النصية للروابط لكشف محاولات التصيد.'
+        },
+        {
+            title: 'Network Packet Sniffer & Traffic Anomaly Analyzer',
+            titleAr: 'أداة التقاط حزم البيانات وتحليل الشذوذ في حركة مرور الشبكة',
+            desc: 'A network defense application capturing live PCAP traffic, visualizing protocol distributions, and flagging suspicious traffic bursts and port scans.',
+            descAr: 'تطبيق دفاع شبكي يلتقط حزم البيانات الحية (PCAP)، ويعرض توزيع البروتوكولات، وينبه عند رصد طفرات مرورية مشبوهة ومسح منافذ.'
+        },
+        {
+            title: 'File Integrity Monitoring System (FIM) with Hash Validation',
+            titleAr: 'نظام مراقبة تكامل وسلامة ملفات النظام الحساسة (FIM)',
+            desc: 'A host-based security monitoring service that computes SHA-256 checksums of sensitive system files and alerts administrators upon unauthorized tampering.',
+            descAr: 'خدمة مراقبة أمنية على مستوى النظام تحسب بصمات SHA-256 للملفات الحساسة وتنبه المسؤولين فورياً عند حدوث أي تعديل غير مصرح به.'
+        },
+        {
+            title: 'Time-Based One-Time Password (TOTP / 2FA) Authenticator Server',
+            titleAr: 'خادم ومولد رموز المصادقة الثنائية (TOTP / 2FA)',
+            desc: 'A standardized RFC 6238 compliant Two-Factor Authentication service enabling applications to issue QR seeds, verify time-synced OTP tokens, and backup keys.',
+            descAr: 'خدمة مصادقة ثنائية متوافقة مع معيار RFC 6238 تتيح للتطبيقات إصدار بذور QR، والتحقق من رموز OTP المتزامنة زمنياً، وإدارة مفاتيح الاسترداد.'
+        },
+        {
+            title: 'Web Application Firewall (WAF) Rule Engine & Request Filter',
+            titleAr: 'محرك جدار حماية تطبيقات الويب (WAF) وفلترة الطلبات الخبيثة',
+            desc: 'A reverse proxy security layer that inspects incoming HTTP payloads, blocks signature-based exploit attempts, and throttles brute-force attacks.',
+            descAr: 'طبقة أمنية تعمل كـ Reverse Proxy تفحص حمولات HTTP الواردة، وتحظر محاولات الاستغلال بناءً على التوقيعات، وتحد من هجمات التخمين.'
+        },
+        {
+            title: 'Ransomware Canary & File Behavior Monitor',
+            titleAr: 'نظام مراقبة السلوك للكشف المبكر عن برمجيات الفدية (Canary)',
+            desc: 'An early-warning defense tool deploying canary honeypot files to detect bulk encryption activities and instantly terminate malicious processes.',
+            descAr: 'أداة دفاعية للإنذار المبكر تنشر ملفات طُعم (Canary) لرصد أنشطة التشفير الجماعي وإيقاف العمليات الخبيثة فورياً.'
+        },
+        {
+            title: 'End-to-End Encrypted File Transfer & Secure Share Tool',
+            titleAr: 'أداة تبادل ونقل الملفات المشفرة طرفاً لطرف (E2EE)',
+            desc: 'A privacy-focused utility implementing asymmetric public-key cryptography to encrypt documents before transmission, with automatic link expiration.',
+            descAr: 'أداة خصوصية تطبق التشفير اللاتماثلي بالمفاتيح العامة لتشفير المستندات قبل إرسالها، مع انتهاء صلاحية الروابط تلقائياً.'
+        },
+        {
+            title: 'Security Information & Event Log Collector (SIEM Lite)',
+            titleAr: 'نظام خفيف لجمع وتحليل سجلات الأحداث والتهديدات الأمنية',
+            desc: 'A lightweight centralized security log aggregation engine with rule-based alerting, log normalization, and interactive security incident dashboards.',
+            descAr: 'محرك مركزي لجمع سجلات الأمان مع تنبيهات قائمة على القواعد، وتوحيد صيغ السجلات، ولوحة تحكم تفاعلية لمتابعة الحوادث الأمنية.'
+        }
+    ]
+};
+
+export default function TraineeProjects({ courseIdOverride, isEmbedded = false }) {
+    const toast = useToast();
+    const confirm = useConfirm();
     const { lang } = useI18n();
     const { user, profile } = useAuth();
     const role = (user?.role || profile?.role || 'trainee').toLowerCase();
@@ -28,6 +222,9 @@ export default function TraineeProjects() {
     const isTrainer = isAdmin || staffRoles.includes(role);
     const isEvaluator = isTrainer;
 
+    const [searchParams] = useSearchParams();
+    const effectiveCourseId = courseIdOverride || searchParams.get('course_id') || '';
+
     const [projects, setProjects] = useState([]);
     const [courses, setCourses] = useState([]);
     const [allActiveCourses, setAllActiveCourses] = useState([]);
@@ -35,7 +232,7 @@ export default function TraineeProjects() {
     const [error, setError] = useState('');
 
     // Filters (Evaluator view)
-    const [selectedCourse, setSelectedCourse] = useState('');
+    const [selectedCourse, setSelectedCourse] = useState(effectiveCourseId ? String(effectiveCourseId) : '');
     const [selectedStatus, setSelectedStatus] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -61,7 +258,7 @@ export default function TraineeProjects() {
     const [catalogCategory, setCatalogCategory] = useState('all');
     const [catalogSearch, setCatalogSearch] = useState('');
     const [selectedCatalogId, setSelectedCatalogId] = useState(null);
-    const [submissionTab, setSubmissionTab] = useState('custom'); // 'catalog' | 'custom'
+    const [submissionTab, setSubmissionTab] = useState('catalog'); // 'catalog' | 'custom'
     const [selectedProposalData, setSelectedProposalData] = useState(null);
     const [selectingCatalog, setSelectingCatalog] = useState(false);
     const [catalogError, setCatalogError] = useState('');
@@ -81,6 +278,20 @@ export default function TraineeProjects() {
     const [generatingAi, setGeneratingAi] = useState(false);
     const [submittingIdea, setSubmittingIdea] = useState(false);
     const [submitTeammates, setSubmitTeammates] = useState([]);
+
+    // Option 3: Submit External / Completed Project state
+    const [externalTitle, setExternalTitle]               = useState('');
+    const [externalCompany, setExternalCompany]           = useState('');
+    const [externalLink, setExternalLink]                 = useState('');
+    const [externalAbstract, setExternalAbstract]         = useState('');
+    const [externalProblem, setExternalProblem]           = useState('');
+    const [externalObjectives, setExternalObjectives]     = useState('');
+    const [externalArchitecture, setExternalArchitecture] = useState('');
+    const [externalTechStack, setExternalTechStack]       = useState('');
+    const [externalDeliverables, setExternalDeliverables] = useState('');
+    const [externalFile, setExternalFile]                 = useState(null);
+    const [savingExternalDraft, setSavingExternalDraft]   = useState(false);
+    const [submittingExternal, setSubmittingExternal]     = useState(false);
 
     // Project Documents & Links state
     const [projectDocs, setProjectDocs] = useState([]);
@@ -111,17 +322,48 @@ export default function TraineeProjects() {
         || (courses.length === 1 ? courses[0] : null);
 
     const isExternalTrainee = Boolean(
-        activeSelectedCourse?.course_type === 'external' ||
-        activeSelectedCourse?.training_type === 'external' ||
-        activeProject?.training_type === 'external' ||
-        user?.pending_external_course ||
-        (courses.length > 0 && courses.every(c => c.course_type === 'external')) ||
-        (user?.role === 'trainee' && courses.some(c => c.course_type === 'external' && c.is_enrolled))
+        !isAdmin && !isTrainer && (
+            user?.is_external === true ||
+            user?.is_external === 1 ||
+            user?.is_external === '1' ||
+            profile?.is_external === true ||
+            profile?.is_external === 1 ||
+            profile?.is_external === '1' ||
+            user?.training_type === 'external' ||
+            profile?.training_type === 'external' ||
+            activeProject?.training_type === 'external' ||
+            activeProject?.course_type === 'external' ||
+            activeSelectedCourse?.course_type === 'external' ||
+            activeSelectedCourse?.training_type === 'external'
+        )
     );
+    const isExternalStudent = isExternalTrainee;
+
+    const studentRawTrack = String(user?.final_track || profile?.final_track || user?.track || profile?.track || '').toLowerCase();
+    const studentTrackKey = studentRawTrack.includes('mobile') || studentRawTrack.includes('android') || studentRawTrack.includes('flutter') || studentRawTrack.includes('ios') 
+        ? 'mobile' 
+        : studentRawTrack.includes('cyber') || studentRawTrack.includes('security') || studentRawTrack.includes('أمن') 
+        ? 'cyber' 
+        : studentRawTrack.includes('ai') || studentRawTrack.includes('intelligence') || studentRawTrack.includes('machine') || studentRawTrack.includes('ذكاء') 
+        ? 'ai' 
+        : 'web';
+
+    const trackLabelMap = {
+        web: { ar: 'تطوير المواقع والويب (Web Development)', en: 'Web Development Track' },
+        mobile: { ar: 'تطبيقات الهواتف الذكية (Mobile Development)', en: 'Mobile Development Track' },
+        cyber: { ar: 'الأمن السيبراني (Cyber Security)', en: 'Cyber Security Track' },
+        ai: { ar: 'الذكاء الاصطناعي (AI & Data Track)', en: 'AI & Data Track' },
+    };
+
+    useEffect(() => {
+        if (isExternalTrainee && dashboardTab === 'team') {
+            setDashboardTab('overview');
+        }
+    }, [isExternalTrainee, dashboardTab]);
 
     const handleRefineWording = async (field, currentText, setter) => {
         if (!currentText || !currentText.trim()) {
-            alert(lang === 'ar' ? 'يرجى كتابة نص أولاً ليقوم المساعد بصياغته وتحسينه.' : 'Please enter text first to refine.');
+            toast?.warning(lang === 'ar' ? 'يرجى كتابة نص أولاً ليقوم المساعد بصياغته وتحسينه.' : 'Please enter text first to refine.');
             return;
         }
         setRefiningField(field);
@@ -145,10 +387,10 @@ export default function TraineeProjects() {
                     setter: setter
                 });
             } else {
-                alert(data.error || 'Failed to refine wording');
+                toast?.error(data.error || 'Failed to refine wording');
             }
         } catch (e) {
-            alert('Connection error');
+            toast?.error('Connection error');
         } finally {
             setRefiningField(null);
         }
@@ -200,7 +442,7 @@ export default function TraineeProjects() {
         try {
             await downloadProposalDocx(ideaId, title || 'Proposal');
         } catch (err) {
-            alert(err.message || 'Error downloading Word document');
+            toast?.error(err.message || 'Error downloading Word document');
         } finally {
             setDownloadingDocxId(null);
         }
@@ -212,10 +454,11 @@ export default function TraineeProjects() {
     const [teamCandidates, setTeamCandidates] = useState([]);
     const [loadingTeamCandidates, setLoadingTeamCandidates] = useState(false);
     const [teamSearchOpen, setTeamSearchOpen] = useState(false);
-    const [directInviteInput, setDirectInviteInput] = useState('');
     const [invitingMember, setInvitingMember] = useState(false);
     const [teamActionError, setTeamActionError] = useState('');
     const [teamActionSuccess, setTeamActionSuccess] = useState('');
+    const [myPendingInvitations, setMyPendingInvitations] = useState([]);
+    const [respondingInvitation, setRespondingInvitation] = useState(false);
     const teamSearchRef = useRef(null);
 
     // Close team candidate dropdown on outside click
@@ -231,23 +474,27 @@ export default function TraineeProjects() {
 
     // Initial data loading
     useEffect(() => {
+        if (effectiveCourseId) {
+            setSelectedCourse(String(effectiveCourseId));
+            setSubmitCourseId(String(effectiveCourseId));
+        }
         fetchCourses();
         fetchProjects();
-        if (!isExternalTrainee) {
-            fetchCatalogProjects();
-        }
-    }, [selectedCourse, selectedStatus, isExternalTrainee]);
+        fetchCatalogProjects(false, effectiveCourseId || null);
+    }, [selectedCourse, selectedStatus, effectiveCourseId]);
 
     // Auto-select active project for Trainee
     useEffect(() => {
         if (!isEvaluator && !loading && projects.length > 0) {
-            const proj = projects[0];
+            const proj = effectiveCourseId 
+                ? (projects.find(p => String(p.course_id) === String(effectiveCourseId)) || projects[0])
+                : projects[0];
             if (!activeProject || activeProject.id !== proj.id) {
                 setActiveProject(proj);
                 fetchIdeaDocs(proj.id);
             }
         }
-    }, [projects, isEvaluator, loading]);
+    }, [projects, isEvaluator, loading, effectiveCourseId]);
 
     // Search teammates candidates for active project course
     useEffect(() => {
@@ -285,7 +532,9 @@ export default function TraineeProjects() {
                 if (!isEvaluator) {
                     setCourses(data.courses);
                 }
-                if (data.courses.length > 0 && !submitCourseId) {
+                if (effectiveCourseId) {
+                    setSubmitCourseId(String(effectiveCourseId));
+                } else if (data.courses.length > 0 && !submitCourseId) {
                     setSubmitCourseId(data.courses[0].id);
                 }
             }
@@ -299,21 +548,31 @@ export default function TraineeProjects() {
         setError('');
         try {
             let url = '/api/training/ideas/list.php?';
-            if (selectedCourse) url += `course_id=${selectedCourse}&`;
+            const courseToFilter = effectiveCourseId || selectedCourse;
+            if (courseToFilter) url += `course_id=${courseToFilter}&`;
             if (selectedStatus) url += `status=${selectedStatus}&`;
 
             const res = await fetch(url, { credentials: 'include' });
             const data = await res.json();
-            if (res.ok && data.ideas) {
-                setProjects(data.ideas);
-                if (!isEvaluator && data.ideas.length > 0) {
-                    const matchedProj = preferredActiveId
-                        ? data.ideas.find(p => p.id == preferredActiveId) || data.ideas[0]
-                        : data.ideas[0];
-                    setActiveProject(matchedProj);
-                    fetchIdeaDocs(matchedProj.id);
-                } else if (!isEvaluator && data.ideas.length === 0) {
-                    setActiveProject(null);
+            if (res.ok) {
+                if (data.my_pending_invitations) {
+                    setMyPendingInvitations(data.my_pending_invitations);
+                }
+                if (data.ideas) {
+                    let ideasList = data.ideas;
+                    if (effectiveCourseId) {
+                        ideasList = ideasList.filter(p => String(p.course_id) === String(effectiveCourseId));
+                    }
+                    setProjects(ideasList);
+                    if (!isEvaluator && ideasList.length > 0) {
+                        const matchedProj = preferredActiveId
+                            ? ideasList.find(p => p.id == preferredActiveId) || ideasList[0]
+                            : ideasList[0];
+                        setActiveProject(matchedProj);
+                        fetchIdeaDocs(matchedProj.id);
+                    } else if (!isEvaluator && ideasList.length === 0) {
+                        setActiveProject(null);
+                    }
                 }
             } else {
                 setError(data.error || 'Failed to load submitted projects');
@@ -326,7 +585,6 @@ export default function TraineeProjects() {
     };
 
     const fetchCatalogProjects = async (force = false, courseIdParam = null) => {
-        if (isExternalTrainee) return;
         const targetCourseId = courseIdParam !== null ? courseIdParam : (submitCourseId || selectedCourse || '');
         if (!force && catalogProjects.length > 0 && !targetCourseId) return;
         setCatalogError('');
@@ -367,8 +625,6 @@ export default function TraineeProjects() {
         }
     };
 
-
-
     const fetchTeamCandidates = async (query = '') => {
         if (!activeProject?.course_id) return;
         setLoadingTeamCandidates(true);
@@ -388,9 +644,9 @@ export default function TraineeProjects() {
         }
     };
 
-    // ── TEAM MANAGEMENT HANDLERS ─────────────────────────────────────────────
-    const handleAddTeamMember = async (userId = 0, identifier = '') => {
-        if (!activeProject?.id) return;
+    // ── TEAM MANAGEMENT & INVITATIONS HANDLERS ───────────────────────────────
+    const handleInviteTeamMember = async (userId) => {
+        if (!activeProject?.id || !userId) return;
         setInvitingMember(true);
         setTeamActionError('');
         setTeamActionSuccess('');
@@ -401,25 +657,31 @@ export default function TraineeProjects() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     idea_id: activeProject.id,
-                    action: 'add',
-                    user_id: userId || undefined,
-                    identifier: identifier || undefined
+                    action: 'invite',
+                    user_id: userId
                 }),
                 credentials: 'include'
             });
             const data = await res.json();
 
             if (res.ok && data.success) {
-                setTeamActionSuccess(lang === 'ar' ? 'تمت إضافة العضو إلى الفريق بنجاح' : 'Team member added successfully');
-                setActiveProject(prev => prev ? { ...prev, team_members: data.team_members } : null);
-                setProjects(prev => prev.map(p => p.id === activeProject.id ? { ...p, team_members: data.team_members } : p));
+                setTeamActionSuccess(data.message || (lang === 'ar' ? 'تم إرسال دعوة الانضمام للطالب بنجاح' : 'Invitation sent successfully'));
+                setActiveProject(prev => prev ? { 
+                    ...prev, 
+                    team_members: data.team_members,
+                    pending_invitations: data.pending_invitations 
+                } : null);
+                setProjects(prev => prev.map(p => p.id === activeProject.id ? { 
+                    ...p, 
+                    team_members: data.team_members,
+                    pending_invitations: data.pending_invitations 
+                } : p));
                 setTeamSearchQuery('');
-                setDirectInviteInput('');
                 setTeamSearchOpen(false);
                 fetchTeamCandidates('');
-                setTimeout(() => setTeamActionSuccess(''), 4000);
+                setTimeout(() => setTeamActionSuccess(''), 5000);
             } else {
-                setTeamActionError(data.error || (lang === 'ar' ? 'فشل في إضافة العضو' : 'Failed to add team member'));
+                setTeamActionError(data.error || (lang === 'ar' ? 'فشل في إرسال الدعوة' : 'Failed to send invitation'));
             }
         } catch (err) {
             setTeamActionError(lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم' : 'Connection error occurred');
@@ -428,11 +690,98 @@ export default function TraineeProjects() {
         }
     };
 
+    const handleCancelInvitation = async (invitationId) => {
+        if (!activeProject?.id || !invitationId) return;
+        const ok = await confirm({
+            title: lang === 'ar' ? 'إلغاء الدعوة' : 'Cancel Invitation',
+            message: lang === 'ar' ? 'هل أنت متأكد من إلغاء هذه الدعوة؟' : 'Are you sure you want to cancel this invitation?',
+            variant: 'warning',
+            confirmText: lang === 'ar' ? 'إلغاء الدعوة' : 'Cancel Invitation'
+        });
+        if (!ok) return;
+
+        setInvitingMember(true);
+        setTeamActionError('');
+        setTeamActionSuccess('');
+
+        try {
+            const res = await fetch('/api/training/ideas/team_manage.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    idea_id: activeProject.id,
+                    action: 'cancel_invitation',
+                    invitation_id: invitationId
+                }),
+                credentials: 'include'
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                setTeamActionSuccess(data.message || (lang === 'ar' ? 'تم إلغاء الدعوة' : 'Invitation cancelled'));
+                setActiveProject(prev => prev ? { 
+                    ...prev, 
+                    team_members: data.team_members,
+                    pending_invitations: data.pending_invitations 
+                } : null);
+                setProjects(prev => prev.map(p => p.id === activeProject.id ? { 
+                    ...p, 
+                    team_members: data.team_members,
+                    pending_invitations: data.pending_invitations 
+                } : p));
+                fetchTeamCandidates(teamSearchQuery);
+                setTimeout(() => setTeamActionSuccess(''), 4000);
+            } else {
+                setTeamActionError(data.error || (lang === 'ar' ? 'فشل في إلغاء الدعوة' : 'Failed to cancel invitation'));
+            }
+        } catch (err) {
+            setTeamActionError(lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم' : 'Connection error occurred');
+        } finally {
+            setInvitingMember(false);
+        }
+    };
+
+    const handleRespondInvitation = async (invitationId, decision) => {
+        if (!invitationId || !decision) return;
+        setRespondingInvitation(true);
+        try {
+            const res = await fetch('/api/training/ideas/team_manage.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'respond_invitation',
+                    invitation_id: invitationId,
+                    decision: decision
+                }),
+                credentials: 'include'
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                if (decision === 'accept') {
+                    toast?.success(data.message || (lang === 'ar' ? 'تم الانضمام إلى الفريق بنجاح!' : 'Joined team successfully!'));
+                } else {
+                    toast?.info(data.message || (lang === 'ar' ? 'تم رفض الدعوة.' : 'Invitation rejected.'));
+                }
+                fetchProjects(data.idea_id || null);
+            } else {
+                toast?.error(data.error || 'فشلت العملية / Action failed');
+            }
+        } catch (err) {
+            toast?.error(lang === 'ar' ? 'خطأ في الاتصال بالخادم' : 'Connection error occurred');
+        } finally {
+            setRespondingInvitation(false);
+        }
+    };
+
     const handleRemoveTeamMember = async (userId) => {
         if (!activeProject?.id || !userId) return;
-        if (!window.confirm(lang === 'ar' ? 'هل أنت متأكد من إزالة هذا العضو من الفريق؟' : 'Are you sure you want to remove this member from the team?')) {
-            return;
-        }
+        const ok = await confirm({
+            title: lang === 'ar' ? 'إزالة عضو' : 'Remove Team Member',
+            message: lang === 'ar' ? 'هل أنت متأكد من إزالة هذا العضو من الفريق؟' : 'Are you sure you want to remove this member from the team?',
+            variant: 'danger',
+            confirmText: lang === 'ar' ? 'إزالة' : 'Remove'
+        });
+        if (!ok) return;
 
         setInvitingMember(true);
         setTeamActionError('');
@@ -453,8 +802,16 @@ export default function TraineeProjects() {
 
             if (res.ok && data.success) {
                 setTeamActionSuccess(lang === 'ar' ? 'تمت إزالة العضو من الفريق' : 'Member removed from team');
-                setActiveProject(prev => prev ? { ...prev, team_members: data.team_members } : null);
-                setProjects(prev => prev.map(p => p.id === activeProject.id ? { ...p, team_members: data.team_members } : p));
+                setActiveProject(prev => prev ? { 
+                    ...prev, 
+                    team_members: data.team_members,
+                    pending_invitations: data.pending_invitations 
+                } : null);
+                setProjects(prev => prev.map(p => p.id === activeProject.id ? { 
+                    ...p, 
+                    team_members: data.team_members,
+                    pending_invitations: data.pending_invitations 
+                } : p));
                 fetchTeamCandidates(teamSearchQuery);
                 setTimeout(() => setTeamActionSuccess(''), 4000);
             } else {
@@ -558,7 +915,14 @@ export default function TraineeProjects() {
     };
 
     const handleDeleteDoc = async (docId) => {
-        if (!window.confirm(lang === 'ar' ? 'هل أنت متأكد من حذف هذا التوثيق/الرابط؟' : 'Are you sure you want to delete this deliverable/link?')) return;
+        const ok = await confirm({
+            title: lang === 'ar' ? 'حذف المستند/الرابط' : 'Delete Deliverable',
+            message: lang === 'ar' ? 'هل أنت متأكد من حذف هذا التوثيق/الرابط؟' : 'Are you sure you want to delete this deliverable/link?',
+            variant: 'danger',
+            confirmText: lang === 'ar' ? 'حذف' : 'Delete'
+        });
+        if (!ok) return;
+
         try {
             const res = await fetch('/api/training/docs/delete.php', {
                 method: 'POST',
@@ -571,19 +935,25 @@ export default function TraineeProjects() {
             if (res.ok && data.success) {
                 setProjectDocs(prev => prev.filter(d => d.id !== docId));
                 fetchIdeaDocs(activeProject?.id);
+                toast?.success(lang === 'ar' ? 'تم حذف الملف بنجاح' : 'Deliverable deleted successfully');
             } else {
-                alert(data.error || 'Failed to delete');
+                toast?.error(data.error || 'Failed to delete');
             }
         } catch (e) {
-            alert('Network error while deleting');
+            toast?.error('Network error while deleting');
         }
     };
 
     const handleMarkAsFinished = async (ideaId) => {
         if (!ideaId) return;
-        if (!window.confirm(lang === 'ar' ? 'هل أنت متأكد من أنك أكملت جميع تسليمات المشروع وتريد تحديده كـ مكتمل؟' : 'Are you sure you have uploaded all deliverables and want to mark this project as finished?')) {
-            return;
-        }
+        const ok = await confirm({
+            title: lang === 'ar' ? 'تأكيد اكتمال المشروع' : 'Mark Project Finished',
+            message: lang === 'ar' ? 'هل أنت متأكد من أنك أكملت جميع تسليمات المشروع وتريد تحديده كـ مكتمل؟' : 'Are you sure you have uploaded all deliverables and want to mark this project as finished?',
+            variant: 'info',
+            confirmText: lang === 'ar' ? 'نعم، اكتمل المشروع' : 'Yes, Mark Finished'
+        });
+        if (!ok) return;
+
         setCompletingProject(true);
         try {
             const res = await fetch('/api/training/ideas/complete.php', {
@@ -596,11 +966,12 @@ export default function TraineeProjects() {
             if (res.ok && data.success) {
                 setActiveProject(prev => prev ? { ...prev, status: 'completed' } : null);
                 fetchProjects();
+                toast?.success(lang === 'ar' ? 'تم تحديد المشروع كمكتمل بنجاح!' : 'Project marked as completed successfully!');
             } else {
-                alert(data.error || 'Failed to mark project as finished');
+                toast?.error(data.error || 'Failed to mark project as finished');
             }
         } catch (err) {
-            alert('Error completing project');
+            toast?.error('Error completing project');
         } finally {
             setCompletingProject(false);
         }
@@ -613,11 +984,8 @@ export default function TraineeProjects() {
         const defaultList = isEvaluator ? (allActiveCourses.length > 0 ? allActiveCourses : courses) : courses;
         const initialCourse = idea?.course_id || activeProject?.course_id || submitCourseId || (defaultList.length > 0 ? defaultList[0].id : '');
         
-        // If trainee is an external student, force custom idea submission and isolate from catalog
-        const isExternal = (!isEvaluator && (activeProject?.training_type === 'external' || user?.training_type === 'external'));
-        if (!isExternal) {
-            fetchCatalogProjects(true, initialCourse);
-        }
+        // Always pre-fetch catalog projects
+        fetchCatalogProjects(true, initialCourse);
 
         if (idea) {
             setEditingIdeaId(idea.id);
@@ -628,8 +996,28 @@ export default function TraineeProjects() {
             setSubmitTechStack(idea.tech_stack || '');
             setSubmitProblemStmt(idea.problem_statement || '');
             setSubmitExpectedOutput(idea.expected_output || '');
-            setSubmissionTab(isExternal ? 'custom' : (idea.catalog_project_id ? 'catalog' : 'custom'));
-            setSelectedCatalogId(isExternal ? null : (idea.catalog_project_id || null));
+
+            const isExternalDoc = idea.proposal_json?.source === 'external_completed_project' || idea.is_external_project;
+            if (idea.catalog_project_id) {
+                setSubmissionTab('catalog');
+            } else if (isExternalDoc) {
+                setSubmissionTab('external_project');
+            } else {
+                setSubmissionTab('custom');
+            }
+            setSelectedCatalogId(idea.catalog_project_id || null);
+
+            // Populate External Form fields
+            setExternalTitle(idea.title || '');
+            setExternalCompany(idea.proposal_json?.provider_name || idea.custom_provider_name || idea.provider_name || '');
+            setExternalLink(idea.proposal_json?.project_link || '');
+            setExternalAbstract(idea.description || '');
+            setExternalProblem(idea.problem_statement || '');
+            setExternalObjectives(idea.proposal_json?.sections?.find(s => s.key === 'objectives_scope')?.content || '');
+            setExternalArchitecture(idea.proposal_json?.sections?.find(s => s.key === 'methodology' || s.key === 'expected_system_design')?.content || '');
+            setExternalTechStack(idea.tech_stack || '');
+            setExternalDeliverables(idea.expected_output || '');
+            setExternalFile(null);
 
             const rawMembers = idea.team_members || [];
             const currentUserId = user?.id;
@@ -639,7 +1027,20 @@ export default function TraineeProjects() {
             fetch(`/api/training/ideas/proposal_get.php?idea_id=${idea.id}`, { credentials: 'include' })
                 .then(r => r.json())
                 .then(d => {
-                    if (d.proposal) setSelectedProposalData(d.proposal);
+                    if (d.proposal) {
+                        setSelectedProposalData(d.proposal);
+                        if (d.proposal?.source === 'external_completed_project') {
+                            setSubmissionTab('external_project');
+                            if (d.proposal.sections) {
+                                const findSec = (k) => d.proposal.sections.find(s => s.key === k)?.content || '';
+                                if (!externalAbstract) setExternalAbstract(findSec('abstract') || idea.description || '');
+                                if (!externalProblem) setExternalProblem(findSec('problem_definition') || idea.problem_statement || '');
+                                if (!externalObjectives) setExternalObjectives(findSec('objectives_scope') || '');
+                                if (!externalArchitecture) setExternalArchitecture(findSec('methodology') || findSec('expected_system_design') || '');
+                                if (!externalDeliverables) setExternalDeliverables(findSec('expected_output') || idea.expected_output || '');
+                            }
+                        }
+                    }
                 })
                 .catch(() => {});
         } else {
@@ -647,7 +1048,7 @@ export default function TraineeProjects() {
             setCreatedIdeaId(null);
             setSelectedCatalogId(null);
             setSelectedProposalData(null);
-            setSubmissionTab(isExternal ? 'custom' : 'catalog');
+            setSubmissionTab('catalog');
             setSubmitCourseId(initialCourse);
             setSubmitTitleEn('');
             setSubmitDescEn('');
@@ -655,10 +1056,34 @@ export default function TraineeProjects() {
             setSubmitProblemStmt('');
             setSubmitExpectedOutput('');
             setSubmitTeammates([]);
+
+            setExternalTitle('');
+            setExternalCompany(user?.pending_external_course?.custom_provider_name || activeProject?.custom_provider_name || activeProject?.provider_name || '');
+            setExternalLink('');
+            setExternalAbstract('');
+            setExternalProblem('');
+            setExternalObjectives('');
+            setExternalArchitecture('');
+            setExternalTechStack('');
+            setExternalDeliverables('');
+            setExternalFile(null);
         }
         setShowSubmitModal(true);
         fetchActiveCourses();
     };
+
+    // Auto-open catalog modal if action=catalog in URL query params
+    useEffect(() => {
+        const action = searchParams.get('action');
+        const courseParam = searchParams.get('course_id');
+        if (action === 'catalog' || action === 'submit') {
+            if (courseParam) {
+                setSubmitCourseId(courseParam);
+                fetchCatalogProjects(true, courseParam);
+            }
+            openSubmitModal();
+        }
+    }, [searchParams]);
 
     const handleSelectCatalogIdea = async (catProject) => {
         if (catProject.is_taken && !catProject.taken_by_me) {
@@ -722,34 +1147,251 @@ export default function TraineeProjects() {
         }
     };
 
+    const handleApplyTrackSuggestion = (sug) => {
+        const titleText = lang === 'ar' ? (sug.titleAr || sug.title) : sug.title;
+        const descText = lang === 'ar' ? (sug.descAr || sug.desc) : sug.desc;
+        setSubmitTitleEn(titleText);
+        setSubmitDescEn(descText);
+        setSubmitProblemStmt('');
+        setSubmitExpectedOutput('');
+        setSubmitTechStack('');
+        setSelectedProposalData(null);
+    };
+
     const handleGenerateAiProposal = async () => {
-        if (!aiKeyword.trim()) return;
+        const currentTitle = submitTitleEn.trim();
+        const currentDesc = submitDescEn.trim();
+
+        if (!currentTitle || !currentDesc) {
+            setError(lang === 'ar'
+                ? 'يرجى كتابة عنوان المشروع والوصف التفصيلي أولاً، ليعتمد عليهما الذكاء الاصطناعي في بناء المقترح بدقة.'
+                : 'Please write the Project Title and a detailed Project Description first so AI can generate the proposal accurately.');
+            return;
+        }
+
         setGeneratingAi(true);
+        setError('');
         try {
             const res = await fetch('/api/training/ideas/ai_generate.php', {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    keywords: aiKeyword,
-                    track: aiTrack || undefined
+                    title: currentTitle,
+                    description: currentDesc,
+                    domain: (trackLabelMap && trackLabelMap[studentTrackKey]?.en) || 'Software / AI',
+                    full_sections: true
                 })
             });
             const data = await res.json();
-            if (res.ok && data.proposal) {
-                setSubmitTitleEn(data.proposal.title || '');
-                setSubmitDescEn(data.proposal.description || '');
+            if (res.ok && data.success && data.proposal) {
+                if (data.proposal.title && (!currentTitle || currentTitle.length < 8)) {
+                    setSubmitTitleEn(data.proposal.title);
+                }
                 setSubmitProblemStmt(data.proposal.problem_statement || '');
                 setSubmitTechStack(data.proposal.tech_stack || '');
                 setSubmitExpectedOutput(data.proposal.expected_output || '');
                 if (data.proposal.sections) {
                     setSelectedProposalData(data.proposal);
                 }
+            } else {
+                const errMsg = (lang === 'ar' ? data.error_ar : data.error_en) ||
+                    data.error ||
+                    (lang === 'ar'
+                        ? 'خدمة الذكاء الاصطناعي تشهد ضغطاً حالياً، يرجى المحاولة مرة أخرى بعد لحظات.'
+                        : 'The AI service is currently experiencing high demand. Please try again in a few moments.');
+                setError(errMsg);
             }
         } catch (e) {
             console.error(e);
+            setError(lang === 'ar'
+                ? 'خدمة الذكاء الاصطناعي تشهد ضغطاً حالياً، يرجى المحاولة مرة أخرى بعد لحظات.'
+                : 'The AI service is currently experiencing high demand. Please try again in a few moments.');
         } finally {
             setGeneratingAi(false);
+        }
+    };
+
+    // ── OPTION 3: SAVE PROPOSAL FILE AS DRAFT ─────────────────────────────────
+    const handleSaveExternalDraft = async (e) => {
+        if (e) e.preventDefault();
+        const defaultList = isEvaluator ? (allActiveCourses.length > 0 ? allActiveCourses : courses) : courses;
+        const targetCourseId = submitCourseId || activeProject?.course_id || (defaultList.length > 0 ? defaultList[0].id : null);
+        
+        const finalTitle = externalTitle.trim() || (externalFile ? externalFile.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') : (lang === 'ar' ? 'مسودة مقترح مشروع' : 'Project Proposal Draft'));
+
+        if (!targetCourseId) {
+            setError(lang === 'ar' ? 'يرجى اختيار الدورة التدريبية' : 'Please select a training course');
+            return;
+        }
+
+        setSavingExternalDraft(true);
+        setError('');
+
+        try {
+            const sections = [
+                { key: 'abstract', title: 'Executive Summary / Abstract', content: externalAbstract.trim() || 'Draft executive summary pending completion.', source: 'user_input' },
+                { key: 'methodology', title: 'Methodology & Documentation', content: 'Draft proposal file attached.', source: 'user_input' }
+            ];
+
+            const proposalPayload = {
+                source: 'external_completed_project',
+                is_draft: true,
+                project_title: finalTitle,
+                provider_name: externalCompany.trim(),
+                project_link: externalLink.trim(),
+                file_name: externalFile ? externalFile.name : null,
+                sections: sections,
+                team: {
+                    leader: user?.full_name || 'Student',
+                    members: [],
+                    course: activeSelectedCourse?.name || 'Field Training',
+                    date: new Date().toLocaleDateString('en-GB')
+                }
+            };
+
+            const submitRes = await fetch('/api/training/ideas/submit.php', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    course_id: targetCourseId,
+                    title: finalTitle,
+                    description: externalAbstract.trim() || (lang === 'ar' ? 'مسودة مقترح قيد الإعداد' : 'Draft proposal in progress'),
+                    tech_stack: 'Applied Frameworks',
+                    problem_statement: 'Draft',
+                    expected_output: 'Draft',
+                    is_draft: true,
+                    status: 'draft',
+                    proposal_json: proposalPayload
+                })
+            });
+
+            const submitData = await submitRes.json();
+            if (!submitRes.ok || !submitData.success) {
+                setError(submitData.error || (lang === 'ar' ? 'فشل حفظ المسودة' : 'Failed to save draft'));
+                setSavingExternalDraft(false);
+                return;
+            }
+
+            const ideaId = submitData.idea_id || activeProject?.id;
+
+            // If a document file is attached, upload it
+            if (ideaId && externalFile) {
+                const formData = new FormData();
+                formData.append('idea_id', ideaId);
+                formData.append('title', finalTitle || externalFile.name);
+                formData.append('doc_type', 'external_project_file');
+                formData.append('file', externalFile);
+
+                await fetch('/api/training/docs/upload.php', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+            }
+
+            setShowSubmitModal(false);
+            setExternalFile(null);
+            fetchProjects(ideaId);
+        } catch (err) {
+            setError(lang === 'ar' ? 'حدث خطأ في الاتصال أثناء حفظ المسودة' : 'Network error saving draft');
+        } finally {
+            setSavingExternalDraft(false);
+        }
+    };
+
+    // ── OPTION 3: SUBMIT PROPOSAL FILE (FINAL SUBMISSION) ─────────────────────
+    const handleSubmitExternalProject = async (e) => {
+        if (e) e.preventDefault();
+        const defaultList = isEvaluator ? (allActiveCourses.length > 0 ? allActiveCourses : courses) : courses;
+        const targetCourseId = submitCourseId || activeProject?.course_id || (defaultList.length > 0 ? defaultList[0].id : null);
+        
+        const finalTitle = externalTitle.trim() || (externalFile ? externalFile.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') : '');
+
+        if (!targetCourseId) {
+            setError(lang === 'ar' ? 'يرجى اختيار الدورة التدريبية' : 'Please select a training course');
+            return;
+        }
+        if (!finalTitle) {
+            setError(lang === 'ar' ? 'يرجى كتابة عنوان المشروع أو إرفاق ملف المقترح' : 'Please provide project title or attach proposal file');
+            return;
+        }
+
+        setSubmittingExternal(true);
+        setError('');
+
+        try {
+            const sections = [
+                { key: 'abstract', title: 'Executive Summary / Abstract', content: externalAbstract.trim() || `Official project proposal submitted for ${finalTitle}.`, source: 'user_input' },
+                { key: 'introduction_background', title: 'Chapter 1 — Introduction & Context', content: `This project (${finalTitle}) was conducted as part of academic training${externalCompany.trim() ? ` at ${externalCompany.trim()}` : ''}.\n\n${externalAbstract.trim() || 'Comprehensive project proposal and documentation attached.'}`, source: 'user_input' },
+                { key: 'methodology', title: 'Methodology & Implementation', content: 'Applied methodology, system design, and execution documented in attached official proposal file.', source: 'user_input' }
+            ];
+
+            const proposalPayload = {
+                source: 'external_completed_project',
+                is_draft: false,
+                project_title: finalTitle,
+                provider_name: externalCompany.trim(),
+                project_link: externalLink.trim(),
+                file_name: externalFile ? externalFile.name : null,
+                sections: sections,
+                team: {
+                    leader: user?.full_name || 'Student',
+                    members: [],
+                    course: activeSelectedCourse?.name || 'Field Training',
+                    date: new Date().toLocaleDateString('en-GB')
+                }
+            };
+
+            const submitRes = await fetch('/api/training/ideas/submit.php', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    course_id: targetCourseId,
+                    title: finalTitle,
+                    description: externalAbstract.trim() || `Official proposal submission for ${finalTitle}`,
+                    tech_stack: externalTechStack.trim() || 'Applied Frameworks & Tools',
+                    problem_statement: 'Documented in attached proposal file',
+                    expected_output: 'Complete project deliverables and report attached',
+                    is_draft: false,
+                    status: 'submitted',
+                    proposal_json: proposalPayload
+                })
+            });
+
+            const submitData = await submitRes.json();
+            if (!submitRes.ok || !submitData.success) {
+                setError(submitData.error || (lang === 'ar' ? 'فشل تقديم المقترح' : 'Failed to submit proposal'));
+                setSubmittingExternal(false);
+                return;
+            }
+
+            const ideaId = submitData.idea_id || activeProject?.id;
+
+            // Upload attached proposal file
+            if (ideaId && externalFile) {
+                const formData = new FormData();
+                formData.append('idea_id', ideaId);
+                formData.append('title', finalTitle || externalFile.name);
+                formData.append('doc_type', 'external_project_file');
+                formData.append('file', externalFile);
+
+                await fetch('/api/training/docs/upload.php', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+            }
+
+            setShowSubmitModal(false);
+            setExternalFile(null);
+            await fetchProjects(ideaId);
+        } catch (err) {
+            setError(lang === 'ar' ? 'حدث خطأ في الاتصال أثناء تقديم المقترح' : 'Network error submitting proposal');
+        } finally {
+            setSubmittingExternal(false);
         }
     };
 
@@ -767,30 +1409,37 @@ export default function TraineeProjects() {
         try {
             let proposalDataToSave = selectedProposalData;
 
-            // If external student or custom idea without pre-generated proposal, attempt AI synthesis with quick timeout
-            if (isExternalTrainee || !proposalDataToSave) {
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 4000);
-                    const aiRes = await fetch('/api/training/ideas/ai_generate.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        signal: controller.signal,
-                        body: JSON.stringify({
-                            keywords: `${submitTitleEn}. ${submitDescEn}. Problem: ${submitProblemStmt || 'Applied Engineering Challenge'}. Tech: ${submitTechStack || 'Modern Frameworks'}. Deliverables: ${submitExpectedOutput || 'Complete System Repository and Documentation'}`,
-                            domain: 'External Training / Applied Engineering',
-                            context: submitDescEn,
-                            full_sections: 1
-                        })
-                    });
-                    clearTimeout(timeoutId);
-                    const aiData = await aiRes.json();
-                    if (aiRes.ok && aiData.proposal) {
-                        proposalDataToSave = aiData.proposal;
-                    }
-                } catch (aiErr) {
-                    // Fallback handled server-side seamlessly
-                }
+            // If proposalDataToSave exists, ensure its top-level and section fields match any edits
+            if (proposalDataToSave && proposalDataToSave.sections) {
+                proposalDataToSave.project_title = submitTitleEn;
+                proposalDataToSave.description = submitDescEn;
+                proposalDataToSave.tech_stack = submitTechStack;
+                proposalDataToSave.problem_statement = submitProblemStmt;
+                proposalDataToSave.expected_output = submitExpectedOutput;
+                proposalDataToSave.sections = proposalDataToSave.sections.map(sec => {
+                    if (sec.key === 'abstract' && submitDescEn) return { ...sec, content: submitDescEn };
+                    if (sec.key === 'problem_definition' && submitProblemStmt) return { ...sec, content: submitProblemStmt };
+                    return sec;
+                });
+            } else {
+                // If not already generated via AI button, build standard 7-section structured proposal
+                proposalDataToSave = {
+                    source: 'custom_ai',
+                    project_title: submitTitleEn,
+                    description: submitDescEn,
+                    tech_stack: submitTechStack,
+                    problem_statement: submitProblemStmt,
+                    expected_output: submitExpectedOutput,
+                    sections: [
+                        { key: 'abstract', title: 'Executive Summary / Abstract', content: submitDescEn, source: 'user_input' },
+                        { key: 'introduction_background', title: 'Introduction & Background', content: `This project, titled "${submitTitleEn}", focuses on developing a tailored system to address practical requirements in the domain. Utilizing ${submitTechStack || 'modern engineering frameworks'}, the system bridges conceptual modeling with reliable implementation.`, source: 'user_input' },
+                        { key: 'problem_definition', title: 'Problem Definition & Motivation', content: submitProblemStmt || `The project addresses critical challenges in the operational domain of ${submitTitleEn}, providing an automated and robust alternative to manual or unintegrated processes.`, source: 'user_input' },
+                        { key: 'objectives_scope', title: 'Aim, Objectives & Scope', content: `Overall Aim: To design and implement ${submitTitleEn}.\n\nKey Deliverables:\n${submitExpectedOutput || '1. Functional prototype\n2. Documentation and test verification'}`, source: 'user_input' },
+                        { key: 'related_work', title: 'Related Work & Comparative Analysis', content: `Existing approaches in the domain of ${submitTitleEn} frequently suffer from high implementation overhead or closed-source lock-in. This project provides a transparent, modular architecture built on ${submitTechStack || 'open modern stacks'}.`, source: 'user_input' },
+                        { key: 'methodology', title: 'Methodology & Engineering Pipeline', content: `The technical methodology encompasses iterative development phases: requirements analysis, modular component engineering using ${submitTechStack || 'the designated stack'}, and empirical verification under realistic test scenarios.`, source: 'user_input' },
+                        { key: 'expected_system_design', title: 'System Architecture & Design', content: `Architecture Overview:\n1. Client Presentation Layer for input capture and output rendering.\n2. Core Processing Engine executing domain business logic.\n3. Data Persistence Layer ensuring structured state management.`, source: 'user_input' }
+                    ]
+                };
             }
 
             const res = await fetch('/api/training/ideas/submit.php', {
@@ -888,6 +1537,19 @@ export default function TraineeProjects() {
         setEvalSuccess('');
         setEvalError('');
 
+        const isGolden = newStatus === 'golden_pass';
+        const isMembersEvaluated = Boolean(
+            activeProject?.is_members_evaluated ||
+            (activeProject?.evaluation_score !== null && activeProject?.evaluation_score !== undefined && activeProject?.evaluation_score !== '') ||
+            (activeProject?.owner_evaluation_score !== null && activeProject?.owner_evaluation_score !== undefined && activeProject?.owner_evaluation_score !== '')
+        );
+
+        if (isGolden && !isMembersEvaluated) {
+            setEvalError(lang === 'ar' ? 'لا يمكن منح الكارت الذهبي قبل رصد تقييم أعضاء المشروع في تبويب التقييمات أولاً.' : 'Cannot award Golden Pass before project members are evaluated.');
+            setEvaluating(false);
+            return;
+        }
+
         try {
             const res = await fetch('/api/training/ideas/evaluate.php', {
                 method: 'POST',
@@ -898,14 +1560,18 @@ export default function TraineeProjects() {
                 },
                 body: JSON.stringify({
                     idea_id: activeProject.id,
-                    status: newStatus,
+                    status: isGolden ? 'approved' : newStatus,
+                    golden_pass: isGolden ? true : undefined,
                     feedback: feedback || voteNotes
                 })
             });
             const data = await res.json();
 
             if (res.ok && data.success) {
-                setEvalSuccess(lang === 'ar' ? 'تم تحديث حالة المشروع بنجاح' : 'Project status updated successfully');
+                const msg = isGolden
+                    ? (lang === 'ar' ? '🌟 تم منح الكارت الذهبي وتأهيل المشروع للوحة المتصدرين بنجاح!' : '🌟 Golden Pass awarded! Project added directly to the Leaderboard.')
+                    : (lang === 'ar' ? 'تم تحديث حالة المشروع بنجاح' : 'Project status updated successfully');
+                setEvalSuccess(msg);
                 if (newStatus === 'voting') {
                     setActiveProject(prev => ({
                         ...prev,
@@ -917,14 +1583,15 @@ export default function TraineeProjects() {
                 } else {
                     setActiveProject(prev => ({
                         ...prev,
-                        status: newStatus,
+                        status: isGolden ? 'approved' : newStatus,
+                        is_golden_pass: isGolden ? 1 : prev.is_golden_pass,
                         feedback: feedback || voteNotes
                     }));
                     fetchProjects();
                     setTimeout(() => {
                         setActiveProject(null);
                         setEvalSuccess('');
-                    }, 1200);
+                    }, 1400);
                 }
             } else {
                 setEvalError(data.error || (lang === 'ar' ? 'فشل حفظ التقييم' : 'Failed to update evaluation'));
@@ -985,27 +1652,40 @@ export default function TraineeProjects() {
         return title.includes(query) || traineeName.includes(query) || studentId.includes(query);
     });
 
-    const getStatusBadge = (st) => {
-        switch (st) {
-            case 'approved':
-                return <span className="status-badge badge-approved"><CheckCircle2 size={14} /> {lang === 'ar' ? 'معتمد' : 'Approved'}</span>;
-            case 'completed':
-                return <span className="status-badge badge-completed"><Award size={14} /> {lang === 'ar' ? 'مكتمل' : 'Completed'}</span>;
-            case 'rejected':
-                return <span className="status-badge badge-rejected"><XCircle size={14} /> {lang === 'ar' ? 'مرفوض' : 'Rejected'}</span>;
-            case 'changes_requested':
-                return <span className="status-badge badge-changes"><AlertCircle size={14} /> {lang === 'ar' ? 'مطلوب تعديلات' : 'Changes Requested'}</span>;
-            case 'voting':
-                return <span className="status-badge badge-voting"><Vote size={14} /> {lang === 'ar' ? 'قيد التصويت' : 'In Voting'}</span>;
-            default:
-                return <span className="status-badge badge-pending"><Clock size={14} /> {lang === 'ar' ? 'قيد المراجعة' : 'Under Review'}</span>;
-        }
+    const getStatusBadge = (st, isGolden = false) => {
+        return (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                {isGolden && (
+                    <span className="status-badge badge-golden-pass" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #f59e0b 0%, #b45309 100%)', color: '#ffffff', border: '1px solid rgba(251, 191, 36, 0.6)', fontWeight: 700, boxShadow: '0 2px 8px rgba(245, 158, 11, 0.35)' }}>
+                        <Sparkles size={13} /> {lang === 'ar' ? 'الكارت الذهبي' : 'Golden Pass'}
+                    </span>
+                )}
+                {(() => {
+                    switch (st) {
+                        case 'approved':
+                            return <span className="status-badge badge-approved"><CheckCircle2 size={14} /> {lang === 'ar' ? 'معتمد' : 'Approved'}</span>;
+                        case 'completed':
+                            return <span className="status-badge badge-completed"><Award size={14} /> {lang === 'ar' ? 'مكتمل' : 'Completed'}</span>;
+                        case 'rejected':
+                            return <span className="status-badge badge-rejected"><XCircle size={14} /> {lang === 'ar' ? 'مرفوض' : 'Rejected'}</span>;
+                        case 'changes_requested':
+                            return <span className="status-badge badge-changes"><AlertCircle size={14} /> {lang === 'ar' ? 'مطلوب تعديلات' : 'Changes Requested'}</span>;
+                        case 'voting':
+                            return <span className="status-badge badge-voting"><Vote size={14} /> {lang === 'ar' ? 'قيد التصويت' : 'In Voting'}</span>;
+                        case 'draft':
+                            return <span className="status-badge badge-draft" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1' }}><FileText size={14} /> {lang === 'ar' ? 'مسودة' : 'Draft'}</span>;
+                        default:
+                            return <span className="status-badge badge-pending"><Clock size={14} /> {lang === 'ar' ? 'قيد المراجعة' : 'Under Review'}</span>;
+                    }
+                })()}
+            </div>
+        );
     };
 
-    const isOwner = activeProject && (activeProject.trainee_id === user?.id || activeProject.owner_id === user?.id || activeProject.is_team_leader);
+    const isOwner = activeProject && (String(activeProject.trainee_id) === String(user?.id) || String(activeProject.owner_id) === String(user?.id) || activeProject.is_team_leader);
 
     return (
-        <div className="trainee-projects-page">
+        <div className={`trainee-projects-page ${isEmbedded ? 'trainee-projects-embedded' : ''}`}>
             {/* ── NMU Template Proposal Document Modal ─────────────────── */}
             {showProposalDoc && selectedProposalData && (
                 <ProposalDocModal
@@ -1013,6 +1693,7 @@ export default function TraineeProjects() {
                     ideaId={createdIdeaId}
                     isEvaluator={isEvaluator}
                     lang={lang}
+                    isExternal={isExternalTrainee || selectedProposalData?.training_type === 'external' || selectedProposalData?.course_type === 'external'}
                     onClose={() => setShowProposalDoc(false)}
                     onEvaluated={() => {
                         setShowProposalDoc(false);
@@ -1022,37 +1703,115 @@ export default function TraineeProjects() {
             )}
 
             {/* ── Page Top Header ──────────────────────────────────────── */}
-            <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                <div>
-                    <h1>
-                        <FolderOpen size={24} className="text-primary" />
-                        {isEvaluator
-                            ? (lang === 'ar' ? 'مشاريع المتدربين المقدمة' : 'Trainee Submitted Projects')
-                            : (lang === 'ar' ? 'مشروعي وفكرتي للتدريب الميداني' : 'My Field Training Project & Idea')
-                        }
-                    </h1>
-                    <p>
-                        {isEvaluator
-                            ? (lang === 'ar' ? 'مراجعة وتقييم ومتابعة مشاريع الطلاب وتوثيقاتهم المرفوعة' : 'Review, grade, and monitor student project deliverables and team proposals')
-                            : (lang === 'ar' ? 'إدارة مقترح مشروعك، أعضاء فريقك، وتسليم وثائق وتقارير التدريب' : 'Manage your official proposal, team collaborators, and submit all deliverables')
-                        }
-                    </p>
-                </div>
-
-                {!isEvaluator && activeProject && (
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <span className="hero-course-chip">
-                            <BookOpen size={13} /> {activeProject.course_name}
-                        </span>
+            {!isEmbedded && (
+                <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div>
+                        <h1>
+                            <FolderOpen size={24} className="text-primary" />
+                            {isEvaluator
+                                ? (lang === 'ar' ? 'المشاريع' : 'Projects')
+                                : (lang === 'ar' ? 'مشروعي وفكرتي للتدريب الميداني' : 'My Field Training Project & Idea')
+                            }
+                        </h1>
+                        <p>
+                            {isEvaluator
+                                ? (lang === 'ar' ? 'مراجعة وتقييم ومتابعة مشاريع الطلاب وتوثيقاتهم المرفوعة' : 'Review, grade, and monitor student project deliverables and team proposals')
+                                : (lang === 'ar' ? 'إدارة مقترح مشروعك، أعضاء فريقك، وتسليم وثائق وتقارير التدريب' : 'Manage your official proposal, team collaborators, and submit all deliverables')
+                            }
+                        </p>
                     </div>
-                )}
-            </div>
+
+                    {!isEvaluator && activeProject && (
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <span className="hero-course-chip">
+                                <BookOpen size={13} /> {activeProject.course_name}
+                            </span>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* ═══════════════════════════════════════════════════════════════
                 TRAINEE VIEW — UNIFIED MODERN PROJECT HUB
             ════════════════════════════════════════════════════════════════ */}
             {!isEvaluator && (
                 <>
+                    {/* Received Pending Team Invitations (Facebook-style invitation requests) */}
+                    {myPendingInvitations && myPendingInvitations.length > 0 && (
+                        <div className="received-invitations-container" style={{ marginBottom: '1.25rem' }}>
+                            {myPendingInvitations.map(inv => (
+                                <div key={inv.invitation_id} className="received-invitation-card" style={{
+                                    background: 'linear-gradient(135deg, rgba(0, 45, 86, 0.05) 0%, rgba(37, 99, 235, 0.08) 100%)',
+                                    border: '1.5px solid rgba(37, 99, 235, 0.25)',
+                                    borderRadius: '16px',
+                                    padding: '1.25rem 1.5rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '1.5rem',
+                                    boxShadow: '0 4px 15px rgba(0,0,0,0.03)',
+                                    flexWrap: 'wrap',
+                                    marginBottom: '0.75rem'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                        <div style={{
+                                            width: '46px',
+                                            height: '46px',
+                                            borderRadius: '12px',
+                                            background: 'linear-gradient(135deg, #002D56 0%, #2563eb 100%)',
+                                            color: '#fff',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexShrink: 0
+                                        }}>
+                                            <Mail size={22} />
+                                        </div>
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                                                <span style={{ fontSize: '0.78rem', fontWeight: 700, padding: '2px 8px', borderRadius: '6px', background: '#2563eb', color: '#fff' }}>
+                                                    {lang === 'ar' ? 'طلب انضمام جديد' : 'New Team Invitation'}
+                                                </span>
+                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                                    {inv.course_name}
+                                                </span>
+                                            </div>
+                                            <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-0)' }}>
+                                                {inv.project_title}
+                                            </h4>
+                                            <p style={{ margin: '3px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                                {lang === 'ar' ? `دعاك زميلك قائد المشروع: ${inv.inviter_name} للانضمام إلى فريق عمل هذا المشروع` : `Invited by project leader: ${inv.inviter_name} to join this team`}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <button
+                                            type="button"
+                                            className="btn btn-primary"
+                                            style={{ background: '#10b981', borderColor: '#10b981', padding: '0.65rem 1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
+                                            disabled={respondingInvitation}
+                                            onClick={() => handleRespondInvitation(inv.invitation_id, 'accept')}
+                                        >
+                                            <Check size={16} />
+                                            <span>{lang === 'ar' ? 'قبول الدعوة' : 'Accept Invitation'}</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-ghost"
+                                            style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.3)', padding: '0.65rem 1.1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
+                                            disabled={respondingInvitation}
+                                            onClick={() => handleRespondInvitation(inv.invitation_id, 'reject')}
+                                        >
+                                            <X size={16} />
+                                            <span>{lang === 'ar' ? 'رفض' : 'Decline'}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     {loading ? (
                         <div className="loading-state">
                             <Loader2 className="spin" size={32} />
@@ -1066,15 +1825,19 @@ export default function TraineeProjects() {
                             </div>
                             <h3>{lang === 'ar' ? 'لم تختر فكرة مشروعك للتدريب الميداني بعد' : 'No Field Training Project Selected Yet'}</h3>
                             <p>
-                                {lang === 'ar'
-                                    ? 'يمكنك الاختيار فوراً من دليل المشاريع الـ 64 المعتمدة مع المقترح الأكاديمي الكامل، أو إنشاء فكرتك الخاصة بالذكاء الاصطناعي.'
-                                    : 'Select instantly from the 64 official pre-approved catalog projects or create your own custom idea.'
+                                {isExternalTrainee
+                                    ? (lang === 'ar'
+                                        ? 'قم بتسجيل مقترح مشروع التدريب الميداني الخاص بك أو إنشاء وتخصيص فكرتك بالذكاء الاصطناعي.'
+                                        : 'Register your official field training project proposal or create your own custom project idea.')
+                                    : (lang === 'ar'
+                                        ? 'يمكنك الاختيار فوراً من دليل المشاريع الـ 64 المعتمدة مع المقترح الأكاديمي الكامل، أو إنشاء فكرتك الخاصة بالذكاء الاصطناعي.'
+                                        : 'Select instantly from the 64 official pre-approved catalog projects or create your own custom idea.')
                                 }
                             </p>
                             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '1.25rem' }}>
                                 <button className="btn btn-primary" onClick={() => openSubmitModal()} style={{ gap: '8px', padding: '0.85rem 1.85rem', fontWeight: 700, fontSize: '0.95rem' }}>
-                                    <BookOpen size={18} />
-                                    {lang === 'ar' ? 'تصفح المشاريع' : 'Browse Projects'}
+                                    <Plus size={18} />
+                                    {lang === 'ar' ? 'إضافة مشروع' : 'Add Project'}
                                 </button>
                             </div>
                         </div>
@@ -1100,7 +1863,7 @@ export default function TraineeProjects() {
                                                 {activeProject.track_name ? ` • ${activeProject.track_name}` : ''}
                                             </span>
                                         )}
-                                        {getStatusBadge(activeProject.status)}
+                                        {getStatusBadge(activeProject.status, Number(activeProject.is_golden_pass) === 1)}
                                     </div>
                                     <h2 className="hero-project-title">
                                         {activeProject.title}
@@ -1116,10 +1879,12 @@ export default function TraineeProjects() {
                                             <UserCheck size={14} />
                                             {lang === 'ar' ? 'المدرب المشرف:' : 'Supervisor:'} <strong>{activeProject.reviewer_name || activeProject.effective_trainer_name || (lang === 'ar' ? 'مشرف الدورة' : 'Course Trainer')}</strong>
                                         </span>
-                                        <span>
-                                            <Users size={14} />
-                                            {lang === 'ar' ? 'فريق العمل:' : 'Team:'} <strong>{(activeProject.team_members?.length || 1)} / 5 {lang === 'ar' ? 'أعضاء' : 'Members'}</strong>
-                                        </span>
+                                        {!isExternalTrainee && activeProject.training_type !== 'external' && activeProject.course_type !== 'external' && (
+                                            <span>
+                                                <Users size={14} />
+                                                {lang === 'ar' ? 'فريق العمل:' : 'Team:'} <strong>{(activeProject.team_members?.length || 1)} / 5 {lang === 'ar' ? 'أعضاء' : 'Members'}</strong>
+                                            </span>
+                                        )}
                                         <span>
                                             <Clock size={14} />
                                             {new Date(activeProject.updated_at || activeProject.created_at).toLocaleDateString()}
@@ -1127,7 +1892,19 @@ export default function TraineeProjects() {
                                     </div>
                                 </div>
 
-                                <div className="hero-banner-actions">
+                                <div className="hero-banner-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    {isOwner && activeProject.status === 'draft' && (
+                                        <button
+                                            type="button"
+                                            className="btn-hero-action"
+                                            onClick={() => openSubmitModal(activeProject)}
+                                            style={{ background: '#2563eb', color: '#ffffff', borderColor: '#2563eb', fontWeight: 700 }}
+                                            title={lang === 'ar' ? 'استكمال وتعديل مسودة المشروع' : 'Complete & Edit Project Draft'}
+                                        >
+                                            <Edit3 size={15} />
+                                            <span>{lang === 'ar' ? 'استكمال المسودة' : 'Complete Draft'}</span>
+                                        </button>
+                                    )}
                                     {isEvaluator ? (
                                         <button
                                             type="button"
@@ -1183,9 +1960,13 @@ export default function TraineeProjects() {
                                         </div>
                                     </div>
                                     <p style={{ margin: 0, fontSize: '0.86rem', color: '#7f1d1d' }}>
-                                        {lang === 'ar'
-                                            ? 'تم رفض هذه الفكرة، يمكنك الآن اختيار فكرة جديدة فوراً من دليل الـ 64 مشروعاً المعتمدة مع المقترح الكامل.'
-                                            : 'This proposal was rejected. You can now select a new project idea from the 64 official catalog templates.'
+                                        {isExternalTrainee
+                                            ? (lang === 'ar'
+                                                ? 'تم رفض هذا المقترح، يمكنك الآن تقديم وتعديل مقترح مشروع جديد.'
+                                                : 'This proposal was rejected. You can now submit a new project proposal.')
+                                            : (lang === 'ar'
+                                                ? 'تم رفض هذه الفكرة، يمكنك الآن اختيار فكرة جديدة فوراً من دليل الـ 64 مشروعاً المعتمدة مع المقترح الكامل.'
+                                                : 'This proposal was rejected. You can now select a new project idea from the 64 official catalog templates.')
                                         }
                                     </p>
                                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '0.25rem' }}>
@@ -1204,107 +1985,10 @@ export default function TraineeProjects() {
                                                 cursor: 'pointer'
                                             }}
                                         >
-                                            <Sparkles size={16} />
-                                            <span>{lang === 'ar' ? 'اختيار فكرة جديدة من الدليل (64 مشروعاً)' : 'Choose New Idea from Catalog'}</span>
+                                            <Plus size={16} />
+                                            <span>{isExternalTrainee ? (lang === 'ar' ? 'إضافة مشروع جديد' : 'Add New Project') : (lang === 'ar' ? 'اختيار فكرة جديدة من الدليل (64 مشروعاً)' : 'Choose New Idea from Catalog')}</span>
                                         </button>
                                     </div>
-                                </div>
-                            )}
-
-                            {/* External Training Verification Document Card */}
-                            {activeProject.training_type === 'external' && !isEvaluator && (
-                                <div style={{
-                                    margin: '1rem 0 1.25rem 0',
-                                    padding: '1.15rem 1.35rem',
-                                    borderRadius: '14px',
-                                    background: activeProject.verification_status === 'approved' 
-                                        ? 'rgba(34, 197, 94, 0.08)'
-                                        : activeProject.verification_status === 'rejected'
-                                        ? 'rgba(239, 68, 68, 0.08)'
-                                        : 'rgba(59, 130, 246, 0.06)',
-                                    border: `1.5px solid ${
-                                        activeProject.verification_status === 'approved'
-                                            ? 'rgba(34, 197, 94, 0.3)'
-                                            : activeProject.verification_status === 'rejected'
-                                            ? 'rgba(239, 68, 68, 0.3)'
-                                            : 'rgba(59, 130, 246, 0.25)'
-                                    }`,
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '0.75rem'
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <FileCheck size={20} className="text-primary" />
-                                            <h4 style={{ margin: 0, fontSize: '0.96rem', fontWeight: 800 }}>
-                                                {lang === 'ar' ? 'وثيقة إثبات التدريب الميداني الخارجي' : 'External Training Verification Document'}
-                                            </h4>
-                                        </div>
-                                        {activeProject.verification_status === 'approved' ? (
-                                            <span className="badge badge-approved" style={{ fontSize: '0.75rem' }}>
-                                                <CheckCircle2 size={13} /> {lang === 'ar' ? 'معتمدة ومقبولة رسمياً' : 'Official Verified'}
-                                            </span>
-                                        ) : activeProject.verification_status === 'rejected' ? (
-                                            <span className="badge badge-rejected" style={{ fontSize: '0.75rem', background: '#fee2e2', color: '#dc2626' }}>
-                                                <XCircle size={13} /> {lang === 'ar' ? 'الوثيقة مرفوضة' : 'Rejected'}
-                                            </span>
-                                        ) : activeProject.verification_status === 'pending' ? (
-                                            <span className="badge badge-pending" style={{ fontSize: '0.75rem', background: '#fef3c7', color: '#d97706' }}>
-                                                <Clock size={13} /> {lang === 'ar' ? 'قيد مراجعة الإدارة' : 'Pending Admin Review'}
-                                            </span>
-                                        ) : (
-                                            <span className="badge badge-outline" style={{ fontSize: '0.75rem' }}>
-                                                {lang === 'ar' ? 'مطلوب الرفع' : 'Upload Required'}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    {activeProject.verification_status === 'rejected' && activeProject.verification_feedback && (
-                                        <div style={{ padding: '0.65rem 0.85rem', background: '#fee2e2', borderRadius: '8px', color: '#991b1b', fontSize: '0.85rem' }}>
-                                            <strong>{lang === 'ar' ? 'سبب الرفض والملاحظات:' : 'Rejection Reason:'}</strong> {activeProject.verification_feedback}
-                                        </div>
-                                    )}
-
-                                    {activeProject.verification_doc_url ? (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                                            <a
-                                                href={activeProject.verification_doc_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="btn btn-outline btn-sm"
-                                                style={{ gap: '6px', fontSize: '0.8rem' }}
-                                            >
-                                                <Eye size={14} /> {lang === 'ar' ? 'معاينة الوثيقة المرفوعة' : 'View Uploaded Document'}
-                                            </a>
-                                            {activeProject.verification_status !== 'approved' && (
-                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                                    {lang === 'ar' ? 'يمكنك رفع وثيقة بديلة في حال طلب المشرف ذلك أدناه.' : 'You can re-upload if requested.'}
-                                                </span>
-                                            )}
-                                        </div>
-                                    ) : null}
-
-                                    {activeProject.verification_status !== 'approved' && (
-                                        <form onSubmit={handleUploadVerificationDoc} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.25rem' }}>
-                                            <input
-                                                type="file"
-                                                required
-                                                accept=".pdf,.png,.jpg,.jpeg,.docx"
-                                                onChange={e => setVerifDocFile(e.target.files[0])}
-                                                style={{ fontSize: '0.82rem', flex: 1, minWidth: '220px' }}
-                                            />
-                                            <button type="submit" className="btn btn-primary btn-sm" disabled={uploadingVerifFile || !verifDocFile}>
-                                                {uploadingVerifFile ? <Loader2 className="spin" size={14} /> : <Upload size={14} />}
-                                                {lang === 'ar' ? 'رفع وثيقة التدريب' : 'Upload Document'}
-                                            </button>
-                                        </form>
-                                    )}
-
-                                    {verifUploadMsg && (
-                                        <div style={{ fontSize: '0.82rem', color: verifUploadMsg.type === 'success' ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
-                                            {verifUploadMsg.text}
-                                        </div>
-                                    )}
                                 </div>
                             )}
 
@@ -1318,7 +2002,7 @@ export default function TraineeProjects() {
                                     <FileText size={16} />
                                     <span>{lang === 'ar' ? 'نظرة عامة والمقترح الرسمي' : 'Overview & Proposal'}</span>
                                 </button>
-                                {activeProject.training_type !== 'external' && !isExternalTrainee && (
+                                {activeProject.training_type !== 'external' && activeProject.course_type !== 'external' && !isExternalTrainee && (
                                     <button
                                         type="button"
                                         className={`ws-tab-btn ${dashboardTab === 'team' ? 'active' : ''}`}
@@ -1430,12 +2114,13 @@ export default function TraineeProjects() {
                                             documentLabel="proposal"
                                             canEdit={isOwner}
                                             lang={lang}
+                                            isExternal={isExternalTrainee || activeProject.training_type === 'external' || activeProject.course_type === 'external'}
                                         />
                                     </div>
                                 )}
 
-                                {/* TAB 2: MY TEAM & COLLABORATORS */}
-                                {dashboardTab === 'team' && (
+                                {/* TAB 2: MY TEAM & COLLABORATORS — ONLY FOR INTERNAL COURSES */}
+                                {dashboardTab === 'team' && !isExternalTrainee && activeProject.training_type !== 'external' && activeProject.course_type !== 'external' && (
                                     <div className="tab-pane-content">
                                         {/* Alerts */}
                                         {teamActionSuccess && (
@@ -1525,34 +2210,93 @@ export default function TraineeProjects() {
                                             )}
                                         </div>
 
+                                        {/* Pending Sent Invitations Section (Awaiting student response) */}
+                                        {isOwner && activeProject.pending_invitations && activeProject.pending_invitations.length > 0 && (
+                                            <div className="pending-invitations-box" style={{ marginTop: '1.25rem', marginBottom: '1.25rem' }}>
+                                                <h5 style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <Clock size={15} style={{ color: '#f59e0b' }} />
+                                                    <span>{lang === 'ar' ? 'دعوات انضمام مرسلة (في انتظار قبول الطلاب):' : 'Pending Sent Invitations (Awaiting Acceptance):'}</span>
+                                                </h5>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    {activeProject.pending_invitations.map(inv => (
+                                                        <div key={inv.invitation_id} style={{
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            padding: '0.75rem 1rem',
+                                                            background: 'var(--surface-card)',
+                                                            border: '1px dashed #f59e0b',
+                                                            borderRadius: '10px',
+                                                            gap: '10px'
+                                                        }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                                <div style={{
+                                                                    width: '32px',
+                                                                    height: '32px',
+                                                                    borderRadius: '50%',
+                                                                    background: 'rgba(245, 158, 11, 0.15)',
+                                                                    color: '#f59e0b',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    fontWeight: 700,
+                                                                    fontSize: '0.85rem'
+                                                                }}>
+                                                                    {inv.full_name ? inv.full_name.charAt(0).toUpperCase() : 'S'}
+                                                                </div>
+                                                                <div>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                        <strong>{inv.full_name}</strong>
+                                                                        {inv.student_id && <span className="cand-id">{inv.student_id}</span>}
+                                                                    </div>
+                                                                    <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                                                                        <Clock size={11} /> {lang === 'ar' ? 'طلب انضمام مرسل (في انتظار رد الطالب)' : 'Invitation sent (awaiting response)'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                className="btn-remove-member"
+                                                                onClick={() => handleCancelInvitation(inv.invitation_id)}
+                                                                disabled={invitingMember}
+                                                                title={lang === 'ar' ? 'إلغاء الدعوة' : 'Cancel invitation'}
+                                                            >
+                                                                <X size={15} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Capacity Full Notification */}
-                                        {isOwner && (activeProject.team_members?.length || 1) >= 5 && (
+                                        {isOwner && ((activeProject.team_members?.length || 1) + (activeProject.pending_invitations?.length || 0)) >= 5 && (
                                             <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '12px', padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '10px', color: '#10b981', fontWeight: 700 }}>
                                                 <CheckCircle2 size={20} />
                                                 <div>
                                                     <div>{lang === 'ar' ? 'اكتمل أعضاء فريق المشروع (5 من 5 طلاب)' : 'Team Capacity Reached (5 / 5 Members)'}</div>
-                                                    <span style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-muted)' }}>{lang === 'ar' ? 'تم الوصول للحد الأقصى لعدد الطلاب المسموح به لكل مشروع.' : 'The maximum team limit has been reached for this project.'}</span>
+                                                    <span style={{ fontSize: '0.78rem', fontWeight: 500, color: 'var(--text-muted)' }}>{lang === 'ar' ? 'تم الوصول للحد الأقصى لعدد الطلاب المسموح به لكل مشروع (بما في ذلك الدعوات المعلقة).' : 'The maximum team limit has been reached for this project (including pending invites).'}</span>
                                                 </div>
                                             </div>
                                         )}
 
                                         {/* ── Invite / Add Classmates Section (For Leader/Owner, if < 5) ── */}
-                                        {isOwner && (activeProject.team_members?.length || 1) < 5 && (
+                                        {isOwner && ((activeProject.team_members?.length || 1) + (activeProject.pending_invitations?.length || 0)) < 5 && (
                                             <div className="team-invite-box" ref={teamSearchRef}>
                                                 <div className="invite-box-title">
                                                     <UserPlus size={18} className="text-primary" />
                                                     <h4>{lang === 'ar' ? 'إضافة زميل إلى الفريق' : 'Add Classmate to Team'}</h4>
                                                 </div>
 
-                                                <div className="invite-inputs-grid">
-                                                    {/* Option A: Search Classmates with Autocomplete */}
-                                                    <div className="invite-search-col">
-                                                        <label>{lang === 'ar' ? 'البحث عن زميل في الدورة بالاسم أو الرقم الجامعي:' : 'Search Enrolled Classmate:'}</label>
+                                                <div className="invite-inputs-grid" style={{ gridTemplateColumns: '1fr' }}>
+                                                    {/* Search Classmates with Autocomplete */}
+                                                    <div className="invite-search-col" style={{ width: '100%' }}>
+                                                        <label>{lang === 'ar' ? 'البحث عن زميل في الدورة بالاسم أو الرقم الجامعي لإرسال دعوة انضمام:' : 'Search Enrolled Classmate to Send Team Invitation:'}</label>
                                                         <div className="search-input-wrapper">
                                                             <Search size={16} className="search-icon" />
                                                             <input
                                                                 type="text"
-                                                                placeholder={lang === 'ar' ? 'ابحث بالاسم، الرقم الجامعي، أو البريد...' : 'Search student by name, student ID, email...'}
+                                                                placeholder={lang === 'ar' ? 'ابحث بالاسم، الرقم الجامعي، أو البريد الإلكتروني...' : 'Search student by name, student ID, email...'}
                                                                 value={teamSearchQuery}
                                                                 onChange={e => {
                                                                     setTeamSearchQuery(e.target.value);
@@ -1581,14 +2325,15 @@ export default function TraineeProjects() {
                                                                         {teamCandidates.map(cand => {
                                                                             const isAlreadyInTeam = cand.is_in_team || cand.is_in_other_team;
                                                                             const isAlreadySelected = activeProject.team_members?.some(m => (m.user_id || m.id) === cand.id);
+                                                                            const hasPendingInv = cand.has_pending_invitation || activeProject.pending_invitations?.some(inv => (inv.user_id || inv.id) === cand.id);
 
                                                                             return (
                                                                                 <div
                                                                                     key={cand.id}
-                                                                                    className={`candidate-row-item ${isAlreadyInTeam || isAlreadySelected ? 'disabled' : ''}`}
+                                                                                    className={`candidate-row-item ${isAlreadyInTeam || isAlreadySelected || hasPendingInv ? 'disabled' : ''}`}
                                                                                     onClick={() => {
-                                                                                        if (!isAlreadyInTeam && !isAlreadySelected) {
-                                                                                            handleAddTeamMember(cand.id);
+                                                                                        if (!isAlreadyInTeam && !isAlreadySelected && !hasPendingInv) {
+                                                                                            handleInviteTeamMember(cand.id);
                                                                                         }
                                                                                     }}
                                                                                 >
@@ -1604,13 +2349,17 @@ export default function TraineeProjects() {
                                                                                     </div>
                                                                                     <div className="cand-action">
                                                                                         {isAlreadySelected ? (
-                                                                                            <span className="cand-badge added"><Check size={12} /> {lang === 'ar' ? 'مضاف' : 'Added'}</span>
+                                                                                            <span className="cand-badge added"><Check size={12} /> {lang === 'ar' ? 'مضاف بالفريق' : 'In Team'}</span>
+                                                                                        ) : hasPendingInv ? (
+                                                                                            <span className="cand-badge busy" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#d97706', borderColor: 'rgba(245, 158, 11, 0.3)' }}>
+                                                                                                <Clock size={12} /> {lang === 'ar' ? 'تمت الدعوة (معلقة)' : 'Invited (Pending)'}
+                                                                                            </span>
                                                                                         ) : isAlreadyInTeam ? (
                                                                                             <span className="cand-badge busy"><AlertTriangle size={12} /> {lang === 'ar' ? 'في فريق آخر' : 'In Another Team'}</span>
                                                                                         ) : (
                                                                                             <button type="button" className="btn-add-cand" disabled={invitingMember}>
                                                                                                 <UserPlus size={13} />
-                                                                                                {lang === 'ar' ? 'إضافة' : 'Add'}
+                                                                                                {lang === 'ar' ? 'إرسال دعوة' : 'Send Invite'}
                                                                                             </button>
                                                                                         )}
                                                                                     </div>
@@ -1621,37 +2370,6 @@ export default function TraineeProjects() {
                                                                 )}
                                                             </div>
                                                         )}
-                                                    </div>
-
-                                                    {/* Option B: Direct Add by Student ID / Email */}
-                                                    <div className="invite-direct-col">
-                                                        <label>{lang === 'ar' ? 'أو إضافة مباشرة بالرقم الجامعي / البريد:' : 'Or Quick Add by Student ID / Email:'}</label>
-                                                        <form
-                                                            onSubmit={(e) => {
-                                                                e.preventDefault();
-                                                                if (directInviteInput.trim()) {
-                                                                    handleAddTeamMember(0, directInviteInput.trim());
-                                                                }
-                                                            }}
-                                                            style={{ display: 'flex', gap: '8px' }}
-                                                        >
-                                                            <input
-                                                                type="text"
-                                                                className="direct-invite-input"
-                                                                placeholder={lang === 'ar' ? 'الرقم الجامعي أو البريد...' : 'Student ID or Email...'}
-                                                                value={directInviteInput}
-                                                                onChange={e => setDirectInviteInput(e.target.value)}
-                                                            />
-                                                            <button
-                                                                type="submit"
-                                                                className="btn btn-primary"
-                                                                disabled={invitingMember || !directInviteInput.trim()}
-                                                                style={{ padding: '0.6rem 1.1rem', fontSize: '0.85rem', flexShrink: 0, fontWeight: 700 }}
-                                                            >
-                                                                {invitingMember ? <Loader2 size={16} className="spin" /> : <UserPlus size={16} />}
-                                                                <span>{lang === 'ar' ? 'إضافة' : 'Add'}</span>
-                                                            </button>
-                                                        </form>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1888,7 +2606,7 @@ export default function TraineeProjects() {
                                                                         </a>
                                                                     )}
 
-                                                                    {(d.trainee_id === user?.id || isOwner || isAdmin) && (
+                                                                    {(String(d.trainee_id) === String(user?.id) || isOwner || isAdmin) && (
                                                                         <button
                                                                             type="button"
                                                                             className="btn btn-sm btn-ghost text-danger"
@@ -1919,32 +2637,34 @@ export default function TraineeProjects() {
             {isEvaluator && (
                 <>
                     {/* Course Quick-Switch Tab Pills */}
-                    <div className="course-quick-tabs">
-                        <button
-                            type="button"
-                            className={`course-quick-tab ${selectedCourse === '' ? 'active' : ''}`}
-                            onClick={() => setSelectedCourse('')}
-                        >
-                            <Layers size={15} />
-                            <span>{lang === 'ar' ? 'جميع الدورات' : 'All Courses'}</span>
-                            <span className="count-badge">{filteredProjects.length}</span>
-                        </button>
-                        {courses.map(c => {
-                            const cProjectsCount = projects.filter(p => String(p.course_id) === String(c.id)).length;
-                            return (
-                                <button
-                                    key={c.id}
-                                    type="button"
-                                    className={`course-quick-tab ${String(selectedCourse) === String(c.id) ? 'active' : ''}`}
-                                    onClick={() => setSelectedCourse(String(c.id))}
-                                >
-                                    <BookOpen size={14} />
-                                    <span>{c.name}</span>
-                                    <span className="count-badge">{cProjectsCount}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
+                    {!isEmbedded && !effectiveCourseId && (
+                        <div className="course-quick-tabs">
+                            <button
+                                type="button"
+                                className={`course-quick-tab ${selectedCourse === '' ? 'active' : ''}`}
+                                onClick={() => setSelectedCourse('')}
+                            >
+                                <Layers size={15} />
+                                <span>{lang === 'ar' ? 'جميع الدورات' : 'All Courses'}</span>
+                                <span className="count-badge">{filteredProjects.length}</span>
+                            </button>
+                            {courses.map(c => {
+                                const cProjectsCount = projects.filter(p => String(p.course_id) === String(c.id)).length;
+                                return (
+                                    <button
+                                        key={c.id}
+                                        type="button"
+                                        className={`course-quick-tab ${String(selectedCourse) === String(c.id) ? 'active' : ''}`}
+                                        onClick={() => setSelectedCourse(String(c.id))}
+                                    >
+                                        <BookOpen size={14} />
+                                        <span>{c.name}</span>
+                                        <span className="count-badge">{cProjectsCount}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
 
                     {/* Filter Card */}
                     <div className="filter-card">
@@ -1959,17 +2679,19 @@ export default function TraineeProjects() {
                         </div>
 
                         <div className="filter-dropdowns">
-                            <div className="select-wrapper">
-                                <BookOpen size={16} />
-                                <select value={selectedCourse} onChange={e => setSelectedCourse(e.target.value)}>
-                                    <option value="">{lang === 'ar' ? 'جميع الدورات' : 'All Courses'}</option>
-                                    {courses.map(c => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                            {!isEmbedded && !effectiveCourseId && (
+                                <div className="select-wrapper">
+                                    <BookOpen size={16} />
+                                    <select value={selectedCourse} onChange={e => setSelectedCourse(e.target.value)}>
+                                        <option value="">{lang === 'ar' ? 'جميع الدورات' : 'All Courses'}</option>
+                                        {courses.map(c => (
+                                            <option key={c.id} value={c.id}>
+                                                {c.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
                             <div className="select-wrapper">
                                 <Filter size={16} />
@@ -1999,11 +2721,17 @@ export default function TraineeProjects() {
                             <p>{lang === 'ar' ? 'لم يقم المتدربون بتقديم أي مقترحات مشاريع تطابق خيارات التصفية.' : 'No trainees have submitted project proposals matching your filters.'}</p>
                         </div>
                     ) : (() => {
-                        const targetCourses = selectedCourse
-                            ? courses.filter(c => String(c.id) === String(selectedCourse))
-                            : courses;
+                        const targetCourses = effectiveCourseId
+                            ? (courses.filter(c => String(c.id) === String(effectiveCourseId)).length > 0
+                                ? courses.filter(c => String(c.id) === String(effectiveCourseId))
+                                : [{ id: effectiveCourseId, name: (activeProject?.course_name || (lang === 'ar' ? 'الدورة التدريبية' : 'Course')) }])
+                            : (selectedCourse
+                                ? courses.filter(c => String(c.id) === String(selectedCourse))
+                                : courses);
 
-                        const orphanProjects = filteredProjects.filter(p => !targetCourses.some(c => String(c.id) === String(p.course_id)));
+                        const orphanProjects = effectiveCourseId
+                            ? []
+                            : filteredProjects.filter(p => !targetCourses.some(c => String(c.id) === String(p.course_id)));
 
                         return (
                             <div className="course-sections-list">
@@ -2085,7 +2813,7 @@ export default function TraineeProjects() {
                                                                         {project.student_id && <span className="student-id-badge">{project.student_id}</span>}
                                                                     </div>
                                                                 </div>
-                                                                {getStatusBadge(project.status)}
+                                                                {getStatusBadge(project.status, Number(project.is_golden_pass) === 1)}
                                                             </div>
 
                                                             <div className="project-card-body">
@@ -2101,7 +2829,7 @@ export default function TraineeProjects() {
                                                                     {project.description || project.problem_statement || (lang === 'ar' ? 'لا يوجد وصف متاح' : 'No description provided')}
                                                                 </p>
 
-                                                                {project.team_members && project.team_members.length > 1 && (
+                                                                {project.training_type !== 'external' && project.course_type !== 'external' && project.team_members && project.team_members.length > 1 && (
                                                                     <div className="card-team-roster" style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                                                                         <Users size={13} style={{ color: 'var(--text-muted)' }} />
                                                                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
@@ -2198,9 +2926,9 @@ export default function TraineeProjects() {
                                                             <div>
                                                                 <h4 className="trainee-name">{project.trainee_name || 'Trainee'}</h4>
                                                                 {project.student_id && <span className="student-id-badge">{project.student_id}</span>}
-                                                            </div>
+                             								</div>
                                                         </div>
-                                                        {getStatusBadge(project.status)}
+                                                        {getStatusBadge(project.status, Number(project.is_golden_pass) === 1)}
                                                     </div>
                                                     <div className="project-card-body">
                                                         <h3 className="project-title">{project.title}</h3>
@@ -2242,7 +2970,7 @@ export default function TraineeProjects() {
                             <div className="eval-modal-header-left">
                                 <div className="eval-modal-title-row">
                                     <h2>{activeProject.title}</h2>
-                                    {getStatusBadge(activeProject.status)}
+                                    {getStatusBadge(activeProject.status, Number(activeProject.is_golden_pass) === 1)}
                                 </div>
                                 <div className="eval-modal-meta">
                                     <span><strong>{lang === 'ar' ? 'المقرر:' : 'Course:'}</strong> {activeProject.course_name}</span>
@@ -2266,16 +2994,6 @@ export default function TraineeProjects() {
                                 >
                                     {downloadingDocxId === activeProject.id ? <Loader2 size={15} className="spin" /> : <Download size={15} />}
                                     <span>{downloadingDocxId === activeProject.id ? (lang === 'ar' ? 'جارٍ التحميل...' : 'Downloading...') : 'Word (.docx)'}</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={(e) => handleDeleteIdea(e, activeProject.id)}
-                                    className="btn btn-sm btn-outline"
-                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#ef4444', borderColor: '#fca5a5' }}
-                                    title={lang === 'ar' ? 'حذف فكرة المشروع' : 'Delete Project Idea'}
-                                >
-                                    <Trash2 size={15} />
-                                    <span>{lang === 'ar' ? 'حذف' : 'Delete'}</span>
                                 </button>
                                 <button className="eval-modal-close-btn" onClick={() => setActiveProject(null)}>
                                     <X size={20} />
@@ -2411,19 +3129,6 @@ export default function TraineeProjects() {
 
                                             <button
                                                 type="button"
-                                                className="btn-eval-changes"
-                                                disabled={evaluating}
-                                                onClick={() => handleEvaluate('changes_requested')}
-                                            >
-                                                <AlertCircle size={20} />
-                                                <div>
-                                                    <strong>{lang === 'ar' ? 'طلب تعديلات من الطالب' : 'Request Changes'}</strong>
-                                                    <span>{lang === 'ar' ? 'إعادة الفكرة للطالب للتعديل' : 'Return for student revision'}</span>
-                                                </div>
-                                            </button>
-
-                                            <button
-                                                type="button"
                                                 className="btn-eval-reject"
                                                 disabled={evaluating}
                                                 onClick={() => handleEvaluate('rejected')}
@@ -2434,6 +3139,47 @@ export default function TraineeProjects() {
                                                     <span>{lang === 'ar' ? 'عدم ملائمة الفكرة للمشروع' : 'Reject proposal'}</span>
                                                 </div>
                                             </button>
+
+                                            {(() => {
+                                                const isMembersEvaluated = Boolean(
+                                                    activeProject?.is_members_evaluated ||
+                                                    (activeProject?.evaluation_score !== null && activeProject?.evaluation_score !== undefined && activeProject?.evaluation_score !== '') ||
+                                                    (activeProject?.owner_evaluation_score !== null && activeProject?.owner_evaluation_score !== undefined && activeProject?.owner_evaluation_score !== '')
+                                                );
+
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        className={`btn-eval-golden-pass ${!isMembersEvaluated ? 'is-locked-golden-pass' : ''}`}
+                                                        disabled={evaluating || !isMembersEvaluated}
+                                                        onClick={() => handleEvaluate('golden_pass')}
+                                                        title={!isMembersEvaluated 
+                                                            ? (lang === 'ar' ? 'يجب تقييم ورصد درجات أعضاء المشروع في تبويب التقييم الأكاديمي أولاً لتفعيل الكارت الذهبي' : 'Must evaluate project members in Evaluations tab first to unlock Golden Pass') 
+                                                            : (lang === 'ar' ? 'تأهيل المشروع مباشرةً للوحة الشرف والمتصدرين' : 'Direct Fast-Track to Leaderboard')}
+                                                    >
+                                                        {isMembersEvaluated ? (
+                                                            <Sparkles size={20} className="sparkle-gold-icon" />
+                                                        ) : (
+                                                            <Lock size={20} className="lock-muted-icon" />
+                                                        )}
+                                                        <div>
+                                                            <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                                {lang === 'ar' ? 'منح الكارت الذهبي (Golden Pass)' : 'Award Golden Pass'}
+                                                                {!isMembersEvaluated && (
+                                                                    <span style={{ fontSize: '0.7rem', color: '#dc2626', fontWeight: 800, background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '1px 6px', borderRadius: '4px' }}>
+                                                                        {lang === 'ar' ? 'مغلق' : 'Locked'}
+                                                                    </span>
+                                                                )}
+                                                            </strong>
+                                                            <span>
+                                                                {isMembersEvaluated 
+                                                                    ? (lang === 'ar' ? 'تأهيل مباشر للوحة الشرف والمتصدرين' : 'Direct Fast-Track to Leaderboard')
+                                                                    : (lang === 'ar' ? 'يتطلب رصد تقييم ودرجات أعضاء المشروع أولاً' : 'Requires project members evaluation first')}
+                                                            </span>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 ) : (
@@ -2510,33 +3256,56 @@ export default function TraineeProjects() {
 
                         {error && <div className="alert alert-error" style={{ margin: '1rem 1.5rem 0 1.5rem' }}>{error}</div>}
 
-                        {/* Submission Mode Tabs — ONLY for Internal Robotics Trainees */}
-                        {!isExternalTrainee && (
-                            <div className="catalog-mode-tabs" style={{ margin: '0.75rem 1.5rem 1rem 1.5rem' }}>
-                                <button
-                                    type="button"
-                                    className={`catalog-mode-tab ${submissionTab === 'catalog' ? 'active' : ''}`}
-                                    onClick={() => setSubmissionTab('catalog')}
-                                >
-                                    <BookOpen size={16} />
-                                    <span>{lang === 'ar' ? 'اختيار من دليل المشاريع (64 فكرة معتمدة)' : 'Choose from 64 Official Projects Catalog'}</span>
-                                    <span className="catalog-instant-badge" style={{ padding: '1px 6px', fontSize: '0.7rem' }}>
-                                        <Zap size={11} /> {lang === 'ar' ? 'فوري' : 'Instant'}
-                                    </span>
-                                </button>
-                                <button
-                                    type="button"
-                                    className={`catalog-mode-tab ${submissionTab === 'custom' ? 'active' : ''}`}
-                                    onClick={() => setSubmissionTab('custom')}
-                                >
-                                    <Edit3 size={16} />
-                                    <span>{lang === 'ar' ? 'إنشاء فكرتي الخاصة (ERTH AI)' : 'Create My Own Idea (ERTH AI)'}</span>
-                                </button>
-                            </div>
-                        )}
+                        {/* ── Mode Selection Tabs (Unified 3 Options) ── */}
+                        <div className="catalog-mode-tabs" style={{ margin: '0.75rem 1.5rem 1rem 1.5rem', flexWrap: 'wrap', gap: '8px' }}>
+                            {/* Option 1: Select from Pre-defined Proposals */}
+                            <button
+                                type="button"
+                                className={`catalog-mode-tab ${submissionTab === 'catalog' ? 'active' : ''}`}
+                                onClick={() => { setSubmissionTab('catalog'); setError(''); }}
+                                style={{ minWidth: '220px' }}
+                            >
+                                <BookOpen size={16} />
+                                <span>
+                                    {isExternalTrainee 
+                                        ? (lang === 'ar' ? 'اختيار من دليل المشاريع (24 فكرة معتمدة)' : 'Select Pre-defined Idea (24 Ideas)')
+                                        : (lang === 'ar' ? 'اختيار من دليل المشاريع (64 فكرة معتمدة)' : 'Official Projects Catalog (64 Ideas)')}
+                                </span>
+                                <span className="catalog-instant-badge" style={{ padding: '1px 6px', fontSize: '0.68rem' }}>
+                                    {isExternalTrainee ? '24' : '64'}
+                                </span>
+                            </button>
 
-                        {/* TAB 1: 64 OFFICIAL PROJECTS CATALOG — ONLY for Internal Robotics Trainees */}
-                        {!isExternalTrainee && submissionTab === 'catalog' && (
+                            {/* Option 2: Create My Own Idea */}
+                            <button
+                                type="button"
+                                className={`catalog-mode-tab ${submissionTab === 'custom' ? 'active' : ''}`}
+                                onClick={() => { setSubmissionTab('custom'); setError(''); }}
+                                style={{ minWidth: '200px' }}
+                            >
+                                <Sparkles size={16} />
+                                <span>{lang === 'ar' ? 'إنشاء فكرتي الخاصة (ERTH AI)' : 'Create My Own Idea (ERTH AI)'}</span>
+                            </button>
+
+                            {/* Option 3: Upload Completed Proposal / Documentation */}
+                            <button
+                                type="button"
+                                className={`catalog-mode-tab ${submissionTab === 'external_project' ? 'active' : ''}`}
+                                onClick={() => { setSubmissionTab('external_project'); setError(''); }}
+                                style={{ minWidth: '220px' }}
+                            >
+                                <FileUp size={16} />
+                                <span>{lang === 'ar' ? 'رفع مقترح / توثيق مكتمل' : 'Upload Completed Proposal File'}</span>
+                                <span className="catalog-instant-badge" style={{ padding: '1px 6px', fontSize: '0.68rem', background: 'rgba(16,185,129,0.1)', color: '#059669', borderColor: 'rgba(16,185,129,0.25)' }}>
+                                    {lang === 'ar' ? 'ملف / Word / PDF' : 'Word / PDF File'}
+                                </span>
+                            </button>
+                        </div>
+
+                        {/* ═══════════════════════════════════════════════════════════════
+                            OPTION 1: PRE-DEFINED PROPOSALS CATALOG (24 Software for External, 64 for Internal)
+                        ════════════════════════════════════════════════════════════════ */}
+                        {submissionTab === 'catalog' && (
                             <div className="modal-body-content fancy-modal-body catalog-view-body" style={{ padding: '0.75rem 1.5rem 1rem 1.5rem', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                                 <div className="catalog-control-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', background: '#f8fafc', padding: '0.65rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '0.75rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '260px' }}>
@@ -2566,44 +3335,57 @@ export default function TraineeProjects() {
                                     </div>
                                     <div className="catalog-instant-badge" style={{ padding: '4px 12px', fontSize: '0.75rem' }}>
                                         <Sparkles size={13} />
-                                        <span>{lang === 'ar' ? 'دليل الأفكار المعتمد رسمياً' : 'Official Pre-Approved Catalog'}</span>
+                                        <span>
+                                            {isExternalTrainee 
+                                                ? (lang === 'ar' ? 'دليل مشاريع البرمجيات والذكاء الاصطناعي (24 فكرة معتمدة)' : '24 Approved Software & AI Proposals')
+                                                : (lang === 'ar' ? 'دليل الأفكار المعتمد رسمياً (64 فكرة معتمدة)' : 'Official Pre-Approved Catalog (64 Ideas)')}
+                                        </span>
                                     </div>
                                 </div>
 
                                 <div className="catalog-filter-bar" style={{ marginBottom: '0.75rem' }}>
                                     <div className="catalog-category-pills">
-                                        {(() => {
-                                            const catCounts = {
-                                                all: catalogProjects.length || 64,
-                                                software: catalogProjects.filter(p => String(p.category || '').toLowerCase() === 'software').length || 24,
-                                                yanshee: catalogProjects.filter(p => String(p.category || '').toLowerCase() === 'yanshee').length || 15,
-                                                nao: catalogProjects.filter(p => String(p.category || '').toLowerCase() === 'nao').length || 15,
-                                                integrated: catalogProjects.filter(p => String(p.category || '').toLowerCase() === 'integrated').length || 10,
-                                            };
-                                            return [
-                                                { key: 'all', labelEn: `All (${catCounts.all})`, labelAr: `الكل (${catCounts.all})` },
-                                                { key: 'software', labelEn: `Software / AI (${catCounts.software})`, labelAr: `برمجيات وذكاء اصطناعي (${catCounts.software})` },
-                                                { key: 'yanshee', labelEn: `Yanshee Robots (${catCounts.yanshee})`, labelAr: `روبوت يانشي (${catCounts.yanshee})` },
-                                                { key: 'nao', labelEn: `NAO Robots (${catCounts.nao})`, labelAr: `روبوت ناو (${catCounts.nao})` },
-                                                { key: 'integrated', labelEn: `Integrated (${catCounts.integrated})`, labelAr: `مشاريع مدمجة (${catCounts.integrated})` },
-                                            ].map(tab => (
-                                                <button
-                                                    key={tab.key}
-                                                    type="button"
-                                                    className={`catalog-category-pill ${catalogCategory === tab.key ? 'active' : ''}`}
-                                                    onClick={() => setCatalogCategory(tab.key)}
-                                                >
-                                                    {lang === 'ar' ? tab.labelAr : tab.labelEn}
-                                                </button>
-                                            ));
-                                        })()}
+                                        {isExternalTrainee ? (
+                                            <button
+                                                type="button"
+                                                className="catalog-category-pill active"
+                                            >
+                                                {lang === 'ar' ? 'مشاريع البرمجيات والذكاء الاصطناعي (24 فكرة)' : 'Software & AI Projects (24 Ideas)'}
+                                            </button>
+                                        ) : (
+                                            (() => {
+                                                const catCounts = {
+                                                    all: catalogProjects.length || 64,
+                                                    software: catalogProjects.filter(p => String(p.category || '').toLowerCase() === 'software').length || 24,
+                                                    yanshee: catalogProjects.filter(p => String(p.category || '').toLowerCase() === 'yanshee').length || 15,
+                                                    nao: catalogProjects.filter(p => String(p.category || '').toLowerCase() === 'nao').length || 15,
+                                                    integrated: catalogProjects.filter(p => String(p.category || '').toLowerCase() === 'integrated').length || 10,
+                                                };
+                                                return [
+                                                    { key: 'all', labelEn: `All (${catCounts.all})`, labelAr: `الكل (${catCounts.all})` },
+                                                    { key: 'software', labelEn: `Software / AI (${catCounts.software})`, labelAr: `برمجيات وذكاء اصطناعي (${catCounts.software})` },
+                                                    { key: 'yanshee', labelEn: `Yanshee Robots (${catCounts.yanshee})`, labelAr: `روبوت يانشي (${catCounts.yanshee})` },
+                                                    { key: 'nao', labelEn: `NAO Robots (${catCounts.nao})`, labelAr: `روبوت ناو (${catCounts.nao})` },
+                                                    { key: 'integrated', labelEn: `Integrated (${catCounts.integrated})`, labelAr: `مشاريع مدمجة (${catCounts.integrated})` },
+                                                ].map(tab => (
+                                                    <button
+                                                        key={tab.key}
+                                                        type="button"
+                                                        className={`catalog-category-pill ${catalogCategory === tab.key ? 'active' : ''}`}
+                                                        onClick={() => setCatalogCategory(tab.key)}
+                                                    >
+                                                        {lang === 'ar' ? tab.labelAr : tab.labelEn}
+                                                    </button>
+                                                ));
+                                            })()
+                                        )}
                                     </div>
 
                                     <div className="catalog-search-box">
                                         <Search size={15} />
                                         <input
                                             type="text"
-                                            placeholder={lang === 'ar' ? 'بحث في دليل المشاريع الـ 64...' : 'Search 64 projects catalog...'}
+                                            placeholder={isExternalTrainee ? (lang === 'ar' ? 'بحث في مشاريع البرمجيات والذكاء الاصطناعي...' : 'Search 24 Software & AI projects...') : (lang === 'ar' ? 'بحث في دليل المشاريع الـ 64...' : 'Search 64 projects catalog...')}
                                             value={catalogSearch}
                                             onChange={e => setCatalogSearch(e.target.value)}
                                         />
@@ -2628,13 +3410,16 @@ export default function TraineeProjects() {
                                     <div style={{ textAlign: 'center', padding: '3rem 2rem' }}>
                                         <Loader2 className="spin" size={28} style={{ color: '#3b82f6' }} />
                                         <p style={{ marginTop: '0.75rem', color: '#94a3b8', fontSize: '0.9rem' }}>
-                                            {lang === 'ar' ? 'جاري تحميل دليل المشاريع الـ 64 المعتمدة...' : 'Loading 64 official project ideas...'}
+                                            {isExternalTrainee 
+                                                ? (lang === 'ar' ? 'جاري تحميل مقترحات البرمجيات المعتمدة...' : 'Loading approved software proposals...')
+                                                : (lang === 'ar' ? 'جاري تحميل دليل المشاريع الـ 64 المعتمدة...' : 'Loading 64 official project ideas...')}
                                         </p>
                                     </div>
                                 ) : (() => {
                                     const filtered = catalogProjects.filter(p => {
                                         const pCat = String(p.category || '').trim().toLowerCase();
-                                        if (catalogCategory !== 'all' && pCat !== catalogCategory.toLowerCase()) return false;
+                                        if (isExternalTrainee && pCat !== 'software') return false;
+                                        if (!isExternalTrainee && catalogCategory !== 'all' && pCat !== catalogCategory.toLowerCase()) return false;
                                         if (catalogSearch.trim()) {
                                             const q = catalogSearch.toLowerCase();
                                             return (p.title || '').toLowerCase().includes(q) ||
@@ -2657,9 +3442,9 @@ export default function TraineeProjects() {
                                     const getCatBadgeLabel = (catKey, rawCat) => {
                                         switch (catKey) {
                                             case 'software': return lang === 'ar' ? 'برمجيات وذكاء اصطناعي' : 'Software / AI';
-                                            case 'yanshee': return lang === 'ar' ? 'روبوت يانشي' : 'Yanshee Robot';
-                                            case 'nao': return lang === 'ar' ? 'روبوت ناو' : 'NAO Robot';
-                                            case 'integrated': return lang === 'ar' ? 'مشروع مدمج' : 'Integrated';
+                                            case 'yanshee': return lang === 'ar' ? 'روبوت يانشي' : 'Yanshee';
+                                            case 'nao': return lang === 'ar' ? 'روبوت ناو' : 'NAO';
+                                            case 'integrated': return lang === 'ar' ? 'مشاريع مدمجة' : 'Integrated';
                                             default: return rawCat || catKey;
                                         }
                                     };
@@ -2688,7 +3473,7 @@ export default function TraineeProjects() {
                                                                 {isTaken ? (
                                                                     <span className="catalog-taken-badge">
                                                                         <Lock size={10} />
-                                                                        <span>{lang === 'ar' ? `محجوز (${proj.taken_by_team || 'فريق آخر'})` : `Taken by ${proj.taken_by_team || 'Team'}`}</span>
+                                                                        <span>{lang === 'ar' ? 'محجوزة مسبقاً' : 'Reserved'}</span>
                                                                     </span>
                                                                 ) : (
                                                                     <span className="catalog-diff-badge" style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>
@@ -2717,9 +3502,9 @@ export default function TraineeProjects() {
                                                                                 padding: '2px 7px', 
                                                                                 borderRadius: '6px', 
                                                                                 background: 'var(--bg-subtle, #f1f5f9)', 
-                                                                                color: 'var(--text-1, #475569)',
-                                                                                border: '1px solid var(--border, #e2e8f0)',
-                                                                                fontWeight: 600
+                                                                                color: 'var(--text-1, #475569)', 
+                                                                                border: '1px solid var(--border, #e2e8f0)', 
+                                                                                fontWeight: 600 
                                                                             }}
                                                                         >
                                                                             {skill.trim()}
@@ -2737,7 +3522,7 @@ export default function TraineeProjects() {
                                                                     disabled
                                                                 >
                                                                     <Lock size={13} />
-                                                                    <span>{lang === 'ar' ? 'فكرة محجوزة' : 'Idea Reserved'}</span>
+                                                                    <span>{lang === 'ar' ? 'فكرة محجوزة مسبقاً' : 'Idea Reserved'}</span>
                                                                 </button>
                                                             ) : (
                                                                 <button
@@ -2764,76 +3549,50 @@ export default function TraineeProjects() {
                             </div>
                         )}
 
-                        {/* TAB 2: CUSTOM IDEA FORM (OR ONLY FORM FOR EXTERNAL STUDENTS) */}
-                        {(isExternalTrainee || submissionTab === 'custom') && (
-                            <form onSubmit={handleSubmitIdea} className="custom-idea-form">
-                                {/* AI Header Helper — ONLY for Internal Robotics Trainees */}
-                                {!isExternalTrainee && (
-                                    <div className="custom-ai-hero-box">
-                                        <div className="custom-ai-hero-header">
-                                            <Sparkles size={18} className="text-primary" />
+                        {/* ═══════════════════════════════════════════════════════════════
+                            OPTION 2: CREATE MY OWN IDEA (ERTH AI)
+                        ════════════════════════════════════════════════════════════════ */}
+                        {submissionTab === 'custom' && (
+                            <form onSubmit={handleSubmitIdea} className="custom-idea-form" style={{ padding: '0.75rem 1.75rem 1.5rem', maxHeight: '72vh', overflowY: 'auto' }}>
+                                {/* Track Suggestions for External Trainees (Web, Mobile, Cyber Security) */}
+                                {isExternalTrainee && studentTrackKey !== 'ai' && TRACK_SUGGESTED_IDEAS[studentTrackKey] && (
+                                    <div className="track-suggestions-box" style={{ marginBottom: '1rem' }}>
+                                        <div className="track-suggestions-header">
                                             <strong>
-                                                {lang === 'ar' ? 'المساعد الذكي لتوليد المقترح الأكاديمي' : 'AI Proposal Synthesis Engine'}
+                                                <Lightbulb size={16} />
+                                                <span>
+                                                    {lang === 'ar' 
+                                                        ? `مقترحات أفكار لمسار ${trackLabelMap[studentTrackKey]?.ar || studentTrackKey} (اضغط للاختيار والتعبئة الفورية):`
+                                                        : `Suggested Ideas for ${trackLabelMap[studentTrackKey]?.en || studentTrackKey} (Click to auto-fill title & description):`}
+                                                </span>
                                             </strong>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#d97706', background: 'rgba(245,158,11,0.15)', padding: '2px 8px', borderRadius: '12px' }}>
+                                                {TRACK_SUGGESTED_IDEAS[studentTrackKey].length} {lang === 'ar' ? 'أفكار مقترحة' : 'Ideas'}
+                                            </span>
                                         </div>
-                                        <p className="custom-ai-hero-desc">
-                                            {lang === 'ar'
-                                                ? 'اكتب عنوان الفكرة أو كلمات مفتاحية مختصرة وسيقوم الذكاء الاصطناعي ببناء المقترح الكامل والفصول الرسمية تلقائياً.'
-                                                : 'Enter keywords or a summary to auto-generate the complete academic proposal chapters and tech stack.'}
-                                        </p>
-                                        <div className="custom-ai-input-group">
-                                            <input
-                                                type="text"
-                                                value={aiKeyword}
-                                                onChange={e => setAiKeyword(e.target.value)}
-                                                placeholder={lang === 'ar' ? 'مثال: نظام ذكي للرؤية الحاسوبية والملاحة الذاتية...' : 'e.g. Smart Computer Vision and Autonomous Navigation...'}
-                                                className="custom-form-input"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={handleGenerateAiProposal}
-                                                disabled={generatingAi || !aiKeyword.trim()}
-                                                className="btn btn-primary btn-ai-generate"
-                                            >
-                                                {generatingAi ? <Loader2 className="spin" size={15} /> : <Sparkles size={15} />}
-                                                <span>{generatingAi ? (lang === 'ar' ? 'جاري التوليد...' : 'Generating...') : (lang === 'ar' ? 'توليد بالذكاء الاصطناعي' : 'Generate with AI')}</span>
-                                            </button>
+                                        <div className="track-suggestions-grid">
+                                            {TRACK_SUGGESTED_IDEAS[studentTrackKey].map((sug, sIdx) => {
+                                                const sugTitle = lang === 'ar' ? (sug.titleAr || sug.title) : sug.title;
+                                                const sugDesc = lang === 'ar' ? (sug.descAr || sug.desc) : sug.desc;
+                                                const isCurrentMatch = submitTitleEn === sugTitle;
+
+                                                return (
+                                                    <button
+                                                        key={sIdx}
+                                                        type="button"
+                                                        className={`track-suggestion-chip ${isCurrentMatch ? 'active' : ''}`}
+                                                        onClick={() => handleApplyTrackSuggestion(sug)}
+                                                    >
+                                                        <strong>{sugTitle}</strong>
+                                                        <p>{sugDesc}</p>
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Floating / Inline Wording Suggestion Preview Card — ONLY for Internal */}
-                                {!isExternalTrainee && wordingSuggestion && (
-                                    <div style={{
-                                        padding: '1rem',
-                                        background: '#f0fdf4',
-                                        border: '1.5px solid #86efac',
-                                        borderRadius: '12px',
-                                        marginBottom: '1rem'
-                                    }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                            <strong style={{ color: '#166534', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <Sparkles size={15} /> {lang === 'ar' ? 'اقتراح الصياغة الأكاديمية المحسنة:' : 'Refined Academic Wording Suggestion:'}
-                                            </strong>
-                                            <button type="button" className="modal-close-icon-btn" style={{ padding: '2px' }} onClick={() => setWordingSuggestion(null)}>
-                                                <X size={15} />
-                                            </button>
-                                        </div>
-                                        <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.88rem', color: '#14532d', background: '#ffffff', padding: '0.75rem', borderRadius: '8px', border: '1px solid #bbf7d0', lineHeight: 1.5 }}>
-                                            {wordingSuggestion.refined}
-                                        </p>
-                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setWordingSuggestion(null)}>
-                                                {lang === 'ar' ? 'تجاهل والاحتفاظ بالأصل' : 'Keep Original'}
-                                            </button>
-                                            <button type="button" className="btn btn-primary btn-sm" onClick={handleApplyWordingSuggestion}>
-                                                <Check size={14} /> {lang === 'ar' ? 'تطبيق الصياغة المحسنة' : 'Apply Refined Text'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="custom-form-grid">
+                                <div className="custom-form-grid" style={{ marginTop: '0.5rem' }}>
                                     <div className="custom-form-group">
                                         <label>{lang === 'ar' ? 'الدورة التدريبية' : 'Training Course'} *</label>
                                         <select
@@ -2850,75 +3609,128 @@ export default function TraineeProjects() {
                                     </div>
 
                                     <div className="custom-form-group">
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                                            <label style={{ margin: 0 }}>{lang === 'ar' ? 'عنوان المشروع' : 'Project Title'} *</label>
-                                            {!isExternalTrainee && (
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-ghost btn-sm"
-                                                    style={{ padding: '2px 8px', fontSize: '0.75rem', gap: '4px', color: '#2563eb' }}
-                                                    disabled={refiningField === 'title' || !submitTitleEn.trim()}
-                                                    onClick={() => handleRefineWording('title', submitTitleEn, setSubmitTitleEn)}
-                                                >
-                                                    {refiningField === 'title' ? <Loader2 className="spin" size={12} /> : <Wand2 size={12} />}
-                                                    {lang === 'ar' ? 'صياغة لغوية' : 'Polish Wording'}
-                                                </button>
-                                            )}
-                                        </div>
+                                        <label>{lang === 'ar' ? 'عنوان المشروع' : 'Project Title'} *</label>
                                         <input
                                             type="text"
                                             required
                                             value={submitTitleEn}
                                             onChange={e => setSubmitTitleEn(e.target.value)}
                                             className="custom-form-input"
-                                            placeholder={lang === 'ar' ? 'عنوان المشروع المقترح...' : 'Proposed Project Title...'}
+                                            placeholder={lang === 'ar' ? 'اكتب عنوان المشروع بدقة ووضوح...' : 'Enter the project title clearly...'}
                                         />
                                     </div>
                                 </div>
 
                                 <div className="custom-form-group">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                                        <label style={{ margin: 0 }}>{lang === 'ar' ? 'وصف ومستخلص المشروع' : 'Project Description / Abstract'} *</label>
-                                        {!isExternalTrainee && (
-                                            <button
-                                                type="button"
-                                                className="btn btn-ghost btn-sm"
-                                                style={{ padding: '2px 8px', fontSize: '0.75rem', gap: '4px', color: '#2563eb' }}
-                                                disabled={refiningField === 'description' || !submitDescEn.trim()}
-                                                onClick={() => handleRefineWording('description', submitDescEn, setSubmitDescEn)}
-                                            >
-                                                {refiningField === 'description' ? <Loader2 className="spin" size={12} /> : <Wand2 size={12} />}
-                                                {lang === 'ar' ? 'صياغة لغوية' : 'Polish Wording'}
-                                            </button>
-                                        )}
-                                    </div>
+                                    <label>{lang === 'ar' ? 'وصف ومستخلص المشروع (تفصيلي)' : 'Project Description / Abstract (Detailed)'} *</label>
                                     <textarea
-                                        rows={3}
+                                        rows={4}
                                         required
                                         value={submitDescEn}
                                         onChange={e => setSubmitDescEn(e.target.value)}
                                         className="custom-form-textarea"
-                                        placeholder={lang === 'ar' ? 'شرح مختصر لأهداف وفكرة المشروع...' : 'Detailed description and executive summary...'}
+                                        placeholder={lang === 'ar' ? 'اكتب وصفاً مفصلاً لفكرة المشروع، أهدافه، المشكلة التي يحلها، والجمهور المستهدف...' : 'Write a detailed description explaining the project concept, objectives, targeted problem, and beneficiaries...'}
                                     />
                                 </div>
 
+                                {/* AI Proposal Generator Action Card */}
+                                <div className="custom-ai-synthesis-card" style={{
+                                    margin: '1rem 0 1.25rem 0',
+                                    padding: '1.25rem',
+                                    borderRadius: '14px',
+                                    background: 'linear-gradient(135deg, rgba(0, 45, 86, 0.05) 0%, rgba(59, 130, 246, 0.1) 100%)',
+                                    border: '1.5px solid rgba(59, 130, 246, 0.28)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '1.25rem',
+                                    flexWrap: 'wrap'
+                                }}>
+                                    <div style={{ flex: '1 1 320px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.35rem' }}>
+                                            <Cpu size={18} style={{ color: '#2563eb' }} />
+                                            <strong style={{ fontSize: '0.95rem', color: 'var(--text-0)' }}>
+                                                {lang === 'ar' ? 'المساعد الأكاديمي لتوليد المقترح بالذكاء الاصطناعي (7 فصول)' : 'AI Academic Proposal Generator (7 Chapters)'}
+                                            </strong>
+                                        </div>
+                                        <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.45' }}>
+                                            {lang === 'ar'
+                                                ? 'بناءً على العنوان والوصف التفصيلي المدخلين أعلاه، يقوم الذكاء الاصطناعي باستنباط التقنيات، والمشكلة، وبناء وتفصيل كافة الفصول الأكاديمية السبعة للمشروع.'
+                                                : 'Based on the title and detailed description entered above, AI generates the tech stack, problem statement, and all 7 official academic chapters.'}
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleGenerateAiProposal}
+                                        disabled={generatingAi || !submitTitleEn.trim() || !submitDescEn.trim()}
+                                        className="btn btn-primary"
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            padding: '0.7rem 1.35rem',
+                                            fontWeight: 700,
+                                            fontSize: '0.88rem',
+                                            borderRadius: '10px',
+                                            boxShadow: '0 4px 14px rgba(37, 99, 235, 0.25)',
+                                            opacity: (!submitTitleEn.trim() || !submitDescEn.trim()) ? 0.6 : 1,
+                                            cursor: (!submitTitleEn.trim() || !submitDescEn.trim()) ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
+                                        {generatingAi ? <Loader2 className="spin" size={16} /> : <FileText size={16} />}
+                                        <span>
+                                            {generatingAi
+                                                ? (lang === 'ar' ? 'جاري التوليد بالذكاء الاصطناعي...' : 'Generating Full Proposal...')
+                                                : (lang === 'ar' ? 'توليد وتفصيل المقترح بالذكاء الاصطناعي' : 'Generate Full Proposal with AI')}
+                                        </span>
+                                    </button>
+                                </div>
+
+                                {selectedProposalData?.sections && selectedProposalData.sections.length > 0 && (
+                                    <>
+                                        <div style={{
+                                            margin: '0.75rem 0 0.5rem 0',
+                                            padding: '0.85rem 1.15rem',
+                                            borderRadius: '10px',
+                                            background: 'rgba(34, 197, 94, 0.08)',
+                                            border: '1px solid rgba(34, 197, 94, 0.3)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px'
+                                        }}>
+                                            <CheckCircle2 size={18} style={{ color: '#16a34a', flexShrink: 0 }} />
+                                            <span style={{ fontSize: '0.85rem', color: '#15803d', fontWeight: 600 }}>
+                                                {lang === 'ar'
+                                                    ? 'تم بنجاح توليد وتفصيل الفصول الأكاديمية السبعة للمشروع ومطابقتها للتصدير والعرض!'
+                                                    : 'All 7 academic chapters have been dynamically generated and synchronized for UI and Word export!'}
+                                            </span>
+                                        </div>
+
+                                        {/* Academic Disclaimer Alert Box */}
+                                        <div className="custom-ai-disclaimer-box" style={{
+                                            margin: '0.5rem 0 1rem 0',
+                                            padding: '0.85rem 1.15rem',
+                                            borderRadius: '10px',
+                                            background: 'rgba(245, 158, 11, 0.08)',
+                                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                                            display: 'flex',
+                                            alignItems: 'flex-start',
+                                            gap: '10px'
+                                        }}>
+                                            <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0, marginTop: '2px' }} />
+                                            <div style={{ fontSize: '0.82rem', color: '#92400e', lineHeight: '1.5' }}>
+                                                <strong style={{ fontWeight: 700 }}>{lang === 'ar' ? 'تنويه: ' : 'Disclaimer: '}</strong>
+                                                {lang === 'ar'
+                                                    ? 'المحتوى المعروض تم توليده بواسطة الذكاء الاصطناعي كنموذج استرشادي، ويقع على عاتق الطالب مسؤولية مراجعته وتدقيقه قبل تقديمه للجهة الأكاديمية. المنصة غير مسؤولة عن أي أخطاء أو نواقص في التقرير النهائي.'
+                                                    : 'The content displayed was generated by AI as an academic guideline model. It is the student\'s responsibility to review and refine it before academic submission. The platform assumes no liability for errors or omissions in the final report.'}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
                                 <div className="custom-form-grid">
                                     <div className="custom-form-group">
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                                            <label style={{ margin: 0 }}>{lang === 'ar' ? 'المشكلة المستهدفة' : 'Problem Statement'}</label>
-                                            {!isExternalTrainee && (
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-ghost btn-sm"
-                                                    style={{ padding: '2px 8px', fontSize: '0.75rem', gap: '4px', color: '#2563eb' }}
-                                                    disabled={refiningField === 'problem' || !submitProblemStmt.trim()}
-                                                    onClick={() => handleRefineWording('problem', submitProblemStmt, setSubmitProblemStmt)}
-                                                >
-                                                    {refiningField === 'problem' ? <Loader2 className="spin" size={12} /> : <Wand2 size={12} />}
-                                                    {lang === 'ar' ? 'صياغة لغوية' : 'Polish Wording'}
-                                                </button>
-                                            )}
-                                        </div>
+                                        <label>{lang === 'ar' ? 'المشكلة المستهدفة' : 'Problem Statement'}</label>
                                         <textarea
                                             rows={2}
                                             value={submitProblemStmt}
@@ -2929,21 +3741,7 @@ export default function TraineeProjects() {
                                     </div>
 
                                     <div className="custom-form-group">
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                                            <label style={{ margin: 0 }}>{lang === 'ar' ? 'المخرجات والتسليمات المتوقعة' : 'Expected Deliverables'}</label>
-                                            {!isExternalTrainee && (
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-ghost btn-sm"
-                                                    style={{ padding: '2px 8px', fontSize: '0.75rem', gap: '4px', color: '#2563eb' }}
-                                                    disabled={refiningField === 'output' || !submitExpectedOutput.trim()}
-                                                    onClick={() => handleRefineWording('output', submitExpectedOutput, setSubmitExpectedOutput)}
-                                                >
-                                                    {refiningField === 'output' ? <Loader2 className="spin" size={12} /> : <Wand2 size={12} />}
-                                                    {lang === 'ar' ? 'صياغة لغوية' : 'Polish Wording'}
-                                                </button>
-                                            )}
-                                        </div>
+                                        <label>{lang === 'ar' ? 'المخرجات والتسليمات المتوقعة' : 'Expected Deliverables'}</label>
                                         <textarea
                                             rows={2}
                                             value={submitExpectedOutput}
@@ -3001,6 +3799,165 @@ export default function TraineeProjects() {
                                     </div>
                                 </div>
                             </form>
+                        )}
+
+                        {/* ═══════════════════════════════════════════════════════════════
+                            OPTION 3: UPLOAD COMPLETED PROPOSAL / DOCUMENTATION FILE
+                        ════════════════════════════════════════════════════════════════ */}
+                        {submissionTab === 'external_project' && (
+                            <div className="custom-idea-form" style={{ padding: '0.85rem 1.75rem 1.5rem', maxHeight: '72vh', overflowY: 'auto' }}>
+                                <div className="custom-ai-hero-box" style={{ marginBottom: '1rem', background: 'linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(5,150,105,0.08) 100%)', border: '1.5px solid rgba(16,185,129,0.25)' }}>
+                                    <div className="custom-ai-hero-header">
+                                        <FileUp size={18} style={{ color: '#059669' }} />
+                                        <strong style={{ color: '#065f46' }}>
+                                            {lang === 'ar' ? 'رفع وتوثيق ملف مقترح المشروع (قالب Word / PDF)' : 'Upload Completed Project Proposal / Documentation (Word / PDF)'}
+                                        </strong>
+                                    </div>
+                                    <p className="custom-ai-hero-desc" style={{ color: '#047857', lineHeight: 1.5 }}>
+                                        {lang === 'ar'
+                                            ? 'خصص هذا الخيار لرفع ملف المقترح أو التوثيق الكامل مباشرة، سواء قمت بتعبئة قالب Word الجامعي المعتمد، أو كان لديك توثيق مشروع أنجزته مسبقاً خارج المنصة.'
+                                            : 'Use this option to directly upload your completed proposal or project documentation file (Word template or PDF) completed offline or during field training.'}
+                                    </p>
+                                </div>
+
+                                <div className="custom-form-grid">
+                                    <div className="custom-form-group">
+                                        <label>{lang === 'ar' ? 'الدورة التدريبية المستهدفة' : 'Target Training Course'} *</label>
+                                        <select
+                                            required
+                                            value={submitCourseId}
+                                            onChange={e => setSubmitCourseId(e.target.value)}
+                                            className="custom-form-select"
+                                        >
+                                            <option value="">{lang === 'ar' ? '-- اختر الدورة التدريبية --' : '-- Select Training Course --'}</option>
+                                            {(isEvaluator ? (allActiveCourses.length > 0 ? allActiveCourses : courses) : courses).map(c => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="custom-form-group">
+                                        <label>{lang === 'ar' ? 'عنوان المشروع' : 'Project Title'} *</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={externalTitle}
+                                            onChange={e => setExternalTitle(e.target.value)}
+                                            className="custom-form-input"
+                                            placeholder={lang === 'ar' ? 'اكتب عنوان المشروع أو سيتم تعيينه تلقائياً من اسم الملف...' : 'Enter project title or auto-filled from uploaded file...'}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="custom-form-group">
+                                    <label>{lang === 'ar' ? 'ملخص / نبذة مختصرة عن المشروع (اختياري)' : 'Brief Summary / Abstract (Optional)'}</label>
+                                    <textarea
+                                        rows={2}
+                                        value={externalAbstract}
+                                        onChange={e => setExternalAbstract(e.target.value)}
+                                        className="custom-form-textarea"
+                                        placeholder={lang === 'ar' ? 'نبذة موجزة توضح فكرة المشروع ومخرجاته...' : 'Brief summary describing the project idea and primary outcomes...'}
+                                    />
+                                </div>
+
+                                <div className="custom-form-grid">
+                                    <div className="custom-form-group">
+                                        <label>{lang === 'ar' ? 'جهة / شركة التدريب الخارجي (اختياري)' : 'Company / Training Provider (Optional)'}</label>
+                                        <input
+                                            type="text"
+                                            value={externalCompany}
+                                            onChange={e => setExternalCompany(e.target.value)}
+                                            className="custom-form-input"
+                                            placeholder={lang === 'ar' ? 'اسم جهة التدريب أو الشركة...' : 'Company or Training Provider name...'}
+                                        />
+                                    </div>
+
+                                    <div className="custom-form-group">
+                                        <label>{lang === 'ar' ? 'رابط المشروع / المستودع الرقمي (اختياري)' : 'Project Repository / Live Link (Optional)'}</label>
+                                        <input
+                                            type="url"
+                                            value={externalLink}
+                                            onChange={e => setExternalLink(e.target.value)}
+                                            className="custom-form-input"
+                                            placeholder="https://github.com/... or https://..."
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Dedicated File Upload Box */}
+                                <div className="custom-form-group" style={{ marginTop: '0.4rem' }}>
+                                    <label style={{ fontWeight: 800, fontSize: '0.88rem', color: '#1e293b' }}>
+                                        {lang === 'ar' ? 'ملف المقترح أو التوثيق الأكاديمي (.docx / .doc / .pdf / .zip) *' : 'Proposal / Documentation File (.docx / .doc / .pdf / .zip) *'}
+                                    </label>
+                                    <div className="file-dropzone-box" style={{ padding: '1.75rem 1rem', background: '#f8fafc', border: externalFile ? '2px solid #10b981' : '2px dashed #cbd5e1', borderRadius: '14px', textAlign: 'center', transition: 'all 0.2s' }}>
+                                        <input
+                                            type="file"
+                                            accept=".docx,.doc,.pdf,.zip"
+                                            onChange={e => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    setExternalFile(file);
+                                                    if (!externalTitle.trim()) {
+                                                        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+                                                        setExternalTitle(cleanName);
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                        <FileUp size={36} style={{ color: externalFile ? '#10b981' : '#64748b', margin: '0 auto 8px auto', display: 'block' }} />
+                                        {externalFile ? (
+                                            <div>
+                                                <strong style={{ color: '#059669', display: 'block', fontSize: '0.98rem', fontWeight: 800 }}>✓ {externalFile.name}</strong>
+                                                <span style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px', display: 'block' }}>({(externalFile.size / (1024 * 1024)).toFixed(2)} MB) — {lang === 'ar' ? 'جاهز للرفع والمزامنة' : 'Ready to upload and sync'}</span>
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <p style={{ margin: 0, fontWeight: 800, fontSize: '0.92rem', color: '#1e293b' }}>
+                                                    {lang === 'ar' ? 'اضغط لاختيار ملف المقترح أو اسحبه هنا' : 'Click to select proposal file or drag and drop here'}
+                                                </p>
+                                                <span style={{ fontSize: '0.78rem', color: '#64748b', display: 'block', marginTop: '4px' }}>
+                                                    {lang === 'ar' ? 'يقبل ملفات Word (.docx) أو PDF أو ZIP (حتى 35 ميجابايت)' : 'Accepts Word (.docx), PDF, or ZIP (Up to 35MB)'}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {error && (
+                                    <div className="alert alert-error" style={{ margin: '0.75rem 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                                        <span>{error}</span>
+                                    </div>
+                                )}
+
+                                <div className="custom-form-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', flexWrap: 'wrap', gap: '10px' }}>
+                                    <button type="button" className="btn btn-ghost" onClick={() => setShowSubmitModal(false)}>
+                                        {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+                                    </button>
+                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <button
+                                            type="button"
+                                            className="btn btn-secondary"
+                                            disabled={savingExternalDraft || submittingExternal}
+                                            onClick={handleSaveExternalDraft}
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.65rem 1.25rem', fontWeight: 700 }}
+                                        >
+                                            {savingExternalDraft ? <Loader2 className="spin" size={15} /> : <Save size={15} />}
+                                            <span>{savingExternalDraft ? (lang === 'ar' ? 'جاري الحفظ كمسودة...' : 'Saving Draft...') : (lang === 'ar' ? 'حفظ كمسودة' : 'Save as Draft')}</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-primary"
+                                            disabled={submittingExternal || savingExternalDraft}
+                                            onClick={handleSubmitExternalProject}
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.65rem 1.45rem', fontWeight: 700, background: '#059669', borderColor: '#059669' }}
+                                        >
+                                            {submittingExternal ? <Loader2 className="spin" size={15} /> : <CheckCircle2 size={15} />}
+                                            <span>{submittingExternal ? (lang === 'ar' ? 'جاري رفع الملف وتقديم المقترح...' : 'Uploading & Submitting...') : (lang === 'ar' ? 'تقديم المقترح والملف' : 'Submit Proposal File')}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>

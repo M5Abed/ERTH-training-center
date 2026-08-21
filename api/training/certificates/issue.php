@@ -6,18 +6,19 @@
 
 require_once __DIR__ . '/../../config.php';
 
-$issuer = requireRole(['trainee', 'trainer', 'admin']);
+$issuer = requireRole(['trainee', 'trainer', 'admin', 'professor', 'ta', 'lecturer', 'supervisor', 'instructor', 'evaluator']);
 $issuerId = (int)$issuer['id'];
 $issuerRole = strtolower($issuer['role'] ?? 'trainee');
-$isAdminOrTrainer = (bool)($issuer['is_admin'] || $issuerRole === 'admin' || $issuerRole === 'trainer');
+$staffRoles = ['trainer', 'professor', 'ta', 'lecturer', 'supervisor', 'instructor', 'evaluator'];
+$isAdminOrTrainer = (bool)($issuer['is_admin'] || $issuerRole === 'admin' || in_array($issuerRole, $staffRoles, true));
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respondError('Method not allowed', 405);
 }
 
 $data = body();
-$courseId  = (int)($data['course_id'] ?? 0);
-$traineeId = (int)($data['trainee_id'] ?? 0);
+$courseId  = resolveCourseId($data['course_id'] ?? 0);
+$traineeId = resolveUserId($data['trainee_id'] ?? 0);
 
 if (!$courseId || !$traineeId) {
     respondError('Course ID and Trainee ID are required');
@@ -42,15 +43,13 @@ CREATE TABLE IF NOT EXISTS training_certificates (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ");
 
-$db = db();
-
 // Ensure trainer is assigned to this course (or admin), unless it's a trainee issuing their own cert
 if (!$isAdminOrTrainer) {
     if ($traineeId !== $issuerId) {
         respondError('Forbidden: You can only issue your own certificate', 403);
     }
     // For trainees, we verify they are enrolled in this course
-    $enrollStmt = $db->prepare("SELECT 1 FROM training_enrollments WHERE course_id = ? AND trainee_id = ?");
+    $enrollStmt = $db->prepare("SELECT 1 FROM trainee_enrollments WHERE course_id = ? AND trainee_id = ?");
     $enrollStmt->execute([$courseId, $traineeId]);
     if (!$enrollStmt->fetch()) {
         respondError('Forbidden: Not enrolled in this course', 403);
@@ -127,7 +126,14 @@ $courseTitleEn = $course['name'] ?? 'Summer Training Course';
 $courseTitleAr = $course['name'] ?? 'دورة التدريب الصيفي';
 $msgEn = "Congratulations! Your completion certificate for '{$courseTitleEn}' has been issued.";
 $msgAr = "تهانينا! تم إصدار شهادة إتمام التدريب الخاصة بك لدورة '{$courseTitleAr}'.";
-$nStmt->execute([$traineeId, $msgEn, $msgAr]);
+if ($certificate) {
+    if (!empty($certificate['trainee_id']) && is_numeric($certificate['trainee_id'])) {
+        $certificate['trainee_id'] = getUserUuid((int)$certificate['trainee_id']);
+    }
+    if (!empty($certificate['course_id']) && is_numeric($certificate['course_id'])) {
+        $certificate['course_id'] = getCourseUuid((int)$certificate['course_id']);
+    }
+}
 
 respond([
     'success'     => true,

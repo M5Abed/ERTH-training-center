@@ -170,7 +170,6 @@ export default function Landing() {
                     <nav className="lp-navlinks">
                         <a href="#tracks" className="lp-nl">Program</a>
                         <a href="#advantages" className="lp-nl">Why NMU</a>
-                        <Link to="/verify" className="lp-nl">Verify Certificate</Link>
                     </nav>
                     <div className="lp-nav-end">
                         {!user ? (
@@ -203,15 +202,9 @@ export default function Landing() {
                         </p>
 
                         <div className="lp-hero-actions">
-                            {!user ? (
-                                <Link to="/auth" className="lp-cta-btn lp-cta-btn--lg">
-                                    Sign In to Platform <ArrowUpRight size={18} />
-                                </Link>
-                            ) : (
-                                <Link to="/dashboard" className="lp-cta-btn lp-cta-btn--lg">
-                                    Dashboard <ArrowUpRight size={18} />
-                                </Link>
-                            )}
+                            <Link to="/verify" className="lp-cta-btn lp-cta-btn--lg">
+                                Verify Certificate <ArrowUpRight size={18} />
+                            </Link>
                         </div>
 
                         {/* Technical Spec Metrics */}

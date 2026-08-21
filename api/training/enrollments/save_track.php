@@ -22,9 +22,9 @@ $customProvider    = trim($data['custom_provider'] ?? $data['custom_provider_nam
 $customWebsite     = trim($data['custom_provider_website'] ?? $data['website_url'] ?? '');
 $customLinkedin    = trim($data['custom_provider_linkedin'] ?? $data['linkedin_url'] ?? '');
 $trainingStartDate = trim($data['training_start_date'] ?? $data['start_date'] ?? '');
-$courseId          = (int)($data['course_id'] ?? 0);
+$courseId          = resolveCourseId($data['course_id'] ?? 0);
 $targetTraineeId   = isset($data['trainee_id']) && (!empty($user['is_admin']) || ($user['role'] ?? '') === 'trainer')
-                    ? (int)$data['trainee_id']
+                    ? resolveUserId($data['trainee_id'])
                     : $uid;
 
 if (empty($trackName)) {

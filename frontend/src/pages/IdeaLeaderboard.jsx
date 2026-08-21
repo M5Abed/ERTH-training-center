@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../components/Toast';
 import {
     Trophy, BookOpen, Filter, Loader2,
     User, Users, Vote, CheckCircle2, Lightbulb, X, Crown
@@ -9,6 +10,7 @@ import {
 import './IdeaLeaderboard.css';
 
 export default function IdeaLeaderboard() {
+    const toast = useToast();
     const { lang } = useI18n();
     const { user } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -81,7 +83,7 @@ export default function IdeaLeaderboard() {
                 return prev.filter(id => id !== pId);
             }
             if (prev.length >= 5) {
-                alert(lang === 'ar' ? 'يمكنك اختيار حتى 5 مشاريع كحد أقصى.' : 'You can select up to 5 projects.');
+                toast?.warning(lang === 'ar' ? 'يمكنك اختيار حتى 5 مشاريع كحد أقصى.' : 'You can select up to 5 projects.');
                 return prev;
             }
             return [...prev, pId];
@@ -90,11 +92,11 @@ export default function IdeaLeaderboard() {
 
     const handleSubmitVotes = async () => {
         if (!courseFilter) {
-            alert(lang === 'ar' ? 'يرجى اختيار الدورة أولاً لتسجيل التصويت' : 'Please select a course to submit votes');
+            toast?.warning(lang === 'ar' ? 'يرجى اختيار الدورة أولاً لتسجيل التصويت' : 'Please select a course to submit votes');
             return;
         }
         if (votingStatus !== 'open') {
-            alert(lang === 'ar' ? 'التصويت مغلق حالياً' : 'Voting is currently closed');
+            toast?.warning(lang === 'ar' ? 'التصويت مغلق حالياً' : 'Voting is currently closed');
             return;
         }
         setSubmittingVotes(true);
@@ -104,20 +106,20 @@ export default function IdeaLeaderboard() {
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    course_id: parseInt(courseFilter, 10),
+                    course_id: courseFilter,
                     project_ids: myVotes
                 })
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                alert(lang === 'ar' ? 'تم تسجيل وتأكيد تصويتك بنجاح!' : 'Your votes have been submitted successfully.');
+                toast?.success(lang === 'ar' ? 'تم تسجيل وتأكيد تصويتك بنجاح!' : 'Your votes have been submitted successfully.');
                 fetchLeaderboard();
             } else {
-                alert(data.error || (lang === 'ar' ? 'فشل حفظ التصويت' : 'Failed to submit votes'));
+                toast?.error(data.error || (lang === 'ar' ? 'فشل حفظ التصويت' : 'Failed to submit votes'));
             }
         } catch (e) {
             console.error(e);
-            alert(lang === 'ar' ? 'حدث خطأ في الاتصال أثناء حفظ التصويت' : 'Network error submitting votes');
+            toast?.error(lang === 'ar' ? 'حدث خطأ في الاتصال أثناء حفظ التصويت' : 'Network error submitting votes');
         } finally {
             setSubmittingVotes(false);
         }
@@ -132,7 +134,7 @@ export default function IdeaLeaderboard() {
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    course_id: parseInt(courseFilter, 10),
+                    course_id: courseFilter,
                     voting_status: newStatus
                 })
             });
@@ -140,12 +142,13 @@ export default function IdeaLeaderboard() {
             if (res.ok && data.success) {
                 setVotingStatus(newStatus);
                 fetchLeaderboard();
+                toast?.success(lang === 'ar' ? 'تم تحديث حالة التصويت بنجاح' : 'Voting status updated');
             } else {
-                alert(data.error || 'Failed to update voting status');
+                toast?.error(data.error || 'Failed to update voting status');
             }
         } catch (e) {
             console.error(e);
-            alert('Network error updating voting status');
+            toast?.error('Network error updating voting status');
         } finally {
             setUpdatingVotingStatus(false);
         }
@@ -163,12 +166,12 @@ export default function IdeaLeaderboard() {
                 <div>
                     <h1>
                         <Trophy size={28} style={{ color: '#F59E0B' }} />
-                        {lang === 'ar' ? 'لوحة الشرف والترتيب العام' : 'Official Training Leaderboard'}
+                        {lang === 'ar' ? 'لوحة الشرف والمتصدرين (الكارت الذهبي)' : 'Official Golden Pass Leaderboard'}
                     </h1>
                     <p>
                         {lang === 'ar'
-                            ? 'لوحة الترتيب الأكاديمي المعتمد للدورات التدريبية، تعرض قائمة المشروعات المتميزة وقائمة المتدربين المتصدرين.'
-                            : 'Official certified leaderboard showcasing stand-out training project ideas and leading trainees.'}
+                            ? 'لوحة الشرف الأكاديمية الرسمية الحصرية للمشاريع المتميزة الحاصلة على الكارت الذهبي (Golden Pass).'
+                            : 'Official certified leaderboard showcasing exclusive standout projects awarded the Golden Pass.'}
                     </p>
                 </div>
                 <div className="lb-controls">
@@ -186,93 +189,19 @@ export default function IdeaLeaderboard() {
                 </div>
             </div>
 
-
-
-            {/* Voting Status Banner if a specific course is selected (Trainers & Admins Only) */}
-            {courseFilter && isTrainer && (
-                <div className={`lb-voting-banner status-${votingStatus}`}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '260px' }}>
-                        <Vote size={22} />
-                        <div>
-                            <strong style={{ fontSize: '0.96rem' }}>
-                                {votingStatus === 'open' && (lang === 'ar' ? 'التصويت مفتوح حالياً' : 'End-of-Course Voting is Currently Open')}
-                                {votingStatus === 'closed' && (lang === 'ar' ? 'اكتمل التصويت النهائي — تم تحديد المشاريع الـ 5 الأفضل' : 'Voting Closed — Top 5 Projects Selected')}
-                                {votingStatus === 'not_started' && (lang === 'ar' ? 'التصويت النهائي لم يبدأ بعد' : 'End-of-Course Voting Not Started Yet')}
-                            </strong>
-                            <p style={{ margin: 0, fontSize: '0.82rem', opacity: 0.9 }}>
-                                {votingStatus === 'open' && (lang === 'ar' ? 'يحق للمشرفين والمدربين اختيار حتى 5 مشاريع متميزة من الجدول أدناه.' : 'Authorized trainers & faculty can select up to 5 preferred projects from the table below.')}
-                                {votingStatus === 'closed' && (lang === 'ar' ? 'المشاريع الفائزة في تصويت الدورة تحمل شارة أفضل 5 مشاريع أدناه.' : 'Winning projects from the voting process receive the Top 5 badge below.')}
-                                {votingStatus === 'not_started' && (lang === 'ar' ? 'سيبدأ التصويت على أفضل المشاريع في نهاية فترة التدريب.' : 'Voting for top projects will open at the conclusion of the training period.')}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Trainer Voting & Lifecycle Action Controls */}
-                    {isTrainer && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                            {votingStatus === 'open' && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: myVotes.length === 5 ? '#16a34a' : 'inherit' }}>
-                                        {lang === 'ar' ? `المحدد: ${myVotes.length} / 5` : `Selected: ${myVotes.length} / 5`}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={handleSubmitVotes}
-                                        disabled={submittingVotes || myVotes.length === 0}
-                                        className="btn btn-sm btn-primary"
-                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}
-                                    >
-                                        {submittingVotes ? <Loader2 className="spin" size={14} /> : <CheckCircle2 size={14} />}
-                                        {lang === 'ar' ? 'تأكيد تصويتي' : 'Submit My Votes'}
-                                    </button>
-                                </div>
-                            )}
-
-                            {votingStatus !== 'open' && (
-                                <button
-                                    type="button"
-                                    className="btn btn-sm btn-primary"
-                                    disabled={updatingVotingStatus}
-                                    onClick={() => handleUpdateVotingStatus('open')}
-                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                >
-                                    {updatingVotingStatus ? <Loader2 className="spin" size={14} /> : <Vote size={14} />}
-                                    {votingStatus === 'closed' ? (lang === 'ar' ? 'إعادة فتح التصويت' : 'Re-open Voting') : (lang === 'ar' ? 'فتح باب التصويت' : 'Open Voting')}
-                                </button>
-                            )}
-                            {votingStatus === 'open' && (
-                                <button
-                                    type="button"
-                                    className="btn btn-sm"
-                                    disabled={updatingVotingStatus}
-                                    onClick={() => handleUpdateVotingStatus('closed')}
-                                    style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        background: '#8B1E2F',
-                                        color: '#ffffff',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        fontWeight: 700
-                                    }}
-                                >
-                                    {updatingVotingStatus ? <Loader2 className="spin" size={14} /> : <CheckCircle2 size={14} />}
-                                    {lang === 'ar' ? 'إغلاق التصويت' : 'Close Voting'}
-                                </button>
-                            )}
-                        </div>
-                    )}
-                </div>
-            )}
-
             {loading ? (
                 <div className="lb-loading"><Loader2 className="spin" size={36} /></div>
             ) : displayedProjects.length === 0 ? (
-                <div className="lb-empty">
-                    <Lightbulb size={48} strokeWidth={1} />
-                    <h3>{lang === 'ar' ? 'لا توجد مشاريع مسجلة بعد' : 'No submitted projects found'}</h3>
-                    <p>{lang === 'ar' ? 'ستظهر مشاريع المتدربين والتقييمات الأكاديمية هنا فور رصدها.' : 'Trainee projects and academic scores will appear here once submitted and evaluated.'}</p>
+                <div className="lb-empty" style={{ padding: '3.5rem 1.5rem', textAlign: 'center' }}>
+                    <Crown size={54} strokeWidth={1.5} style={{ color: '#f59e0b', margin: '0 auto 12px auto' }} />
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-1)' }}>
+                        {lang === 'ar' ? 'لا توجد مشاريع حاصلة على الكارت الذهبي بعد' : 'No Golden Pass Projects Yet'}
+                    </h3>
+                    <p style={{ maxWidth: '520px', margin: '0 auto', color: 'var(--text-muted)', lineHeight: '1.6', fontSize: '0.92rem' }}>
+                        {lang === 'ar' 
+                            ? 'لوحة الشرف مخصصة حصرياً للمشاريع التي يتم منحها الكارت الذهبي (Golden Pass) من قِبل المشرفين والمدربين أثناء مراجعة وتقييم المشاريع.' 
+                            : 'This leaderboard is strictly reserved for standout projects awarded the Golden Pass by academic supervisors.'}
+                    </p>
                 </div>
             ) : (
                     <div className="lb-list">
@@ -299,7 +228,6 @@ export default function IdeaLeaderboard() {
                                         {!courseFilter && <th>{lang === 'ar' ? 'الدورة' : 'Course'}</th>}
                                         {/* Trainees do NOT see evaluation scores */}
                                         {isTrainer && <th style={{ textAlign: 'center' }}>{lang === 'ar' ? 'الدرجة الأكاديمية' : 'Evaluation Score'}</th>}
-                                        <th style={{ textAlign: 'center' }}>{lang === 'ar' ? 'أصوات الدورة' : 'Course Votes'}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -325,6 +253,11 @@ export default function IdeaLeaderboard() {
                                                     <div className="project-title-cell">
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                             <strong style={{ fontSize: '0.98rem' }}>{proj.title}</strong>
+                                                            {Number(proj.is_golden_pass) === 1 && (
+                                                                <span className="golden-pass-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #f59e0b 0%, #b45309 100%)', color: '#ffffff', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, boxShadow: '0 2px 8px rgba(245, 158, 11, 0.4)', border: '1px solid rgba(251, 191, 36, 0.6)' }}>
+                                                                    <Crown size={12} /> {lang === 'ar' ? 'الكارت الذهبي' : 'Golden Pass'}
+                                                                </span>
+                                                            )}
                                                             {isGoldTop5 && (
                                                                 <span className="top5-badge" title="Top 5 Project" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                                                     <Trophy size={12} /> Top {idx + 1}
@@ -401,45 +334,6 @@ export default function IdeaLeaderboard() {
                                                         )}
                                                     </td>
                                                 )}
-                                                <td style={{ textAlign: 'center' }}>
-                                                    <div className="votes-cell" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                                                            <span className={`vote-count-badge ${proj.vote_count > 0 ? 'has-votes' : ''}`}>
-                                                                <Vote size={13} /> {proj.vote_count}
-                                                            </span>
-                                                            {proj.is_top_5 && (
-                                                                <span className="vote-rank-tag">
-                                                                    #{proj.top5_rank || proj.vote_rank} in votes
-                                                                </span>
-                                                            )}
-                                                        </div>
-
-                                                        {votingStatus === 'open' && isTrainer && courseFilter && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleToggleVote(proj.id)}
-                                                                disabled={!myVotes.includes(Number(proj.id)) && myVotes.length >= 5}
-                                                                style={{
-                                                                    padding: '0.2rem 0.65rem',
-                                                                    borderRadius: '6px',
-                                                                    fontSize: '0.76rem',
-                                                                    fontWeight: 800,
-                                                                    cursor: (!myVotes.includes(Number(proj.id)) && myVotes.length >= 5) ? 'not-allowed' : 'pointer',
-                                                                    border: myVotes.includes(Number(proj.id)) ? 'none' : '1px solid var(--border, #cbd5e1)',
-                                                                    background: myVotes.includes(Number(proj.id)) ? '#16a34a' : 'var(--bg-0, #ffffff)',
-                                                                    color: myVotes.includes(Number(proj.id)) ? '#ffffff' : 'var(--text-1, #334155)',
-                                                                    display: 'inline-flex',
-                                                                    alignItems: 'center',
-                                                                    gap: '4px',
-                                                                    boxShadow: myVotes.includes(Number(proj.id)) ? '0 2px 6px rgba(22, 163, 74, 0.3)' : 'none',
-                                                                    transition: 'all 0.15s ease'
-                                                                }}
-                                                            >
-                                                                {myVotes.includes(Number(proj.id)) ? (lang === 'ar' ? 'مصوّت له' : 'Voted') : (lang === 'ar' ? '+ تصويت' : '+ Vote')}
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </td>
                                             </tr>
                                         );
                                     })}

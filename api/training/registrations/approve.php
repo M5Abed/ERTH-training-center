@@ -14,8 +14,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data = body();
 $requestId = (int)($data['request_id'] ?? 0);
-$userId = (int)($data['user_id'] ?? 0);
-$courseId = isset($data['course_id']) ? (int)$data['course_id'] : null;
+$userId = resolveUserId($data['user_id'] ?? 0);
+$courseId = isset($data['course_id']) ? resolveCourseId($data['course_id']) : null;
 
 if (!$requestId && !$userId) {
     respondError('request_id or user_id is required');

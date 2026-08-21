@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // =========================================================
 // NMU TRAINING â€” Academic Leaderboard & End-of-Course Voting Results
 // GET /api/training/leaderboard/list.php?course_id=X
@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);
 }
 
-$courseId = isset($_GET['course_id']) && $_GET['course_id'] !== '' ? (int)$_GET['course_id'] : null;
+$courseId = isset($_GET['course_id']) && $_GET['course_id'] !== '' ? resolveCourseId($_GET['course_id']) : null;
 $limit    = min((int)($_GET['limit'] ?? 200), 500);
 
 $db = db();
@@ -29,10 +29,15 @@ if ($courseId) {
     $courseInfo = $cStmt->fetch();
 }
 
-$where = $courseId ? "WHERE ti.course_id = ?" : "";
-$params = $courseId ? [$courseId] : [];
+$whereConditions = ["COALESCE(ti.is_golden_pass, 0) = 1"];
+$params = [];
+if ($courseId) {
+    $whereConditions[] = "ti.course_id = ?";
+    $params[] = $courseId;
+}
+$where = "WHERE " . implode(" AND ", $whereConditions);
 
-// 1. Projects Leaderboard Query
+// 1. Projects Leaderboard Query (Golden Pass Only)
 $sql = "
     SELECT 
         ti.id,
@@ -40,6 +45,7 @@ $sql = "
         COALESCE(ti.description, '') AS description,
         ti.tech_stack,
         ti.status,
+        COALESCE(ti.is_golden_pass, 0) AS is_golden_pass,
         ti.course_id,
         tc.name AS course_name,
         tc.voting_status,
@@ -225,6 +231,31 @@ if (!$isTrainer) {
         $tp['evaluation_score'] = null;
     }
     unset($tp);
+}
+
+foreach ($projects as &$p) {
+    if (!empty($p['trainee_id']) && is_numeric($p['trainee_id'])) {
+        $p['trainee_id'] = getUserUuid((int)$p['trainee_id']);
+    }
+    if (!empty($p['course_id']) && is_numeric($p['course_id'])) {
+        $p['course_id'] = getCourseUuid((int)$p['course_id']);
+    }
+}
+unset($p);
+
+foreach ($students as &$s) {
+    if (!empty($s['trainee_id']) && is_numeric($s['trainee_id'])) {
+        $s['trainee_id'] = getUserUuid((int)$s['trainee_id']);
+    }
+    if (!empty($s['course_id']) && is_numeric($s['course_id'])) {
+        $s['course_id'] = getCourseUuid((int)$s['course_id']);
+    }
+}
+unset($s);
+
+if ($courseInfo && !empty($courseInfo['id']) && is_numeric($courseInfo['id'])) {
+    $courseInfo['uuid'] = getCourseUuid((int)$courseInfo['id']);
+    $courseInfo['id'] = $courseInfo['uuid'];
 }
 
 respond([

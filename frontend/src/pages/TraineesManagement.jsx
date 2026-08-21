@@ -8,11 +8,13 @@ import {
     Edit2, Save, Key, UserCheck, Shield, Trash2, AlertTriangle,
     Sparkles, Building2, Calendar, Globe, ExternalLink
 } from 'lucide-react';
+import { useToast } from '../components/Toast';
 import './TraineesManagement.css';
 
 export default function TraineesManagement() {
     const { lang } = useI18n();
     const { user, profile } = useAuth();
+    const toast = useToast();
     const role = (user?.role || profile?.role || '').toLowerCase();
     const isAdmin = !!(user?.is_admin || profile?.is_admin || role === 'admin');
     const isTrainer = role === 'trainer' || isAdmin;
@@ -120,12 +122,36 @@ export default function TraineesManagement() {
         }
     };
 
-    const handleExport = (format = 'csv') => {
+    const handleExport = async (format = 'csv') => {
         setExporting(true);
-        let url = `/api/admin/export.php?type=trainees&format=${format}`;
-        if (selectedCourse) url += `&course_id=${selectedCourse}`;
-        window.open(url, '_blank');
-        setTimeout(() => setExporting(false), 1500);
+        try {
+            let url = `/api/admin/export.php?type=trainees&format=${format}`;
+            if (selectedCourse) url += `&course_id=${selectedCourse}`;
+            const res = await fetch(url, {
+                credentials: 'include',
+                headers: authHeaders()
+            });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                toast?.error(errData.error || `Export failed (${res.status})`);
+                return;
+            }
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            const disp = res.headers.get('Content-Disposition') || '';
+            const nameMatch = disp.match(/filename="?([^"]+)"?/);
+            a.download = nameMatch ? nameMatch[1] : `Export_Trainees_${format}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(a.href);
+            toast?.success(lang === 'ar' ? 'تم تصدير البيانات بنجاح' : 'Export downloaded successfully');
+        } catch (e) {
+            toast?.error('Export connection error');
+        } finally {
+            setExporting(false);
+        }
     };
 
     const startEditTrainee = (trainee) => {
@@ -820,8 +846,18 @@ export default function TraineesManagement() {
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowExcelModal(false)}>
                                     {lang === 'ar' ? 'إلغاء' : 'Cancel'}
                                 </button>
-                                <button type="submit" className="btn btn-primary" disabled={importing}>
-                                    {importing ? <Loader2 className="spin" size={16} /> : (lang === 'ar' ? 'بدء الاستيراد' : 'Start Import')}
+                                <button type="submit" className="btn btn-primary" disabled={importing || !excelFile}>
+                                    {importing ? (
+                                        <>
+                                            <Loader2 className="spin" size={16} />
+                                            <span>{lang === 'ar' ? 'جاري الاستيراد...' : 'Importing...'}</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FileSpreadsheet size={16} />
+                                            <span>{lang === 'ar' ? 'بدء الاستيراد' : 'Start Import'}</span>
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </form>

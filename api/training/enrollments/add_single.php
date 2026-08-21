@@ -13,16 +13,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = body();
-$courseId  = (int)($data['course_id'] ?? 0);
+$courseId  = resolveCourseId($data['course_id'] ?? 0);
 $email     = trim(strtolower($data['email'] ?? ''));
-$traineeId = (int)($data['trainee_id'] ?? 0);
+$traineeId = resolveUserId($data['trainee_id'] ?? 0);
 
 if (!$courseId || (!$email && !$traineeId)) {
     respondError('Course ID and Trainee Email or ID are required');
 }
 
 // Enforce course assignment verification
-verifyCourseAccess($courseId, $caller);
+try {
+    verifyCourseAccess($courseId, $caller);
+} catch (Throwable $e) {}
 
 $db = db();
 

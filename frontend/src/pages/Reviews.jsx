@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useConfirm, useToast } from '../components/Toast';
 import { getWrittenReviews, getUserReviews, submitReview, getCompletedProjectsForUser, getTeamMembers, deleteReview, updateReview, formatDate } from '../services/api';
 import { Star, Send, Loader2, MessageSquare, Edit3, PenLine, Trash2, X, Save, History, ArrowLeft } from 'lucide-react';
 import './Reviews.css';
 
 export default function Reviews() {
+    const confirm = useConfirm();
+    const toast = useToast();
     const { t, lang } = useI18n();
     const { user } = useAuth();
     const [written, setWritten] = useState([]);
@@ -76,6 +79,7 @@ export default function Reviews() {
         setSubmitting(false);
         if (result && !result.error) {
             setMsg(t('review_submitted'));
+            toast?.success(t('review_submitted'));
             setSelectedProject(''); setSelectedTeammate('');
             setCommitment(0); setQuality(0); setCollab(0); setComment('');
             const [w, r] = await Promise.all([getWrittenReviews(), getUserReviews(user?.id)]);
@@ -83,12 +87,20 @@ export default function Reviews() {
             setReceived(r || []);
         } else {
             setMsg(result?.error?.message || t('error_generic'));
+            toast?.error(result?.error?.message || t('error_generic'));
         }
     };
 
     const handleDeleteWrittenReview = async (reviewId) => {
-        if (!window.confirm(lang === 'ar' ? 'هل أنت متأكد من حذف هذه المراجعة؟' : 'Are you sure you want to delete this review?')) return;
+        const ok = await confirm({
+            title: lang === 'ar' ? 'حذف المراجعة' : 'Delete Review',
+            message: lang === 'ar' ? 'هل أنت متأكد من حذف هذه المراجعة؟' : 'Are you sure you want to delete this review?',
+            variant: 'danger',
+            confirmText: lang === 'ar' ? 'حذف' : 'Delete'
+        });
+        if (!ok) return;
         await deleteReview(reviewId);
+        toast?.success(lang === 'ar' ? 'تم حذف المراجعة' : 'Review deleted');
         const w = await getWrittenReviews();
         setWritten(w || []);
     };

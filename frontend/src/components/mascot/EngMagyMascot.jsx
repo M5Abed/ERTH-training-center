@@ -14,10 +14,7 @@ const ENG_MAGY_TIPS = {
         title: "المنهج والوحدات",
         text: "المنهج هنا مش مجرد نظري، هندخل في تفاصيل تحويلات الحركة (Kinematics) لحد ما نوصل لبيئة ROS2، عايز تركيز عالي."
     },
-    simulator: {
-        title: "مختبر الكود والمحاكاة",
-        text: "بلاش نجرب في الهاردوير على طول ونحرق الدنيا، الكود بيتجرب الأول في المحاكي عشان نتأكد من إشارات الـ PWM وحلقات الـ PID."
-    },
+
     idea: {
         title: "مشاريع التخرج",
         text: "مشاريع التخرج مش مجرد فكرة حلوة، لازم تحل مشكلة حقيقية زي التتبع والملاحة باستخدام الـ SLAM وتكون المعمارية مظبوطة."
@@ -110,8 +107,6 @@ export default function EngMagyMascot({ forceShow = false, courseTrack = '' }) {
             const text = (target.textContent || '').toLowerCase();
             if (text.includes('موضوع') || text.includes('منهج') || text.includes('syllabus') || text.includes('topic')) {
                 showTip(ENG_MAGY_TIPS.topics);
-            } else if (text.includes('محاكاة') || text.includes('كود') || text.includes('simulator') || text.includes('code')) {
-                showTip(ENG_MAGY_TIPS.simulator);
             } else if (text.includes('فكرة') || text.includes('مشروع') || text.includes('idea') || text.includes('capstone')) {
                 showTip(ENG_MAGY_TIPS.idea);
             } else if (text.includes('تسليم') || text.includes('ملف') || text.includes('submit') || text.includes('doc')) {

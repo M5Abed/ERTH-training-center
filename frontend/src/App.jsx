@@ -1,4 +1,4 @@
-﻿import { lazy, Suspense, Component } from 'react'
+import { lazy, Suspense, Component } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import './App.css'
@@ -7,19 +7,19 @@ import './App.css'
 const AppLayout           = lazy(() => import('./components/layout/AppLayout'))
 const Landing             = lazy(() => import('./pages/Landing'))
 const Auth                = lazy(() => import('./pages/Auth'))
-const Admin               = lazy(() => import('./pages/Admin'))
 const Dashboard           = lazy(() => import('./pages/Dashboard'))
 const TrainingCourses     = lazy(() => import('./pages/TrainingCourses'))
 const TrainingCourseDetail= lazy(() => import('./pages/TrainingCourseDetail'))
 const TrainersManagement  = lazy(() => import('./pages/TrainersManagement'))
 const TraineeProjects     = lazy(() => import('./pages/TraineeProjects'))
+const Evaluations         = lazy(() => import('./pages/Evaluations'))
 const IdeaLeaderboard     = lazy(() => import('./pages/IdeaLeaderboard'))
 const DocumentsArchive    = lazy(() => import('./pages/DocumentsArchive'))
 const TraineesManagement  = lazy(() => import('./pages/TraineesManagement'))
 const TrainingApprovals   = lazy(() => import('./pages/TrainingApprovals'))
 const CertificateVerification = lazy(() => import('./pages/CertificateVerification'))
 
-/* â”€â”€ Error Boundary: catches lazy-load failures instead of crashing to "/" â”€â”€ */
+/* ── Error Boundary: catches lazy-load failures instead of crashing to "/" ── */
 class PageErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -99,33 +99,32 @@ export default function App() {
     <PageErrorBoundary>
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          {/* â”€â”€ Public â”€â”€ */}
+          {/* ── Public ── */}
           <Route path="/" element={<Landing />} />
           <Route path="/auth" element={loading ? <PageLoader /> : (user ? <Navigate to="/dashboard" replace /> : <Auth />)} />
           <Route path="/verify-certificate" element={<CertificateVerification />} />
           <Route path="/verify" element={<CertificateVerification />} />
 
-          {/* â”€â”€ Protected (inside AppLayout with sidebar) â”€â”€ */}
+          {/* ── Protected (inside AppLayout with sidebar) ── */}
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route path="/dashboard"         element={<Dashboard />} />
             <Route path="/courses"           element={<TrainingCourses />} />
             <Route path="/courses/robotics"  element={<TrainingCourseDetail courseIdOverride="robotics" />} />
             <Route path="/courses/robotics/*"element={<TrainingCourseDetail courseIdOverride="robotics" />} />
             <Route path="/courses/:id"       element={<TrainingCourseDetail />} />
+            <Route path="/projects"          element={<TraineeProjects />} />
             <Route path="/submitted-projects"element={<TraineeProjects />} />
             <Route path="/trainee-projects"  element={<TraineeProjects />} />
-                        <Route path="/leaderboard"       element={<IdeaLeaderboard />} />
-            <Route path="/docs-archive"      element={<DocumentsArchive />} />
-            <Route path="/trainees"          element={<TrainerOrAdminRoute><TraineesManagement /></TrainerOrAdminRoute>} />
-            <Route path="/trainees-management" element={<TrainerOrAdminRoute><TraineesManagement /></TrainerOrAdminRoute>} />
+            <Route path="/evaluations"       element={<Evaluations />} />
+            <Route path="/leaderboard"       element={<IdeaLeaderboard />} />
             <Route path="/trainers"          element={<AdminRoute><TrainersManagement /></AdminRoute>} />
-            <Route path="/admin"             element={<AdminRoute><Admin /></AdminRoute>} />
+            <Route path="/admin"             element={<Navigate to="/dashboard" replace />} />
 
             {/* Legacy redirects */}
-            <Route path="/evaluations"       element={<Navigate to="/courses/default?tab=evaluations" replace />} />
-            <Route path="/approvals"         element={<Navigate to="/trainees" replace />} />
-            <Route path="/training-approvals"element={<Navigate to="/trainees" replace />} />
-            <Route path="/projects"          element={<Navigate to="/trainee-projects" replace />} />
+            <Route path="/trainees"          element={<Navigate to="/courses" replace />} />
+            <Route path="/trainees-management" element={<Navigate to="/courses" replace />} />
+            <Route path="/approvals"         element={<Navigate to="/courses" replace />} />
+            <Route path="/training-approvals"element={<Navigate to="/courses" replace />} />
             <Route path="/people"            element={<Navigate to="/courses" replace />} />
           </Route>
 

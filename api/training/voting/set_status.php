@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data     = body();
-$courseId = (int)($data['course_id'] ?? 0);
+$courseId = resolveCourseId($data['course_id'] ?? 0);
 $status   = trim(strtolower($data['status'] ?? ''));
 
 if (!$courseId) {

@@ -3,7 +3,7 @@ import { NavLink, useNavigate, Link } from 'react-router-dom';
 import { useI18n } from '../../contexts/I18nContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getNotifications, changePassword } from '../../services/api';
-import { GraduationCap, FolderKanban, PlusCircle, Users, Star, MapPin, UserCircle, Shield, LogOut, X, Loader2, Save, Activity, CheckCircle2, Circle, FileText, Trophy, FolderOpen, UserCheck } from 'lucide-react';
+import { GraduationCap, FolderKanban, PlusCircle, Users, Star, MapPin, UserCircle, Shield, LogOut, X, Loader2, Save, Activity, CheckCircle2, Circle, FileText, Trophy, FolderOpen, UserCheck, Award } from 'lucide-react';
 import './Sidebar.css';
 
 export default function Sidebar({ open, onClose }) {
@@ -59,7 +59,7 @@ export default function Sidebar({ open, onClose }) {
     navItems.push({
         to: '/dashboard',
         icon: <Activity size={20} />,
-        label: 'Dashboard'
+        label: lang === 'ar' ? 'لوحة التحكم' : 'Dashboard'
     });
 
     // Courses available to all
@@ -69,33 +69,27 @@ export default function Sidebar({ open, onClose }) {
         label: lang === 'ar' ? 'الدورات التدريبية' : 'Training Courses'
     });
 
-    // Submitted Projects / Ideas available to all
-    navItems.push({
-        to: '/submitted-projects',
-        icon: <FileText size={20} />,
-        label: (isAdmin || isTrainer)
-            ? (lang === 'ar' ? 'مشاريع المتدربين' : 'Trainee Projects')
-            : (lang === 'ar' ? 'مشروعي وفكرتي' : 'My Project & Idea')
-    });
-
-    // Academic Evaluations
-    navItems.push({
-        to: '/evaluations',
-        icon: <CheckCircle2 size={20} />,
-        label: lang === 'ar' ? 'التقييم الأكاديمي' : 'Academic Evaluations'
-    });
-
-    // Items available to Admin & Trainer
-    if (isAdmin || isTrainer) {
+    // Training Projects & Academic Evaluations for Trainees only
+    if (isTrainee) {
         navItems.push({
-            to: '/trainees',
-            icon: <UserCheck size={20} />,
-            label: 'Trainees Management'
+            to: '/projects',
+            icon: <FileText size={20} />,
+            label: lang === 'ar' ? 'مشاريع التدريب' : 'Training Projects'
         });
+
+        navItems.push({
+            to: '/evaluations',
+            icon: <Award size={20} />,
+            label: lang === 'ar' ? 'التقييم الأكاديمي' : 'Academic Evaluations'
+        });
+    }
+
+    // Trainers Management is strictly Admin only
+    if (isAdmin) {
         navItems.push({
             to: '/trainers',
             icon: <Users size={20} />,
-            label: 'Trainers Management'
+            label: lang === 'ar' ? 'إدارة هيئة التدريب' : 'Trainers Management'
         });
     }
 

@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data       = body();
-$courseId   = (int)($data['course_id'] ?? 0);
+$courseId   = resolveCourseId($data['course_id'] ?? 0);
 $projectIds = $data['project_ids'] ?? [];
 
 if (!$courseId) {
@@ -31,7 +31,7 @@ if (!is_array($projectIds)) {
 // Clean and deduplicate IDs
 $cleanProjectIds = [];
 foreach ($projectIds as $pId) {
-    $id = (int)$pId;
+    $id = resolveIdeaId($pId);
     if ($id > 0 && !in_array($id, $cleanProjectIds, true)) {
         $cleanProjectIds[] = $id;
     }

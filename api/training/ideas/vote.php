@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // =========================================================
 // NMU TRAINING â€” Cast / Update Vote on Trainee Idea
 // Access: Trainer or Admin
@@ -15,7 +15,7 @@ try {
     }
 
     $data = body();
-    $ideaId = (int)($data['idea_id'] ?? 0);
+    $ideaId = resolveIdeaId($data['idea_id'] ?? 0);
     $vote   = trim(strtolower($data['vote'] ?? '')); // 'approve' or 'reject'
     $notes  = sanitizeString($data['notes'] ?? '');
 
@@ -107,14 +107,21 @@ try {
     $myVote = null;
     $myNotes = null;
 
-    foreach ($allVotes as $v) {
+    foreach ($allVotes as &$v) {
         if ($v['vote'] === 'approve') $approveCount++;
         if ($v['vote'] === 'reject') $rejectCount++;
         if ((int)$v['evaluator_id'] === $evaluatorId) {
             $myVote = $v['vote'];
             $myNotes = $v['notes'];
         }
+        if (!empty($v['evaluator_id']) && is_numeric($v['evaluator_id'])) {
+            $v['evaluator_id'] = getUserUuid((int)$v['evaluator_id']);
+        }
+        if (!empty($v['idea_id']) && is_numeric($v['idea_id'])) {
+            $v['idea_id'] = getIdeaUuid((int)$v['idea_id']);
+        }
     }
+    unset($v);
 
     respond([
         'success' => true,

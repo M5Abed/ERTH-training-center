@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useConfirm, useToast } from '../components/Toast';
 import {
     getProject, getApplications, applyToProject, updateApplicationStatus,
     getTeamMembers, checkExistingApplication, deleteProject,
@@ -14,6 +15,8 @@ import { Search, Users, Calendar, Clock, Send, Check, X, Trash2, UserPlus, Brain
 import './ProjectDetail.css';
 
 export default function ProjectDetail() {
+    const confirm = useConfirm();
+    const toast = useToast();
     const { id } = useParams();
     const { t, lang } = useI18n();
     const { user, profile: myProfile } = useAuth();
@@ -62,7 +65,7 @@ export default function ProjectDetail() {
         setProject(p);
         if (p) {
             const [apps, members, myApp] = await Promise.all([
-                p.owner_id == user?.id ? getApplications(id) : Promise.resolve([]),
+                String(p.owner_id) === String(user?.id) ? getApplications(id) : Promise.resolve([]),
                 getTeamMembers(id),
                 user ? checkExistingApplication(id) : Promise.resolve(null),
             ]);
@@ -71,7 +74,7 @@ export default function ProjectDetail() {
             setExistingApp(myApp);
 
             // Check if invited
-            if (user && p.owner_id != user.id && !members.some(m => m.user_id == user.id || m.id == user.id)) {
+            if (user && String(p.owner_id) !== String(user.id) && !members.some(m => String(m.user_id || m.id) === String(user.id))) {
                 const notifs = await getNotifications();
                 const inv = notifs.some(n => n.type === 'invite' && n.project_id == id);
                 setHasInvite(inv);
@@ -94,8 +97,8 @@ export default function ProjectDetail() {
 
     useEffect(() => { reload(); }, [id, user]);
 
-    const isOwner = project?.owner_id == user?.id;
-    const isMember = team.some(m => (m.user_id || m.id) == user?.id);
+    const isOwner = String(project?.owner_id) === String(user?.id);
+    const isMember = team.some(m => String(m.user_id || m.id) === String(user?.id));
     const expired = project?.deadline ? isProjectExpired(project.deadline) : false;
 
     const handleApply = async () => {
@@ -142,8 +145,15 @@ export default function ProjectDetail() {
 
     // Remove team member (#19)
     const handleRemoveMember = async (memberId) => {
-        if (!window.confirm('Remove this team member?')) return;
+        const ok = await confirm({
+            title: lang === 'ar' ? 'إزالة عضو' : 'Remove Member',
+            message: lang === 'ar' ? 'هل أنت متأكد من إزالة هذا العضو من الفريق؟' : 'Remove this team member?',
+            variant: 'danger',
+            confirmText: lang === 'ar' ? 'إزالة' : 'Remove'
+        });
+        if (!ok) return;
         await removeTeamMember(id, memberId);
+        toast?.success(lang === 'ar' ? 'تمت إزالة العضو' : 'Team member removed');
         setTeam(prev => prev.filter(m => (m.user_id || m.id) !== memberId));
     };
 
@@ -152,10 +162,17 @@ export default function ProjectDetail() {
         const confirmMsg = lang === 'ar'
             ? 'هل أنت متأكد أنك تريد مغادرة هذا المشروع؟'
             : 'Are you sure you want to leave this project?';
-        if (!window.confirm(confirmMsg)) return;
+        const ok = await confirm({
+            title: lang === 'ar' ? 'مغادرة المشروع' : 'Leave Project',
+            message: confirmMsg,
+            variant: 'warning',
+            confirmText: lang === 'ar' ? 'مغادرة' : 'Leave'
+        });
+        if (!ok) return;
 
         const success = await leaveProject(id);
         if (success) {
+            toast?.success(lang === 'ar' ? 'تمت مغادرة المشروع' : 'Left project successfully');
             reload();
         }
     };

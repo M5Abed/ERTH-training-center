@@ -13,8 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = body();
-$courseId = (int)($data['course_id'] ?? 0);
-$traineeId = (int)($data['trainee_id'] ?? 0);
+$courseId = resolveCourseId($data['course_id'] ?? 0);
+$traineeId = resolveUserId($data['trainee_id'] ?? 0);
 $trainingType = strtolower(trim($data['training_type'] ?? 'internal'));
 $providerId = isset($data['provider_id']) && (int)$data['provider_id'] > 0 ? (int)$data['provider_id'] : null;
 $trackId = isset($data['track_id']) && (int)$data['track_id'] > 0 ? (int)$data['track_id'] : null;

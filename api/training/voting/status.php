@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // =========================================================
 // NMU TRAINING â€” Get Course Voting Status & Eligible Projects
 // GET /api/training/voting/status.php?course_id=X
@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);
 }
 
-$courseId = (int)($_GET['course_id'] ?? 0);
+$courseId = resolveCourseId($_GET['course_id'] ?? 0);
 if (!$courseId) {
     respondError('course_id is required');
 }
@@ -32,6 +32,9 @@ $course = $cStmt->fetch();
 if (!$course) {
     respondError('Course not found', 404);
 }
+
+$course['uuid'] = getCourseUuid((int)$course['id']);
+$course['id'] = $course['uuid'];
 
 // Fetch user's existing votes for this course
 $vStmt = $db->prepare("SELECT project_id FROM course_project_votes WHERE course_id = ? AND voter_id = ?");

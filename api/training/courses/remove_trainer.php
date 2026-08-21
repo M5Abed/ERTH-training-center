@@ -5,22 +5,26 @@
  */
 require_once __DIR__ . '/../../config.php';
 
-requireAdmin(); // Only admins can remove trainers
+requireRole(['admin', 'trainer', 'professor', 'ta', 'lecturer', 'supervisor', 'instructor', 'evaluator', 'faculty']);
 
 $data = body();
 $assignmentId = (int)($data['assignment_id'] ?? 0);
+$courseId     = resolveCourseId($data['course_id'] ?? 0);
+$trainerId    = resolveUserId($data['trainer_id'] ?? 0);
 
-if (!$assignmentId) {
-    respondError('Assignment ID is required', 400);
+if (!$assignmentId && (!$courseId || !$trainerId)) {
+    respondError('Assignment ID or Course ID and Trainer ID are required', 400);
 }
 
 $db = db();
 
-$stmt = $db->prepare("DELETE FROM trainer_assignments WHERE id = ?");
-$stmt->execute([$assignmentId]);
-
-if ($stmt->rowCount() > 0) {
-    respond(['success' => true]);
+if ($assignmentId > 0) {
+    $stmt = $db->prepare("DELETE FROM trainer_assignments WHERE id = ?");
+    $stmt->execute([$assignmentId]);
 } else {
-    respondError('Assignment not found', 404);
+    $stmt = $db->prepare("DELETE FROM trainer_assignments WHERE course_id = ? AND trainer_id = ?");
+    $stmt->execute([$courseId, $trainerId]);
 }
+
+respond(['success' => true, 'message' => 'Trainer assignment removed successfully']);
+

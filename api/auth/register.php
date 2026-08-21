@@ -124,12 +124,14 @@ if ($chkUser->fetch()) {
 
 // Hash password with bcrypt (PASSWORD_DEFAULT)
 $hash = password_hash($password, PASSWORD_DEFAULT);
+$userUuid = generateUuidV4();
 
 $stmt = db()->prepare("
-    INSERT INTO users (full_name, username, email, password_hash, student_id, college_key, academic_year, major, role, approval_status, email_verified)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)
+    INSERT INTO users (uuid, full_name, username, email, password_hash, student_id, college_key, academic_year, major, role, approval_status, email_verified)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)
 ");
 $stmt->execute([
+    $userUuid,
     $nameEn,
     $username,
     $email,

@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);
 }
 
-$courseId = (int)($_GET['course_id'] ?? 0);
+$courseId = resolveCourseId($_GET['course_id'] ?? 0);
 if (!$courseId) {
     respondError('Course ID is required');
 }
@@ -48,5 +48,12 @@ $query .= " ORDER BY tt.provider_id ASC, tt.order_index ASC, tt.id ASC";
 $stmt = $db->prepare($query);
 $stmt->execute($params);
 $topics = $stmt->fetchAll();
+
+foreach ($topics as &$tp) {
+    if (!empty($tp['course_id']) && is_numeric($tp['course_id'])) {
+        $tp['course_id'] = getCourseUuid((int)$tp['course_id']);
+    }
+}
+unset($tp);
 
 respond(['topics' => $topics]);

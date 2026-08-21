@@ -13,8 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = body();
-$courseId = (int)($data['course_id'] ?? 0);
-$traineeId = (int)($data['trainee_id'] ?? 0);
+$courseId  = resolveCourseId($data['course_id'] ?? 0);
+$traineeId = resolveUserId($data['trainee_id'] ?? 0);
 $decision = strtolower(trim($data['decision'] ?? $data['status'] ?? '')); // 'approved' or 'rejected'
 $feedback = trim($data['feedback'] ?? $data['rejection_reason'] ?? '');
 
@@ -47,6 +47,7 @@ try {
         respondError('Trainee enrollment not found', 404);
     }
 
+    $reviewerId = (int)($reviewer['id'] ?? 0);
     $upd = $db->prepare("
         UPDATE trainee_enrollments
         SET verification_status = ?,
@@ -58,7 +59,7 @@ try {
     $upd->execute([
         $decision,
         $feedback ?: null,
-        $adminId,
+        $reviewerId ?: null,
         $traineeId,
         $courseId
     ]);

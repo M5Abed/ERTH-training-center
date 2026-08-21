@@ -4,10 +4,10 @@ require_once __DIR__ . '/../config.php';
 $uid = (int) ($_SESSION['user_id'] ?? 0);
 if (!$uid) {
     $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
-    if (preg_match('/Bearer\s+(\d+)/i', $authHeader, $matches)) {
-        $uid = (int) $matches[1];
+    if (preg_match('/Bearer\s+([a-zA-Z0-9_-]+)/i', $authHeader, $matches)) {
+        $uid = resolveUserId($matches[1]);
     } elseif (!empty($_SERVER['HTTP_X_USER_ID'])) {
-        $uid = (int) $_SERVER['HTTP_X_USER_ID'];
+        $uid = resolveUserId($_SERVER['HTTP_X_USER_ID']);
     }
 }
 
@@ -40,6 +40,7 @@ if (($user['role'] ?? '') === 'trainee') {
         $eStmt = db()->prepare("
             SELECT te.id as enrollment_id, te.course_id, te.training_type, te.provider_id, te.track_id, te.technical_track_confirmed, 
                    te.custom_provider_name, te.custom_provider_website, te.custom_provider_linkedin, te.final_track, te.training_start_date,
+                   te.verification_status, te.verification_doc_url,
                    c.name as course_name, c.course_type,
                    p.name as provider_name, p.name_ar as provider_name_ar, p.website_url as provider_website, p.linkedin_url as provider_linkedin
             FROM trainee_enrollments te
@@ -50,6 +51,9 @@ if (($user['role'] ?? '') === 'trainee') {
         ");
         $eStmt->execute([$uid]);
         $externalEnrollments = $eStmt->fetchAll();
+
+        $user['is_external'] = !empty($externalEnrollments);
+        $user['external_enrollment'] = $externalEnrollments[0] ?? null;
 
         foreach ($externalEnrollments as $enr) {
             // Student needs to select technical track, provider/links, and started date

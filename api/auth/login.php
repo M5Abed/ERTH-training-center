@@ -101,6 +101,18 @@ session_regenerate_id(true);
 
 $_SESSION['user_id'] = $user['id'];
 
+// Set a backup uid cookie for production environments where Authorization headers
+// are stripped by the web server (Apache CGI / Hostinger / LiteSpeed)
+$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+setcookie('thinktank_uid', (string)($user['uuid'] ?? $user['id']), [
+    'expires'  => time() + 60 * 60 * 24 * 30,
+    'path'     => '/',
+    'secure'   => $isHttps,
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
+
 // Return safe user object
 $user = sanitizeUserResponse($user, true);
 respond(['user' => $user]);

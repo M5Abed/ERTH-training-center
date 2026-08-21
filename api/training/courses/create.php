@@ -33,27 +33,50 @@ if (empty($name)) {
 $db = db();
 
 try {
-    $stmt = $db->prepare("
-        INSERT INTO training_courses (name, category, level, description, start_date, end_date, duration_hours, course_type, status, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
-    ");
-    $stmt->execute([
-        $name,
-        $category,
-        $level,
-        $description ?: null,
-        $startDate ?: null,
-        $endDate ?: null,
-        $durationHours,
-        $courseType,
-        $admin['id']
-    ]);
+    $courseUuid = generateUuidV4();
+    try {
+        $stmt = $db->prepare("
+            INSERT INTO training_courses (uuid, name, category, level, description, start_date, end_date, duration_hours, course_type, status, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
+        ");
+        $stmt->execute([
+            $courseUuid,
+            $name,
+            $category,
+            $level,
+            $description ?: null,
+            $startDate ?: null,
+            $endDate ?: null,
+            $durationHours,
+            $courseType,
+            $admin['id']
+        ]);
+    } catch (Throwable $e1) {
+        $stmt = $db->prepare("
+            INSERT INTO training_courses (name, category, level, description, start_date, end_date, duration_hours, course_type, status, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)
+        ");
+        $stmt->execute([
+            $name,
+            $category,
+            $level,
+            $description ?: null,
+            $startDate ?: null,
+            $endDate ?: null,
+            $durationHours,
+            $courseType,
+            $admin['id']
+        ]);
+    }
     $courseId = (int)$db->lastInsertId();
+    $finalUuid = getCourseUuid($courseId);
 
     respond([
         'success' => true,
         'message' => 'Course created successfully',
-        'course_id' => $courseId
+        'course_id' => $finalUuid,
+        'id' => $finalUuid,
+        'uuid' => $finalUuid
     ], 201);
 } catch (Throwable $e) {
     error_log('Failed to create course: ' . $e->getMessage());

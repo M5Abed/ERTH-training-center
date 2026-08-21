@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $data              = body();
 $catalogProjectId  = (int)($data['catalog_project_id'] ?? 0);
 $courseId          = resolveCourseId($data['course_id'] ?? 0);
-$trainingIdeaId    = (int)($data['training_idea_id'] ?? 0);  // if idea already exists
+$trainingIdeaId    = resolveIdeaId($data['training_idea_id'] ?? 0);  // if idea already exists
 
 if (!$catalogProjectId) {
     respondError('catalog_project_id is required');
@@ -72,7 +72,7 @@ if (!$catProject) {
     respondError('Catalog project not found', 404);
 }
 
-// ── 2. Resolve or create the training idea ────────────────────────────────────
+// ── 2. Resolve course, enrollment, and approval rules ─────────────────────────
 if ($trainingIdeaId) {
     // Verify ownership
     $ideaStmt = $db->prepare("SELECT id, course_id, owner_id FROM training_ideas WHERE id = ? AND owner_id = ?");
@@ -83,26 +83,52 @@ if ($trainingIdeaId) {
     }
     $ideaId   = $trainingIdeaId;
     $courseId = (int)$idea['course_id'];
+}
+
+// Verify course exists and determine training type
+$cStmt = $db->prepare("SELECT id, name, course_type FROM training_courses WHERE id = ?");
+$cStmt->execute([$courseId]);
+$course = $cStmt->fetch();
+if (!$course) {
+    respondError('Course not found');
+}
+$courseName = $course['name'] ?? 'Training Course';
+$courseType = strtolower($course['course_type'] ?? 'internal');
+
+$isExternal = ($courseType === 'external');
+if (!$isEvaluator) {
+    $enrStmt = $db->prepare("SELECT id, training_type FROM trainee_enrollments WHERE trainee_id = ? AND course_id = ?");
+    $enrStmt->execute([$uid, $courseId]);
+    $enrRow = $enrStmt->fetch();
+    if (!$enrRow) {
+        try {
+            $autoEnr = $db->prepare("
+                INSERT INTO trainee_enrollments (course_id, trainee_id, training_type, source)
+                VALUES (?, ?, ?, 'catalog_selection')
+            ");
+            $autoEnr->execute([$courseId, $uid, $courseType]);
+        } catch (Throwable $e) {}
+    } else if (strtolower($enrRow['training_type'] ?? '') === 'external') {
+        $isExternal = true;
+    }
+}
+
+// ── Approval Logic Business Rules: ───────────────────────────────────────────
+// 1. Internal / Robotics Training selecting from 64 pre-approved catalog:
+//    => Auto-Approved ('approved') immediately without waiting for admin review.
+// 2. External Training selecting from 24 software catalog:
+//    => Requires admin/supervisor review ('submitted').
+if ($isExternal) {
+    $targetStatus      = 'submitted';
+    $initialFeedback   = null;
+    $initialReviewedAt = null;
 } else {
-    // Verify course exists
-    $cStmt = $db->prepare("SELECT id FROM training_courses WHERE id = ?");
-    $cStmt->execute([$courseId]);
-    if (!$cStmt->fetch()) {
-        respondError('Course not found');
-    }
+    $targetStatus      = 'approved';
+    $initialFeedback   = 'معتمد تلقائياً (فكرة معتمدة مسبقاً من دليل مشاريع الكلية)';
+    $initialReviewedAt = date('Y-m-d H:i:s');
+}
 
-    if (!$isEvaluator) {
-        $enrStmt = $db->prepare("SELECT id, training_type FROM trainee_enrollments WHERE trainee_id = ? AND course_id = ?");
-        $enrStmt->execute([$uid, $courseId]);
-        $enrRow = $enrStmt->fetch();
-        if (!$enrRow) {
-            respondError('You are not enrolled in this course', 403);
-        }
-        if ($enrRow['training_type'] === 'external') {
-            respondError('External students must submit their own project idea and cannot select catalog ideas.', 403);
-        }
-    }
-
+if (!$trainingIdeaId) {
     // Check if trainee already has an idea for this course
     $existStmt = $db->prepare("SELECT id, status FROM training_ideas WHERE owner_id = ? AND course_id = ?");
     $existStmt->execute([$uid, $courseId]);
@@ -128,26 +154,25 @@ if ($trainingIdeaId) {
         respondError("You are already enrolled as a team member in another project ('$alreadyMem').");
     }
 
-    // Check if another team has already selected this catalog project in this course
+    // Check if another team has already selected this catalog project ACROSS THE ENTIRE PLATFORM (Global Constraint)
     $takenCheck = $db->prepare("
         SELECT ti.id, ti.owner_id, u.full_name 
         FROM training_ideas ti
         JOIN users u ON u.id = ti.owner_id
-        WHERE ti.course_id = ? 
-          AND (ti.catalog_project_id = ? OR LOWER(TRIM(ti.title)) = LOWER(TRIM(?)))
+        WHERE (ti.catalog_project_id = ? OR LOWER(TRIM(ti.title)) = LOWER(TRIM(?)))
           AND ti.status != 'rejected'
           AND ti.owner_id != ?
     ");
-    $takenCheck->execute([$courseId, $catalogProjectId, $catProject['title'], $uid]);
+    $takenCheck->execute([$catalogProjectId, $catProject['title'], $uid]);
     $alreadyTaken = $takenCheck->fetch();
 
     if ($alreadyTaken) {
-        respondError("This project idea has already been chosen. Two teams cannot have the same idea. Please choose a different project.", 409);
+        respondError("This project idea has already been chosen by another team on the platform. Two teams cannot have the same idea. Please choose a different project.", 409);
     }
 
     if ($existingId) {
-        if (($existingStatus === 'approved' || $existingStatus === 'completed') && !$isEvaluator) {
-            respondError("This project idea has been officially approved by the supervisor and cannot be replaced. You can only add team members or upload files until training is complete.", 403);
+        if (($existingStatus === 'approved' || $existingStatus === 'completed') && !$isEvaluator && $isExternal) {
+            respondError("This project idea has been officially approved by the supervisor and cannot be replaced.", 403);
         }
         $ideaId = $existingId;
         // Check existing columns
@@ -155,22 +180,25 @@ if ($trainingIdeaId) {
         $hasTitleEn = in_array('title_en', $tiCols, true);
         $hasDescEn  = in_array('description_en', $tiCols, true);
 
-        // Update catalog_project_id, title, and reset to submitted
+        // Update catalog_project_id, title, and set status according to course training type
         $sql = "
             UPDATE training_ideas 
             SET catalog_project_id = ?,
                 title = ?,
                 description = ?,
-                status = 'submitted',
-                feedback = NULL,
+                status = ?,
+                feedback = ?,
                 reviewed_by = NULL,
-                reviewed_at = NULL,
+                reviewed_at = ?,
                 updated_at = NOW()
         ";
         $params = [
             $catalogProjectId,
             $catProject['title'],
-            'Selected from the project catalog: ' . $catProject['title']
+            'Selected from the project catalog: ' . $catProject['title'],
+            $targetStatus,
+            $initialFeedback,
+            $initialReviewedAt
         ];
         if ($hasTitleEn) {
             $sql .= ", title_en = ?";
@@ -192,14 +220,17 @@ if ($trainingIdeaId) {
         $hasTitleEn = in_array('title_en', $tiCols, true);
         $hasDescEn  = in_array('description_en', $tiCols, true);
 
-        $fields = ['owner_id', 'course_id', 'catalog_project_id', 'title', 'description', 'status'];
-        $placeholders = ['?', '?', '?', '?', '?', "'submitted'"];
+        $fields = ['owner_id', 'course_id', 'catalog_project_id', 'title', 'description', 'status', 'feedback', 'reviewed_at'];
+        $placeholders = ['?', '?', '?', '?', '?', '?', '?', '?'];
         $params = [
             $uid,
             $courseId,
             $catalogProjectId,
             $catProject['title'],
             'Selected from the project catalog: ' . $catProject['title'],
+            $targetStatus,
+            $initialFeedback,
+            $initialReviewedAt
         ];
         if ($hasTitleEn) {
             $fields[] = 'title_en';
@@ -376,10 +407,10 @@ $saveStmt = $db->prepare("
         tech_stack         = ?,
         catalog_project_id = ?,
         proposal_json      = ?,
-        status             = 'submitted',
-        feedback           = NULL,
+        status             = ?,
+        feedback           = ?,
         reviewed_by        = NULL,
-        reviewed_at        = NULL,
+        reviewed_at        = ?,
         updated_at         = NOW()
     WHERE id = ?
 ");
@@ -389,11 +420,16 @@ $saveStmt->execute([
     $catProject['skills'],
     $catalogProjectId,
     json_encode($proposalJson, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+    $targetStatus,
+    $initialFeedback,
+    $initialReviewedAt,
     $ideaId,
 ]);
 
 respond([
-    'success'       => true,
-    'idea_id'       => $ideaId,
-    'proposal'      => $proposalJson,
+    'success'          => true,
+    'idea_id'          => $ideaId,
+    'status'           => $targetStatus,
+    'is_auto_approved' => ($targetStatus === 'approved'),
+    'proposal'         => $proposalJson,
 ]);

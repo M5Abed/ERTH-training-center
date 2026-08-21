@@ -284,11 +284,12 @@
 
 .cert-recipient-name {
   font-family: 'Georgia', 'Times New Roman', serif;
-  font-size: 4.1cqi;
+  font-size: 2.5cqi;
   font-weight: 700;
   color: #1a1a1a;
-  margin: 0 0 0.7cqi 0;
-  letter-spacing: 0.06cqi;
+  margin: 0 0 0.5cqi 0;
+  letter-spacing: 0.03cqi;
+  line-height: 1.2;
 }
 
 .cert-name-underline {

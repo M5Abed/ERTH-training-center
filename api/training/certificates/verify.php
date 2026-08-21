@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // =========================================================
 // NMU TRAINING â€” Public Certificate Verification API
 // Access: Public (No Auth Required)
@@ -27,10 +27,10 @@ try {
         $stmt = $db->prepare("
             SELECT tc.*,
                    u.full_name AS trainee_name, u.student_id, u.email AS trainee_email,
-                   c.id AS course_id, c.name AS course_title, c.name AS course_title,
+                   c.id AS course_id, c.name AS course_title,
                    c.start_date, c.end_date,
-                   c.description, c.description,
-                   COALESCE(issuer.full_name, issuer.username) AS issuer_name
+                   c.description,
+                   COALESCE(issuer.full_name, issuer.email) AS issuer_name
             FROM training_certificates tc
             JOIN users u ON tc.trainee_id = u.id
             JOIN training_courses c ON tc.course_id = c.id
@@ -45,10 +45,10 @@ try {
         $stmt = $db->prepare("
             SELECT tc.*,
                    u.full_name AS trainee_name, u.student_id, u.email AS trainee_email,
-                   c.id AS course_id, c.name AS course_title, c.name AS course_title,
+                   c.id AS course_id, c.name AS course_title,
                    c.start_date, c.end_date,
-                   c.description, c.description,
-                   COALESCE(issuer.full_name, issuer.username) AS issuer_name
+                   c.description,
+                   COALESCE(issuer.full_name, issuer.email) AS issuer_name
             FROM training_certificates tc
             JOIN users u ON tc.trainee_id = u.id
             JOIN training_courses c ON tc.course_id = c.id

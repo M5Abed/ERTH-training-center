@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);
 }
 
-$courseId = (int)($_GET['course_id'] ?? 0);
+$courseId = resolveCourseId($_GET['course_id'] ?? 0);
 $format   = strtolower(trim($_GET['format'] ?? 'csv'));
 
 if (!$courseId) {

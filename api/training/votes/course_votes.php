@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // =========================================================
 // NMU TRAINING â€” Get Course Projects & Voting State
 // GET /api/training/votes/course_votes.php?course_id=X
@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);
 }
 
-$courseId = (int)($_GET['course_id'] ?? 0);
+$courseId = resolveCourseId($_GET['course_id'] ?? 0);
 if (!$courseId) {
     respondError('course_id is required', 400);
 }

@@ -119,7 +119,7 @@ export default function Projects() {
                                     <span className="meta-item">{t('posted_by')} {p.owner_name || p.owner_name || '—'}</span>
                                 </div>
                                 <div className="project-card-footer-right">
-                                    {p.owner_id == user?.id && (
+                                    {String(p.owner_id) === String(user?.id) && (
                                         <button className="btn btn-teal btn-xs" onClick={e => { e.stopPropagation(); navigate(`/matches/${p.id}`); }}>
                                             <Brain size={12} /> Find Team
                                         </button>

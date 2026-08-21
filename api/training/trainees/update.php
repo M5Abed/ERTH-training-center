@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = body();
-$traineeId = (int)($data['trainee_id'] ?? 0);
+$traineeId = resolveUserId($data['trainee_id'] ?? 0);
 $fullName  = trim(sanitizeString($data['full_name'] ?? ''));
 $studentId = trim(sanitizeString($data['student_id'] ?? ''));
 $email     = strtolower(trim(sanitizeString($data['email'] ?? '')));
@@ -108,11 +108,13 @@ $fetchStmt = $db->prepare("SELECT id, full_name, email, student_id, final_track,
 $fetchStmt->execute([$traineeId]);
 $updatedUser = $fetchStmt->fetch();
 
+$tUuid = getUserUuid((int)$updatedUser['id']);
 respond([
     'success' => true,
     'message' => 'Trainee details updated successfully',
     'trainee' => [
-        'trainee_id' => (int)$updatedUser['id'],
+        'trainee_id' => $tUuid,
+        'id'         => $tUuid,
         'full_name'  => $updatedUser['full_name'],
         'email'      => $updatedUser['email'],
         'student_id' => $updatedUser['student_id']

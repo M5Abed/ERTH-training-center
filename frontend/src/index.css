@@ -289,18 +289,201 @@ h1, h2, h3, h4, h5, h6 {
 .modal-box--full, .modal-full, .modal-box.modal-full { max-width: 1540px; width: 98%; }
 
 .modal-close-btn, .modal-close {
-  background: rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--bg-subtle, #f1f5f9);
+  border: 1px solid var(--border, #e2e8f0);
   color: var(--mute, #64748b);
-  cursor: pointer; padding: 7px;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
   border-radius: var(--radius-sm, 6px);
-  display: inline-flex; align-items: center; justify-content: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 .modal-close-btn:hover, .modal-close:hover {
   background: rgba(220, 38, 38, 0.1);
   border-color: rgba(220, 38, 38, 0.3);
   color: #dc2626;
+  transform: rotate(90deg);
+}
+
+.modal-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  width: 100%;
+}
+
+.modal-header-row > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.modal-header-row h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--ink, #0f172a);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.modal-header-row .hint-text {
+  font-size: 0.82rem;
+  color: var(--mute, #64748b);
+  margin-top: 0.35rem;
+  margin-bottom: 0;
+  line-height: 1.45;
+}
+
+/* ── Custom File Dropzone ───────────────────────── */
+.custom-file-dropzone {
+  position: relative;
+  border: 2px dashed var(--border-medium, #cbd5e1);
+  border-radius: var(--radius-lg, 12px);
+  padding: 1.75rem 1.25rem;
+  background: var(--bg-subtle, #f8fafc);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.custom-file-dropzone:hover {
+  border-color: var(--primary, #93191f);
+  background: rgba(147, 25, 31, 0.03);
+}
+
+.custom-file-dropzone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.custom-file-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(147, 25, 31, 0.08);
+  color: var(--primary, #93191f);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.custom-file-dropzone:hover .custom-file-icon {
+  transform: translateY(-2px);
+  background: rgba(147, 25, 31, 0.15);
+}
+
+.custom-file-label {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink, #0f172a);
+  margin-bottom: 0.25rem;
+}
+
+.custom-file-subtext {
+  font-size: 0.78rem;
+  color: var(--mute, #64748b);
+}
+
+.custom-file-name-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.82rem;
+  margin-top: 0.85rem;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Modal Template Hint ────────────────────────── */
+.modal-template-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  padding: 0.65rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: var(--text-2, #475569);
+  margin-bottom: 0.75rem;
+}
+
+.modal-template-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  text-decoration: none;
+  color: var(--primary, #93191f);
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(147, 25, 31, 0.06);
+  transition: all 0.15s ease;
+}
+
+.modal-template-link:hover {
+  background: rgba(147, 25, 31, 0.12);
+}
+
+/* ── Modal Actions Footer ───────────────────────── */
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+
+.modal-actions .btn {
+  min-height: 40px;
+  padding: 0.55rem 1.25rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.btn-ghost {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: var(--mute, #64748b) !important;
+  box-shadow: none !important;
+}
+
+.btn-ghost:hover {
+  background: var(--bg-subtle, #f1f5f9) !important;
+  color: var(--ink, #0f172a) !important;
 }
 
 /* ── Form Styles ─────────────────────────────────── */

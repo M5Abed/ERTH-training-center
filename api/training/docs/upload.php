@@ -46,8 +46,8 @@ try {
     $jsonBody = body();
     $inputData = array_merge(is_array($jsonBody) ? $jsonBody : [], $_POST);
 
-    $ideaId    = (int) ($inputData['idea_id'] ?? 0);
-    $courseId  = (int) ($inputData['course_id'] ?? 0);
+    $ideaId    = resolveIdeaId($inputData['idea_id'] ?? 0);
+    $courseId  = resolveCourseId($inputData['course_id'] ?? 0);
     $docType   = trim(strtolower($inputData['doc_type'] ?? ''));
     $linkUrl   = trim($inputData['url'] ?? $inputData['file_url'] ?? $inputData['link_url'] ?? '');
     $linkTitle = trim($inputData['title'] ?? $inputData['file_name'] ?? '');

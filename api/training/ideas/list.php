@@ -52,11 +52,27 @@ $sql = "
            u.email AS trainee_email, 
            u.student_id,
            tc.name AS course_name,
+           tc.course_type,
+           te.training_type,
+           te.provider_id,
+           te.track_id,
+           te.custom_provider_name,
+           te.custom_provider_website,
+           te.custom_provider_linkedin,
+           te.verification_status,
+           te.verification_doc_url,
+           p.name AS provider_name,
+           tt.title AS track_name,
            rev.full_name AS reviewer_name,
-           rev.email AS reviewer_email
+           rev.email AS reviewer_email,
+           (SELECT te_eval.final_score FROM training_evaluations te_eval WHERE te_eval.trainee_id = ti.owner_id AND te_eval.course_id = ti.course_id LIMIT 1) AS owner_evaluation_score,
+           (SELECT te_eval.status FROM training_evaluations te_eval WHERE te_eval.trainee_id = ti.owner_id AND te_eval.course_id = ti.course_id LIMIT 1) AS owner_evaluation_status
     FROM training_ideas ti
     JOIN users u ON ti.owner_id = u.id
     JOIN training_courses tc ON ti.course_id = tc.id
+    LEFT JOIN trainee_enrollments te ON (te.trainee_id = ti.owner_id AND te.course_id = ti.course_id)
+    LEFT JOIN external_training_providers p ON te.provider_id = p.id
+    LEFT JOIN training_topics tt ON te.track_id = tt.id
     LEFT JOIN projects_catalog pc ON ti.catalog_project_id = pc.id
     LEFT JOIN users rev ON ti.reviewed_by = rev.id
     $whereSql
@@ -74,10 +90,13 @@ function attachTeamMembers($db, array &$ideas, int $currentUserId) {
         $mStmt = $db->prepare("
             SELECT tim.idea_id, tim.user_id, tim.role, 
                    u.full_name, u.student_id, u.email,
-                   u.username, u.avatar_url,
-                   u.major, u.academic_year, u.department
+                   u.major, u.academic_year, u.department,
+                   te_eval.final_score AS evaluation_score,
+                   te_eval.status AS evaluation_status
             FROM training_idea_members tim
             JOIN users u ON tim.user_id = u.id
+            JOIN training_ideas ti ON tim.idea_id = ti.id
+            LEFT JOIN training_evaluations te_eval ON (te_eval.trainee_id = tim.user_id AND te_eval.course_id = ti.course_id)
             WHERE tim.idea_id IN ($inClause)
             ORDER BY CASE WHEN tim.role = 'leader' THEN 0 ELSE 1 END, u.full_name ASC
         ");
@@ -89,14 +108,16 @@ function attachTeamMembers($db, array &$ideas, int $currentUserId) {
                 'user_id' => (int) $m['user_id'],
                 'id' => (int) $m['user_id'],
                 'role' => $m['role'],
-                'full_name' => $m['full_name'] ?: ($m['username'] ?? $m['email']),
+                'full_name' => $m['full_name'] ?: $m['email'],
                 'student_id' => $m['student_id'],
                 'email' => $m['email'],
-                'avatar_url' => $m['avatar_url'] ?? null,
-                'username' => $m['username'] ?? null,
+                'avatar_url' => null,
+                'username' => null,
                 'major' => $m['major'] ?? null,
                 'academic_year' => $m['academic_year'] ?? null,
-                'department' => $m['department'] ?? null
+                'department' => $m['department'] ?? null,
+                'evaluation_score' => $m['evaluation_score'] !== null ? round((float)$m['evaluation_score'], 2) : null,
+                'evaluation_status' => $m['evaluation_status'] ?? null
             ];
         }
     } catch (Exception $e) {
@@ -104,6 +125,15 @@ function attachTeamMembers($db, array &$ideas, int $currentUserId) {
     }
 
     foreach ($ideas as &$idea) {
+        $isExternal = ($idea['course_type'] ?? '') === 'external' || ($idea['training_type'] ?? '') === 'external';
+        if ($isExternal) {
+            $idea['team_members'] = [];
+            $idea['my_team_role'] = null;
+            $idea['is_team_leader'] = false;
+            $idea['is_members_evaluated'] = ($idea['owner_evaluation_score'] !== null);
+            continue;
+        }
+
         $id = $idea['id'];
         $members = $membersByIdea[$id] ?? [];
 
@@ -117,7 +147,9 @@ function attachTeamMembers($db, array &$ideas, int $currentUserId) {
                 'student_id' => $idea['student_id'] ?? null,
                 'email' => $idea['trainee_email'] ?? null,
                 'avatar_url' => null,
-                'username' => null
+                'username' => null,
+                'evaluation_score' => $idea['owner_evaluation_score'] !== null ? round((float)$idea['owner_evaluation_score'], 2) : null,
+                'evaluation_status' => $idea['owner_evaluation_status'] ?? null
             ];
         }
 
@@ -135,6 +167,19 @@ function attachTeamMembers($db, array &$ideas, int $currentUserId) {
         $idea['team_members'] = $members;
         $idea['my_team_role'] = $myRole;
         $idea['is_team_leader'] = ($myRole === 'leader' || (int) ($idea['owner_id'] ?? 0) === $currentUserId);
+
+        // Check if all members (including owner/leader) have received evaluation scores
+        $ownerEvaluated = ($idea['owner_evaluation_score'] !== null);
+        $allEvaluated = $ownerEvaluated;
+        if (!empty($members)) {
+            foreach ($members as $m) {
+                if ($m['evaluation_score'] === null) {
+                    $allEvaluated = false;
+                    break;
+                }
+            }
+        }
+        $idea['is_members_evaluated'] = $allEvaluated;
     }
 }
 
@@ -272,8 +317,78 @@ foreach ($ideas as &$idea) {
 attachVotesAndTrainers($db, $ideas, $uid, $role, $isAdmin);
 attachTeamMembers($db, $ideas, $uid);
 
+// Attach pending invitations sent for these ideas
+if (!empty($ideas)) {
+    $ideaIds = array_column($ideas, 'id');
+    $inClause = implode(',', array_fill(0, count($ideaIds), '?'));
+    try {
+        $invStmt = $db->prepare("
+            SELECT tii.id AS invitation_id, tii.idea_id, tii.invitee_id, tii.created_at, tii.status,
+                   u.full_name, u.student_id, u.email, u.major, u.academic_year
+            FROM training_idea_invitations tii
+            JOIN users u ON tii.invitee_id = u.id
+            WHERE tii.idea_id IN ($inClause) AND tii.status = 'pending'
+            ORDER BY tii.created_at DESC
+        ");
+        $invStmt->execute($ideaIds);
+        $allInvs = $invStmt->fetchAll();
+
+        $invsByIdea = [];
+        foreach ($allInvs as $inv) {
+            $invsByIdea[$inv['idea_id']][] = [
+                'invitation_id' => (int) $inv['invitation_id'],
+                'user_id'       => (int) $inv['invitee_id'],
+                'id'            => (int) $inv['invitee_id'],
+                'full_name'     => $inv['full_name'] ?: $inv['email'],
+                'student_id'    => $inv['student_id'],
+                'email'         => $inv['email'],
+                'created_at'    => $inv['created_at'],
+                'status'        => 'pending'
+            ];
+        }
+
+        foreach ($ideas as &$idea) {
+            $id = $idea['id'];
+            $idea['pending_invitations'] = $invsByIdea[$id] ?? [];
+        }
+    } catch (Throwable $e) {}
+}
+
+// Fetch received pending invitations for this trainee
+$myInvs = [];
+try {
+    $myInvStmt = $db->prepare("
+        SELECT tii.id AS invitation_id, tii.idea_id, tii.course_id, tii.created_at,
+               ti.title AS project_title, ti.description AS project_description,
+               tc.name AS course_name,
+               u.full_name AS inviter_name, u.email AS inviter_email
+        FROM training_idea_invitations tii
+        JOIN training_ideas ti ON tii.idea_id = ti.id
+        JOIN training_courses tc ON tii.course_id = tc.id
+        JOIN users u ON tii.inviter_id = u.id
+        WHERE tii.invitee_id = ? AND tii.status = 'pending' AND ti.status != 'rejected'
+        ORDER BY tii.created_at DESC
+    ");
+    $myInvStmt->execute([$uid]);
+    $myInvs = $myInvStmt->fetchAll();
+} catch (Throwable $e) {}
+
+foreach ($ideas as &$idItem) {
+    $idItem['uuid'] = !empty($idItem['uuid']) ? $idItem['uuid'] : getIdeaUuid((int)$idItem['id']);
+    $idItem['id'] = $idItem['uuid'];
+    if (!empty($idItem['owner_id']) && is_numeric($idItem['owner_id'])) {
+        $idItem['owner_id'] = getUserUuid((int)$idItem['owner_id']);
+    }
+    if (!empty($idItem['course_id']) && is_numeric($idItem['course_id'])) {
+        $idItem['course_id'] = getCourseUuid((int)$idItem['course_id']);
+    }
+}
+unset($idItem);
+
 respond([
-    'success' => true,
-    'ideas' => $ideas
+    'success'                => true,
+    'ideas'                  => $ideas,
+    'my_pending_invitations' => $myInvs
 ]);
+
 

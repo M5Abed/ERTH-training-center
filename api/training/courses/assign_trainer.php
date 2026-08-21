@@ -5,11 +5,11 @@
  */
 require_once __DIR__ . '/../../config.php';
 
-requireAdmin(); // Only admins can assign trainers
+requireRole(['admin', 'trainer', 'professor', 'ta', 'lecturer', 'supervisor', 'instructor', 'evaluator', 'faculty']);
 
 $data = body();
-$courseId = (int)($data['course_id'] ?? 0);
-$trainerId = (int)($data['trainer_id'] ?? 0);
+$courseId = resolveCourseId($data['course_id'] ?? 0);
+$trainerId = resolveUserId($data['trainer_id'] ?? 0);
 
 if (!$courseId || !$trainerId) {
     respondError('Course ID and Trainer ID are required', 400);

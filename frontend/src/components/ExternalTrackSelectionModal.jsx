@@ -3,7 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
 import {
     Layers, CheckCircle2, Building2, Sparkles, Loader2,
-    Globe, Link2, Calendar, Info, Check, ShieldCheck
+    Globe, Link2, Calendar, Info, Check, ShieldCheck,
+    FileCheck, Upload
 } from 'lucide-react';
 
 const OFFICIAL_PROVIDERS = [
@@ -122,6 +123,7 @@ export default function ExternalTrackSelectionModal() {
     const [customLinkedinInput, setCustomLinkedinInput]   = useState('');
     const [noCompanyLinks, setNoCompanyLinks]             = useState(false);
     const [trainingStartDate, setTrainingStartDate]       = useState('');
+    const [verificationFile, setVerificationFile]         = useState(null);
     const [saving, setSaving]                             = useState(false);
     const [errorMsg, setErrorMsg]                         = useState('');
 
@@ -236,7 +238,12 @@ export default function ExternalTrackSelectionModal() {
         }
 
         if (!trainingStartDate) {
-            setErrorMsg(lang === 'ar' ? 'يرجى تحديد تاريخ بدء التدريب الفعلي.' : 'Please enter your actual training start date.');
+            setErrorMsg(lang === 'ar' ? 'يرجى تحديد تاريخ بدء التدريب الفعلي (مطلوب).' : 'Please enter your actual training start date (Required).');
+            return;
+        }
+
+        if (!verificationFile) {
+            setErrorMsg(lang === 'ar' ? 'يرجى رفع وثيقة إثبات التدريب الميداني الخارجي (مطلوبة).' : 'Please upload your external training verification document (Required).');
             return;
         }
 
@@ -262,6 +269,26 @@ export default function ExternalTrackSelectionModal() {
 
             const data = await res.json();
             if (res.ok && data.success) {
+                // If a verification file was provided, upload it immediately
+                if (verificationFile) {
+                    try {
+                        const formData = new FormData();
+                        formData.append('course_id', courseId || data.course_id);
+                        formData.append('verification_file', verificationFile);
+                        formData.append('custom_provider_name', customProviderInput.trim());
+                        formData.append('custom_provider_website', customWebsiteInput.trim());
+                        formData.append('custom_provider_linkedin', customLinkedinInput.trim());
+
+                        await fetch('/api/training/verification/upload.php', {
+                            method: 'POST',
+                            credentials: 'include',
+                            body: formData
+                        });
+                    } catch (uploadErr) {
+                        console.error('Error uploading verification file:', uploadErr);
+                    }
+                }
+
                 // Refresh auth session so modal immediately disappears
                 await reloadSession();
             } else {
@@ -599,6 +626,80 @@ export default function ExternalTrackSelectionModal() {
                         </div>
                     </div>
 
+                    {/* 4. External Training Verification Document (Required) */}
+                    <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-0)', marginBottom: '0.35rem' }}>
+                            <FileCheck size={16} style={{ color: '#10b981' }} />
+                            {lang === 'ar' ? 'وثيقة إثبات التدريب الميداني الخارجي (Verification Document) *' : 'External Training Verification Document *'}
+                        </label>
+
+                        <div 
+                            style={{ 
+                                position: 'relative',
+                                border: verificationFile ? '1.5px solid #10b981' : '1.5px dashed var(--border)',
+                                borderRadius: '12px',
+                                padding: '1rem',
+                                textAlign: 'center',
+                                background: verificationFile ? 'rgba(16, 185, 129, 0.04)' : 'var(--bg-1)',
+                                transition: 'all 0.2s ease',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <input
+                                type="file"
+                                accept=".pdf,.png,.jpg,.jpeg,.docx,.doc"
+                                required
+                                onChange={e => {
+                                    const file = e.target.files?.[0];
+                                    if (file) setVerificationFile(file);
+                                }}
+                                style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    opacity: 0,
+                                    cursor: 'pointer',
+                                    width: '100%',
+                                    height: '100%'
+                                }}
+                            />
+                            <Upload size={24} style={{ color: verificationFile ? '#10b981' : 'var(--text-2)', margin: '0 auto 6px auto', display: 'block' }} />
+                            {verificationFile ? (
+                                <div>
+                                    <strong style={{ color: '#10b981', display: 'block', fontSize: '0.9rem' }}>✓ {verificationFile.name}</strong>
+                                    <span style={{ fontSize: '0.78rem', color: 'var(--text-2)' }}>({(verificationFile.size / 1024).toFixed(1)} KB)</span>
+                                </div>
+                            ) : (
+                                <div>
+                                    <p style={{ margin: 0, fontWeight: 700, fontSize: '0.86rem', color: 'var(--text-0)' }}>
+                                        {lang === 'ar' ? 'اضغط لاختيار الوثيقة أو اسحب الملف هنا *' : 'Click to select or drag document here *'}
+                                    </p>
+                                    <span style={{ fontSize: '0.76rem', color: 'var(--text-2)' }}>PDF, PNG, JPG, DOCX (Max 25MB)</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Note with Examples as requested */}
+                        <div 
+                            style={{ 
+                                marginTop: '0.55rem', 
+                                padding: '0.7rem 0.85rem', 
+                                borderRadius: '10px', 
+                                background: 'rgba(16, 185, 129, 0.08)', 
+                                border: '1px solid rgba(16, 185, 129, 0.25)', 
+                                display: 'flex', 
+                                alignItems: 'flex-start', 
+                                gap: '8px' 
+                            }}
+                        >
+                            <Info size={16} style={{ color: '#059669', flexShrink: 0, marginTop: '2px' }} />
+                            <p style={{ margin: 0, fontSize: '0.81rem', color: 'var(--text-1)', lineHeight: 1.45 }}>
+                                {lang === 'ar'
+                                    ? 'ملاحظة: يمكنك رفع مستند إثبات التدريب (أمثلة: شهادة إتمام التدريب، إيميل القبول أو الموافقة، خطاب/إفادة رسمية مختومة وموقعة من جهة التدريب، أو أي ورقة رسمية تثبت التدريب).'
+                                    : 'Note: You can upload your training verification document (Examples: Certificate or Approval mail, signed paper from external provider or any other official paper).'}
+                            </p>
+                        </div>
+                    </div>
+
                     {/* Submit Button */}
                     <button
                         type="submit"
@@ -609,7 +710,8 @@ export default function ExternalTrackSelectionModal() {
                             (selectedTrackKey === 'custom' && !customTrackInput.trim()) ||
                             !selectedProviderKey ||
                             (selectedProviderKey === 'other' && !customProviderInput.trim()) ||
-                            !trainingStartDate
+                            !trainingStartDate ||
+                            !verificationFile
                         }
                         style={{
                             width: '100%',

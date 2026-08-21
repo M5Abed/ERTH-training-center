@@ -31,6 +31,10 @@ $courseRows = $db->query("
 ")->fetchAll();
 
 foreach ($courseRows as &$c) {
+    if (!empty($c['id']) && is_numeric($c['id'])) {
+        $c['uuid'] = getCourseUuid((int)$c['id']);
+        $c['id'] = $c['uuid'];
+    }
     $c['trainee_count'] = (int)$c['trainee_count'];
     $c['idea_count']    = (int)$c['idea_count'];
     $c['doc_count']     = (int)$c['doc_count'];

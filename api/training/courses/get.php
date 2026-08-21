@@ -6,7 +6,7 @@
 
 require_once __DIR__ . '/../../config.php';
 
-$user = requireRole(['trainee', 'trainer', 'admin']);
+$user = requireRole(['trainee', 'trainer', 'admin', 'professor', 'ta', 'lecturer', 'supervisor', 'instructor', 'evaluator', 'student', 'staff', 'doctor', 'faculty']);
 $uid = (int)$user['id'];
 $role = strtolower($user['role'] ?? 'trainee');
 $isAdmin = (bool)($user['is_admin'] || $role === 'admin');
@@ -37,11 +37,10 @@ if ($rawId === 'default') {
     }
 }
 
+$courseId = resolveCourseId($rawId);
 $course = null;
-$courseId = 0;
 
-if (is_numeric($rawId)) {
-    $courseId = (int)$rawId;
+if ($courseId > 0) {
     $stmt = $db->prepare("
         SELECT tc.*, tc.name AS name, tc.description AS description, u.full_name AS creator_name,
                (SELECT COUNT(*) FROM trainee_enrollments WHERE course_id = tc.id) AS total_trainees
@@ -51,17 +50,18 @@ if (is_numeric($rawId)) {
     ");
     $stmt->execute([$courseId]);
     $course = $stmt->fetch();
-} else {
-    // String slug lookup e.g. 'robotics'
+}
+
+if (!$course && is_string($rawId) && !is_numeric($rawId)) {
     $stmt = $db->prepare("
         SELECT tc.*, tc.name AS name, tc.description AS description, u.full_name AS creator_name,
                (SELECT COUNT(*) FROM trainee_enrollments WHERE course_id = tc.id) AS total_trainees
         FROM training_courses tc
         LEFT JOIN users u ON tc.created_by = u.id
-        WHERE tc.name LIKE ? OR tc.name LIKE ?
+        WHERE tc.uuid = ? OR tc.name LIKE ?
         LIMIT 1
     ");
-    $stmt->execute(['%' . $rawId . '%', '%' . $rawId . '%']);
+    $stmt->execute([$rawId, '%' . $rawId . '%']);
     $course = $stmt->fetch();
     if ($course) {
         $courseId = (int)$course['id'];
@@ -115,6 +115,35 @@ $trStmt = $db->prepare("
 $trStmt->execute([$courseId]);
 $trainers = $trStmt->fetchAll();
 
+if (empty($trainers)) {
+    if (!empty($course['created_by'])) {
+        $creatorStmt = $db->prepare("
+            SELECT NULL AS assignment_id, NULL AS topic_id, u.id AS trainer_id, u.full_name, u.email, u.department
+            FROM users u
+            WHERE u.id = ?
+        ");
+        $creatorStmt->execute([$course['created_by']]);
+        $trainers = $creatorStmt->fetchAll();
+    }
+
+    if (empty($trainers)) {
+        try {
+            $allTrStmt = $db->query("
+                SELECT NULL AS assignment_id, NULL AS topic_id, u.id AS trainer_id, u.full_name, u.email, u.department
+                FROM users u
+                WHERE (
+                    TRIM(LOWER(COALESCE(u.role, ''))) IN ('trainer', 'admin', 'professor', 'ta', 'lecturer', 'supervisor', 'instructor', 'faculty', 'doctor', 'staff')
+                    OR u.is_admin = 1
+                )
+                AND (u.approval_status != 'rejected' OR u.approval_status IS NULL)
+                ORDER BY u.full_name ASC
+                LIMIT 5
+            ");
+            $trainers = $allTrStmt ? $allTrStmt->fetchAll() : [];
+        } catch (Throwable $e) {}
+    }
+}
+
 // Fetch summary metrics
 $traineeCount = $db->prepare("SELECT COUNT(*) FROM trainee_enrollments WHERE course_id = ?");
 $traineeCount->execute([$courseId]);
@@ -158,6 +187,32 @@ if ($role === 'trainee') {
     $myEnrollment = $meStmt->fetch() ?: null;
 }
 
+// Mask real database IDs with UUIDs
+if ($course) {
+    $course['uuid'] = !empty($course['uuid']) ? $course['uuid'] : getCourseUuid((int)$course['id']);
+    $course['id'] = $course['uuid'];
+}
+
+foreach ($trainers as &$tr) {
+    if (!empty($tr['trainer_id']) && is_numeric($tr['trainer_id'])) {
+        $tr['trainer_uuid'] = getUserUuid((int)$tr['trainer_id']);
+        $tr['trainer_id'] = $tr['trainer_uuid'];
+        $tr['id'] = $tr['trainer_uuid'];
+    }
+}
+unset($tr);
+
+foreach ($topics as &$tp) {
+    if (!empty($tp['course_id']) && is_numeric($tp['course_id']) && $course) {
+        $tp['course_id'] = $course['uuid'];
+    }
+}
+unset($tp);
+
+if ($myEnrollment && !empty($myEnrollment['course_id']) && is_numeric($myEnrollment['course_id']) && $course) {
+    $myEnrollment['course_id'] = $course['uuid'];
+}
+
 respond([
     'course' => $course,
     'topics' => $topics,
@@ -169,3 +224,4 @@ respond([
     'is_enrolled' => $isEnrolled,
     'my_enrollment' => $myEnrollment
 ]);
+

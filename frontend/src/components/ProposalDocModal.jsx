@@ -6,6 +6,7 @@ import {
     Info, CheckSquare, Layers, HelpCircle
 } from 'lucide-react';
 import { downloadProposalDocx } from '../services/api';
+import { useToast, useConfirm } from './Toast';
 import './ProposalDocModal.css';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -567,7 +568,10 @@ export default function ProposalDocModal({
     onClose,
     onEvaluated,
     lang = 'en',
+    isExternal = false,
 }) {
+    const toast = useToast();
+    const confirm = useConfirm();
     const [proposal, setProposal]           = useState(initialProposal);
     const [evaluating, setEvaluating]       = useState(false);
     const [feedback, setFeedback]           = useState('');
@@ -591,7 +595,7 @@ export default function ProposalDocModal({
         try {
             await downloadProposalDocx(ideaId, title || 'Proposal');
         } catch (err) {
-            alert(err.message || 'Error downloading Word document');
+            toast?.error(err.message || 'Error downloading Word document');
         } finally {
             setDownloadingDocx(false);
         }
@@ -653,11 +657,14 @@ export default function ProposalDocModal({
     // ── Core ERTH AI fill function ───────────────────────────────────────────
     const triggerAiFill = useCallback(async (showConfirm = false) => {
         if (showConfirm) {
-            const ok = window.confirm(
-                lang === 'ar'
+            const ok = await confirm({
+                title: lang === 'ar' ? 'توليد محتوى الصفحات' : 'Generate Proposal Pages',
+                message: lang === 'ar'
                     ? 'هل تريد توليد / تحديث محتوى الصفحات بواسطة ERTH AI؟'
-                    : 'Generate / update all proposal pages with ERTH AI?'
-            );
+                    : 'Generate / update all proposal pages with ERTH AI?',
+                variant: 'info',
+                confirmText: lang === 'ar' ? 'توليد' : 'Generate'
+            });
             if (!ok) return;
         }
 
@@ -708,13 +715,13 @@ export default function ProposalDocModal({
 
                 setTimeout(() => setAiFillMsg(''), 4000);
             } else {
-                alert(data.error || (lang === 'ar' ? 'فشل التوليد بواسطة الذكاء الاصطناعي' : 'ERTH AI generation failed'));
+                toast?.error(data.error || (lang === 'ar' ? 'فشل التوليد بواسطة الذكاء الاصطناعي' : 'ERTH AI generation failed'));
                 setAiFillMsg('');
                 setLoadingKeys(new Set());
             }
         } catch (e) {
             console.error(e);
-            alert(lang === 'ar' ? 'حدث خطأ في الاتصال بنموذج ERTH AI' : 'Network error — could not reach ERTH AI');
+            toast?.error(lang === 'ar' ? 'حدث خطأ في الاتصال بنموذج ERTH AI' : 'Network error — could not reach ERTH AI');
             setAiFillMsg('');
             setLoadingKeys(new Set());
         } finally {
@@ -889,11 +896,11 @@ export default function ProposalDocModal({
                                 <div className="pdm-cover-meta-item">
                                     <User size={14} className="pdm-cover-meta-icon" />
                                     <div>
-                                        <div className="pdm-cover-meta-label">Team Leader</div>
-                                        <div className="pdm-cover-meta-value">{team.leader || 'Student Team Leader'}</div>
+                                        <div className="pdm-cover-meta-label">{(isExternal || proposal?.course_type === 'external' || proposal?.training_type === 'external') ? 'Student / Trainee' : 'Team Leader'}</div>
+                                        <div className="pdm-cover-meta-value">{team.leader || 'Student'}</div>
                                     </div>
                                 </div>
-                                {team.members && team.members.length > 0 && (
+                                {!(isExternal || proposal?.course_type === 'external' || proposal?.training_type === 'external') && team.members && team.members.length > 0 && (
                                     <div className="pdm-cover-meta-item">
                                         <Users size={14} className="pdm-cover-meta-icon" />
                                         <div>
@@ -1223,10 +1230,6 @@ export default function ProposalDocModal({
                                             <button type="button" className="pdm-btn pdm-btn-reject" onClick={() => setShowFeedback(true)} disabled={evaluating}>
                                                 <XCircle size={16} />
                                                 <span>{lang === 'ar' ? 'رفض المقترح' : 'Reject'}</span>
-                                            </button>
-                                            <button type="button" className="pdm-btn pdm-btn-changes" onClick={() => handleEvaluate('changes_requested')} disabled={evaluating}>
-                                                {evaluating ? <Loader2 size={15} className="spin" /> : <Sparkles size={15} />}
-                                                <span>{lang === 'ar' ? 'طلب تعديلات' : 'Request Changes'}</span>
                                             </button>
                                             <button type="button" className="pdm-btn pdm-btn-approve" onClick={() => handleEvaluate('approved')} disabled={evaluating}>
                                                 {evaluating ? <Loader2 size={15} className="spin" /> : <CheckCircle size={15} />}

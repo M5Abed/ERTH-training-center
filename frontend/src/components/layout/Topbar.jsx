@@ -4,7 +4,7 @@ import { useI18n } from '../../contexts/I18nContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { getNotifications, markNotificationsRead, clearAllNotifications, changePassword } from '../../services/api';
-import { Menu, Bell, Check, Trash2, Sun, Moon, Languages, GraduationCap, FolderKanban, PlusCircle, Users, Star, MapPin, UserCircle, Shield, Activity, LogOut, ChevronDown, X, Loader2, CheckCircle2, Circle, Save, FileText, Trophy, FolderOpen, UserCheck } from 'lucide-react';
+import { Menu, Bell, Check, Trash2, Sun, Moon, Languages, GraduationCap, FolderKanban, PlusCircle, Users, Star, MapPin, UserCircle, Shield, Activity, LogOut, ChevronDown, X, Loader2, CheckCircle2, Circle, Save, FileText, Trophy, FolderOpen, UserCheck, Award } from 'lucide-react';
 import './Topbar.css';
 
 function relTime(dateStr, lang) {
@@ -17,8 +17,30 @@ function relTime(dateStr, lang) {
 }
 
 const TYPE_LABELS = {
-    en: { application: 'Application', accepted: 'Accepted', rejected: 'Declined', invite: 'Invite', pending: 'Update', idea: 'Project Idea', team: 'Team Update' },
-    ar: { application: 'طلب جديد', accepted: 'قُبل', rejected: 'مرفوض', invite: 'دعوة', pending: 'معلق', idea: 'فكرة مشروع', team: 'تحديث الفريق' },
+    en: {
+        application: 'Application',
+        accepted: 'Accepted',
+        rejected: 'Declined',
+        invite: 'Invite',
+        pending: 'Update',
+        idea: 'Project Idea',
+        team: 'Team Update',
+        team_invitation: 'Team Invitation',
+        team_invitation_accepted: 'Invitation Accepted',
+        team_invitation_declined: 'Invitation Declined'
+    },
+    ar: {
+        application: 'طلب جديد',
+        accepted: 'قُبل',
+        rejected: 'مرفوض',
+        invite: 'دعوة',
+        pending: 'معلق',
+        idea: 'فكرة مشروع',
+        team: 'تحديث الفريق',
+        team_invitation: 'دعوة انضمام لفريق',
+        team_invitation_accepted: 'قبول دعوة الفريق',
+        team_invitation_declined: 'اعتذار عن الدعوة'
+    },
 };
 
 export default function Topbar({ onMenuClick }) {
@@ -133,27 +155,35 @@ export default function Topbar({ onMenuClick }) {
     };
 
     const getTypeColor = (type) => {
-        const colors = { application: '#6366f1', accepted: '#22c55e', rejected: '#f43f5e', invite: '#14b8a6', pending: '#E8A830' };
+        const colors = {
+            application: '#6366f1',
+            accepted: '#22c55e',
+            rejected: '#f43f5e',
+            invite: '#14b8a6',
+            pending: '#E8A830',
+            team_invitation: '#2563eb',
+            team_invitation_accepted: '#10b981',
+            team_invitation_declined: '#f43f5e'
+        };
         return colors[type] || '#888888';
     };
 
-    const isTrainer = !!(user?.role === 'trainer' || profile?.role === 'trainer');
+    const role = (user?.role || profile?.role || '').toLowerCase();
+    const isTrainer = role === 'trainer' || isAdmin;
+    const isTrainee = !isTrainer;
 
     // Build nav items for University Training System
     const navItems = [
         { to: '/dashboard', icon: <Activity size={16} />, label: lang === 'ar' ? 'لوحة التحكم' : 'Dashboard' },
         { to: '/courses', icon: <GraduationCap size={16} />, label: lang === 'ar' ? 'الدورات التدريبية' : 'Courses' },
-        { 
-            to: '/submitted-projects', 
-            icon: <FileText size={16} />, 
-            label: (isAdmin || isTrainer)
-                ? (lang === 'ar' ? 'مشاريع المتدربين' : 'Trainee Projects')
-                : (lang === 'ar' ? 'مشروعي وفكرتي' : 'My Project & Idea')
-        },
     ];
 
-    if (isAdmin || isTrainer) {
-        navItems.push({ to: '/trainees', icon: <Users size={16} />, label: lang === 'ar' ? 'المتدربين' : 'Trainees' });
+    // Projects and Evaluations appear in Topbar for Trainees only
+    if (isTrainee) {
+        navItems.push(
+            { to: '/projects', icon: <FileText size={16} />, label: lang === 'ar' ? 'مشاريع التدريب' : 'Projects' },
+            { to: '/evaluations', icon: <Award size={16} />, label: lang === 'ar' ? 'التقييم الأكاديمي' : 'Evaluations' }
+        );
     }
 
     if (isAdmin) {
@@ -224,15 +254,13 @@ export default function Topbar({ onMenuClick }) {
                                                 onClick={() => {
                                                     setShowNotifs(false);
                                                     if (n.type === 'training_evaluation') {
-                                                        navigate('/courses?tab=evaluations');
+                                                        navigate('/evaluations');
+                                                    } else if (n.type === 'team_invitation' || n.type === 'team_invitation_accepted' || n.type === 'team_invitation_declined' || n.type === 'idea' || n.type === 'team' || n.type === 'training_idea' || n.type === 'invite' || n.type === 'pending' || n.type === 'application') {
+                                                        navigate('/projects');
                                                     } else if (n.type === 'chat' && n.project_id) {
                                                         navigate(`/project/${n.project_id}/chat`);
                                                     } else if (n.project_id) {
-                                                        navigate(`/project/${n.project_id}`);
-                                                    } else if (n.type === 'idea' || n.type === 'team' || n.type === 'training_idea') {
-                                                        navigate('/trainee-projects');
-                                                    } else if (n.type === 'invite' || n.type === 'pending' || n.type === 'application') {
-                                                        navigate('/trainee-projects');
+                                                        navigate(`/projects`);
                                                     } else if (n.type === 'new_content' || n.type === 'topic') {
                                                         navigate('/courses');
                                                     } else {

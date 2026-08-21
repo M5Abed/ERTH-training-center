@@ -13,8 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data          = body();
-$traineeId     = (int)($data['trainee_id'] ?? 0);
-$courseId      = (int)($data['course_id']  ?? 0);
+$traineeId     = resolveUserId($data['trainee_id'] ?? 0);
+$courseId      = resolveCourseId($data['course_id']  ?? 0);
 $status        = trim($data['status']   ?? 'pass');  // pass | fail | needs_revision
 $feedback      = sanitizeString($data['feedback'] ?? '');
 $criteriaInput = $data['criteria_scores'] ?? null;
@@ -33,7 +33,7 @@ $db = db();
 // Enforce Object-Level Authorization
 verifyCourseAccess($courseId, $evaluator);
 
-// Trainee must have a submitted project idea (or belong to an idea team) in this course
+// Trainee must be enrolled in this course or belong to an idea team in this course
 $ideaCheckStmt = $db->prepare("
     SELECT ti.id 
     FROM training_ideas ti
@@ -47,7 +47,21 @@ $ideaCheckStmt->execute([$courseId, $traineeId, $traineeId]);
 $hasIdea = $ideaCheckStmt->fetchColumn();
 
 if (!$hasIdea) {
-    respondError('Cannot evaluate trainee before they submit or join a project idea for this course.', 400);
+    // Verify trainee is enrolled in this course
+    $enrolledCheck = $db->prepare("SELECT id FROM trainee_enrollments WHERE course_id = ? AND trainee_id = ? LIMIT 1");
+    $enrolledCheck->execute([$courseId, $traineeId]);
+    $isEnrolled = $enrolledCheck->fetchColumn();
+
+    if (!$isEnrolled) {
+        $uCheck = $db->prepare("SELECT id FROM users WHERE id = ? AND role IN ('trainee', 'student')");
+        $uCheck->execute([$traineeId]);
+        if ($uCheck->fetchColumn()) {
+            $autoEnr = $db->prepare("INSERT INTO trainee_enrollments (trainee_id, course_id, source) VALUES (?, ?, 'evaluation_auto') ON DUPLICATE KEY UPDATE course_id = VALUES(course_id)");
+            $autoEnr->execute([$traineeId, $courseId]);
+        } else {
+            respondError('Cannot evaluate trainee: Trainee is not enrolled in this course.', 400);
+        }
+    }
 }
 
 // ── Load this course's configured criteria ────────────────────────────────
@@ -233,16 +247,16 @@ try {
         VALUES (?, 'training_evaluation', ?, ?)
     ");
     $msgEn = $status === 'pass' 
-        ? "Congratulations! Your training evaluation has PASSED with score $finalScore/100 and your certificate has been issued automatically." 
+        ? "Congratulations! Your training evaluation has PASSED with score $finalScore/100 and your certificate has been issued." 
         : "Your training evaluation has been submitted. Status: " . strtoupper($status) . " (Score: $finalScore/100).";
     $msgAr = $status === 'pass'
-        ? "تهانينا! لقد اجتزت التقييم التدريبي بنجاح بدرجة $finalScore/100 وتم إصدار شهادتك الرسمية تلقائياً."
+        ? "تهانينا! لقد اجتزت التقييم التدريبي بنجاح بدرجة $finalScore/100 وتم إصدار شهادتك الرسمية."
         : "تم رصد تقييمك للتدريب الصيفي. الحالة: " . ($status === 'pass' ? 'ناجح' : 'راسب') . " (الدرجة: $finalScore/100).";
     $nStmt->execute([$traineeId, $msgEn, $msgAr]);
 
     respond([
         'success'            => true,
-        'message'            => 'Trainee evaluation submitted successfully' . ($status === 'pass' ? ' and certificate issued automatically' : ''),
+        'message'            => 'Trainee evaluation submitted successfully' . ($status === 'pass' ? ' and certificate issued' : ''),
         'status'             => $status,
         'final_score'        => $finalScore,
         'certificate_issued' => ($status === 'pass'),

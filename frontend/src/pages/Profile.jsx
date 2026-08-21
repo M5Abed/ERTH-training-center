@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useConfirm, useToast } from '../components/Toast';
 import {
     getUserProfile, getUserReviews, upsertUserProfile, uploadAvatar,
     getProjects, getMyProjects, getUserProjects, getApplicationsForUser, getReceivedApplications,
@@ -16,6 +17,8 @@ import CertificateModal from '../components/CertificateModal';
 import './Profile.css';
 
 export default function Profile() {
+    const confirm = useConfirm();
+    const toast = useToast();
     const { id } = useParams();
     const location = useLocation();
     const { t, lang } = useI18n();
@@ -258,9 +261,16 @@ export default function Profile() {
     };
 
     const handleRemoveAvatar = async () => {
-        if (!window.confirm('Remove your profile photo?')) return;
+        const ok = await confirm({
+            title: lang === 'ar' ? 'حذف الصورة الشخصية' : 'Remove Profile Photo',
+            message: lang === 'ar' ? 'هل أنت متأكد من حذف صورتك الشخصية؟' : 'Remove your profile photo?',
+            variant: 'danger',
+            confirmText: lang === 'ar' ? 'حذف' : 'Remove'
+        });
+        if (!ok) return;
         await upsertUserProfile({ avatar_url: null });
         await refreshProfile();
+        toast?.success(lang === 'ar' ? 'تم حذف الصورة الشخصية' : 'Profile photo removed');
         load();
     };
 

@@ -16,8 +16,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);
 }
 
-$courseId = (int)($_GET['course_id'] ?? 0);
-$traineeId = ($isAdmin || $isTrainer) && !empty($_GET['trainee_id']) ? (int)$_GET['trainee_id'] : $uid;
+$courseId = resolveCourseId($_GET['course_id'] ?? 0);
+$traineeId = ($isAdmin || $isTrainer) && !empty($_GET['trainee_id']) ? resolveUserId($_GET['trainee_id']) : $uid;
 
 if (!$courseId) {
     respondError('Course ID is required', 400);

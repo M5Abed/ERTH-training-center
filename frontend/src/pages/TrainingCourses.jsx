@@ -5,11 +5,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { BookOpen, Plus, Calendar, Users, FileText, ChevronRight, Loader2, Search, X, UserPlus, Clock, Trash2 } from 'lucide-react';
 import AddStudentModal from '../components/AddStudentModal';
 import ConfirmModal from '../components/ConfirmModal';
+import { useToast } from '../components/Toast';
 import './TrainingCourses.css';
 
 export default function TrainingCourses() {
     const { lang } = useI18n();
     const { user } = useAuth();
+    const toast = useToast();
     const role = (user?.role || '').toLowerCase();
     const isAdmin = !!(user?.is_admin || role === 'admin');
     const isTrainer = role === 'trainer' || isAdmin;
@@ -27,8 +29,7 @@ export default function TrainingCourses() {
     const [desc, setDesc] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [category, setCategory] = useState('');
-    const [level, setLevel] = useState('');
+    const [setUpLater, setSetUpLater] = useState(false);
     const [courseType, setCourseType] = useState('both');
     const [durationHours, setDurationHours] = useState(40);
     const [creating, setCreating] = useState(false);
@@ -68,9 +69,7 @@ export default function TrainingCourses() {
                     name: name,
                     description: desc,
                     start_date: startDate,
-                    end_date: endDate,
-                    category: category,
-                    level: level,
+                    end_date: setUpLater ? '' : endDate,
                     course_type: courseType,
                     duration_hours: parseInt(durationHours) || 40
                 })
@@ -85,7 +84,7 @@ export default function TrainingCourses() {
                 setShowCreateModal(false);
                 setName(''); setDesc('');
                 setStartDate(''); setEndDate('');
-                setCategory(''); setLevel('');
+                setSetUpLater(false);
                 setCourseType('both');
                 setDurationHours(40);
                 fetchCourses();
@@ -118,12 +117,13 @@ export default function TrainingCourses() {
             if (res.ok && data.success) {
                 setCourseToDelete(null);
                 fetchCourses();
+                toast?.success(lang === 'ar' ? 'تم حذف الدورة التدريبية بنجاح' : 'Course deleted successfully');
             } else {
-                alert(data.error || (lang === 'ar' ? 'فشل حذف الدورة التدريبية' : 'Failed to delete course'));
+                toast?.error(data.error || (lang === 'ar' ? 'فشل حذف الدورة التدريبية' : 'Failed to delete course'));
             }
         } catch (err) {
             console.error('Delete course error:', err);
-            alert(lang === 'ar' ? 'خطأ في الاتصال أثناء حذف الدورة' : 'Connection error while deleting course');
+            toast?.error(lang === 'ar' ? 'خطأ في الاتصال أثناء حذف الدورة' : 'Connection error while deleting course');
         } finally {
             setIsDeletingCourse(false);
         }
@@ -310,28 +310,6 @@ export default function TrainingCourses() {
                                     placeholder="40" 
                                 />
                             </div>
-                            <div className="form-row">
-                                <div className="form-group">
-                                    <label>{lang === 'ar' ? 'التصنيف / المسار *' : 'Track / Category *'}</label>
-                                    <input 
-                                        type="text" 
-                                        required 
-                                        value={category} 
-                                        onChange={e => setCategory(e.target.value)} 
-                                        placeholder="e.g. Computer Science" 
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>{lang === 'ar' ? 'مستوى المهارة *' : 'Skill Level *'}</label>
-                                    <input 
-                                        type="text" 
-                                        required 
-                                        value={level} 
-                                        onChange={e => setLevel(e.target.value)} 
-                                        placeholder="e.g. Intermediate" 
-                                    />
-                                </div>
-                            </div>
                             <div className="form-group">
                                 <label>{lang === 'ar' ? 'نوع التدريب المتاح بالدورة:' : 'Supported Training Mode:'}</label>
                                 <select
@@ -352,7 +330,23 @@ export default function TrainingCourses() {
                                 </div>
                                 <div className="form-group">
                                     <label>{lang === 'ar' ? 'تاريخ الانتهاء' : 'End Date'}</label>
-                                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                                    <input 
+                                        type="date" 
+                                        disabled={setUpLater}
+                                        value={setUpLater ? '' : endDate} 
+                                        onChange={e => setEndDate(e.target.value)} 
+                                    />
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={setUpLater} 
+                                            onChange={e => {
+                                                setSetUpLater(e.target.checked);
+                                                if (e.target.checked) setEndDate('');
+                                            }} 
+                                        />
+                                        <span>{lang === 'ar' ? 'الإعداد لاحقاً (Set up later)' : 'Set up later'}</span>
+                                    </label>
                                 </div>
                             </div>
                             <div className="modal-actions">

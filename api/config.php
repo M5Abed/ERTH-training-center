@@ -14,10 +14,18 @@ if (file_exists($envFile)) {
             if (strpos($line, '=') !== false) {
                 list($key, $value) = explode('=', $line, 2);
                 $key = trim($key);
-                $value = trim(trim($value), '"\''); // Remove quotes
+                $value = trim($value);
+                // Strip matched enclosing quotes only
+                if ((str_starts_with($value, '"') && str_ends_with($value, '"')) ||
+                    (str_starts_with($value, "'") && str_ends_with($value, "'"))) {
+                    $value = substr($value, 1, -1);
+                }
                 if (!defined($key)) {
                     define($key, $value);
                 }
+                $_ENV[$key] = $value;
+                $_SERVER[$key] = $value;
+                putenv("$key=$value");
             }
         }
     }
@@ -49,9 +57,15 @@ if (!defined('SMTP_FROM_EMAIL'))
 if (!defined('SMTP_FROM_NAME'))
     define('SMTP_FROM_NAME', getenv('SMTP_FROM_NAME') ?: '');
 
-// Fallback for GROQ
+// Fallback for GROQ Keys & Model
+if (!defined('GROQ_API_KEYS_ARRAY') && getenv('GROQ_API_KEYS_ARRAY')) {
+    define('GROQ_API_KEYS_ARRAY', getenv('GROQ_API_KEYS_ARRAY'));
+}
 if (!defined('GROQ_API_KEY') && getenv('GROQ_API_KEY')) {
     define('GROQ_API_KEY', getenv('GROQ_API_KEY'));
+}
+if (!defined('GROQ_MODEL')) {
+    define('GROQ_MODEL', getenv('GROQ_MODEL') ?: 'openai/gpt-oss-120b');
 }
 
 // Fallback for AI engine constants
@@ -199,6 +213,12 @@ function _autoMigrate(): void
             db()->exec("ALTER TABLE users ADD COLUMN approval_status ENUM('pending','approved','rejected') DEFAULT 'approved' AFTER department");
             db()->exec("ALTER TABLE users ADD INDEX idx_users_approval (approval_status)");
         }
+        // Add username column if missing (production DB may not have it)
+        $usernameCols = db()->query("SHOW COLUMNS FROM users LIKE 'username'")->fetchAll();
+        if (empty($usernameCols)) {
+            db()->exec("ALTER TABLE users ADD COLUMN username VARCHAR(64) NULL AFTER full_name");
+            db()->exec("ALTER TABLE users ADD UNIQUE INDEX idx_users_username (username)");
+        }
         $aeCols = db()->query("SHOW COLUMNS FROM users LIKE 'academic_email'")->fetchAll();
         if (empty($aeCols)) {
             db()->exec("ALTER TABLE users ADD COLUMN academic_email VARCHAR(255) NULL AFTER email");
@@ -243,6 +263,13 @@ function _autoMigrate(): void
         $typeCols = db()->query("SHOW COLUMNS FROM training_courses LIKE 'course_type'")->fetchAll();
         if (empty($typeCols)) {
             db()->exec("ALTER TABLE training_courses ADD COLUMN course_type ENUM('internal','external','both') NOT NULL DEFAULT 'both' AFTER course_code");
+        }
+
+        // Add is_golden_pass to training_ideas
+        $gpCols = db()->query("SHOW COLUMNS FROM training_ideas LIKE 'is_golden_pass'")->fetchAll();
+        if (empty($gpCols)) {
+            db()->exec("ALTER TABLE training_ideas ADD COLUMN is_golden_pass TINYINT(1) NOT NULL DEFAULT 0");
+            db()->exec("ALTER TABLE training_ideas ADD INDEX idx_ti_golden_pass (is_golden_pass)");
         }
 
         // Auto-fix any existing trainees in external courses whose training_type was defaulted to internal
@@ -370,7 +397,7 @@ function _autoMigrate(): void
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ");
 
-        // 5. Ensure training_idea_members table exists
+        // 5. Ensure training_idea_members & training_idea_invitations tables exist
         db()->exec("
             CREATE TABLE IF NOT EXISTS training_idea_members (
               id            INT AUTO_INCREMENT PRIMARY KEY,
@@ -381,6 +408,21 @@ function _autoMigrate(): void
               UNIQUE INDEX idx_tim_idea_user (idea_id, user_id),
               INDEX idx_tim_idea (idea_id),
               INDEX idx_tim_user (user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+            CREATE TABLE IF NOT EXISTS training_idea_invitations (
+              id            INT AUTO_INCREMENT PRIMARY KEY,
+              idea_id       INT NOT NULL,
+              course_id     INT NOT NULL,
+              inviter_id    INT NOT NULL,
+              invitee_id    INT NOT NULL,
+              status        ENUM('pending', 'accepted', 'rejected', 'cancelled') DEFAULT 'pending',
+              created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              responded_at  TIMESTAMP NULL,
+              INDEX idx_tii_idea (idea_id),
+              INDEX idx_tii_invitee (invitee_id),
+              INDEX idx_tii_course (course_id),
+              INDEX idx_tii_status (status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         ");
 
@@ -614,22 +656,80 @@ function requireSession(): int
         return (int) $_SESSION['user_id'];
     }
 
-    // 2. Resilient header fallback (X-User-Id / Authorization: Bearer <id>)
-    $candidateId = 0;
-    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
-    if (preg_match('/Bearer\s+(\d+)/i', $authHeader, $matches)) {
-        $candidateId = (int) $matches[1];
-    } elseif (!empty($_SERVER['HTTP_X_USER_ID'])) {
-        $candidateId = (int) $_SERVER['HTTP_X_USER_ID'];
+    // 2. Comprehensive header extraction — production (Apache/Hostinger/cPanel) strips
+    //    HTTP_AUTHORIZATION so we try every known passthrough mechanism in order
+    $candidateRaw = '';
+
+    // All possible places Apache / LiteSpeed / FastCGI could expose Authorization
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION']
+        ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+        ?? $_SERVER['REMOTE_USER']             // HTTP Basic fallback
+        ?? $_SERVER['HTTP_X_FORWARDED_USER']   // Proxy passthrough
+        ?? '';
+
+    // getallheaders() works with mod_php, not always with php-fpm
+    if (empty($authHeader) && function_exists('getallheaders')) {
+        $allHeaders = getallheaders() ?: [];
+        foreach ($allHeaders as $k => $v) {
+            if (strcasecmp($k, 'Authorization') === 0) {
+                $authHeader = $v;
+            } elseif (strcasecmp($k, 'X-User-Id') === 0 && empty($candidateRaw)) {
+                $candidateRaw = trim((string)$v);
+            }
+        }
     }
 
-    if ($candidateId > 0) {
-        $stmt = db()->prepare("SELECT id, approval_status FROM users WHERE id = ?");
-        $stmt->execute([$candidateId]);
-        $uRow = $stmt->fetch();
-        if ($uRow) {
-            $_SESSION['user_id'] = (int) $uRow['id'];
-            return (int) $uRow['id'];
+    // apache_request_headers() is available with mod_php on some setups
+    if (empty($authHeader) && function_exists('apache_request_headers')) {
+        $ah = @apache_request_headers() ?: [];
+        foreach ($ah as $k => $v) {
+            if (strcasecmp($k, 'Authorization') === 0) {
+                $authHeader = $v;
+            } elseif (strcasecmp($k, 'X-User-Id') === 0 && empty($candidateRaw)) {
+                $candidateRaw = trim((string)$v);
+            }
+        }
+    }
+
+    // Parse Bearer token
+    if (preg_match('/Bearer\s+([^\s]+)/i', $authHeader, $matches)) {
+        $candidateRaw = trim($matches[1]);
+    }
+
+    // HTTP_X_USER_ID sent by frontend
+    if (empty($candidateRaw) && !empty($_SERVER['HTTP_X_USER_ID'])) {
+        $candidateRaw = trim((string)$_SERVER['HTTP_X_USER_ID']);
+    }
+
+    // 3. Resolve and validate
+    if (!empty($candidateRaw)) {
+        $candidateId = resolveUserId($candidateRaw);
+        if ($candidateId > 0) {
+            try {
+                $stmt = db()->prepare("SELECT id, approval_status FROM users WHERE id = ?");
+                $stmt->execute([$candidateId]);
+                $uRow = $stmt->fetch();
+                if ($uRow) {
+                    $_SESSION['user_id'] = (int) $uRow['id'];
+                    return (int) $uRow['id'];
+                }
+            } catch (Throwable $e) {}
+        }
+    }
+
+    // 4. Cookie fallback: thinktank_uid (set at login, for hosts that drop sessions)
+    if (!empty($_COOKIE['thinktank_uid'])) {
+        $cookieId = resolveUserId(trim($_COOKIE['thinktank_uid']));
+        if ($cookieId > 0) {
+            try {
+                $stmt = db()->prepare("SELECT id FROM users WHERE id = ?");
+                $stmt->execute([$cookieId]);
+                $uRow = $stmt->fetch();
+                if ($uRow) {
+                    $_SESSION['user_id'] = (int)$uRow['id'];
+                    return (int)$uRow['id'];
+                }
+            } catch (Throwable $e) {}
         }
     }
 
@@ -639,17 +739,21 @@ function requireSession(): int
 function requireAdmin(): int
 {
     $uid = requireSession();
-    $stmt = db()->prepare("SELECT is_admin, role, approval_status FROM users WHERE id = ?");
-    $stmt->execute([$uid]);
-    $row = $stmt->fetch();
-    if (!$row) {
+    try {
+        $stmt = db()->prepare("SELECT is_admin, role, approval_status FROM users WHERE id = ?");
+        $stmt->execute([$uid]);
+        $row = $stmt->fetch();
+        if (!$row) {
+            respondError('Unauthorized', 401);
+        }
+        $isAdmin = (bool) (!empty($row['is_admin']) || strtolower($row['role'] ?? '') === 'admin');
+        if (!$isAdmin) {
+            respondError('Forbidden: Admin access required', 403);
+        }
+        return $uid;
+    } catch (Throwable $e) {
         respondError('Unauthorized', 401);
     }
-    $isAdmin = (bool) (!empty($row['is_admin']) || strtolower($row['role'] ?? '') === 'admin');
-    if (!$isAdmin) {
-        respondError('Forbidden: Admin access required', 403);
-    }
-    return $uid;
 }
 
 function requireRole(array|string $allowedRoles): array
@@ -658,9 +762,13 @@ function requireRole(array|string $allowedRoles): array
     $roles = is_array($allowedRoles) ? $allowedRoles : [$allowedRoles];
     $roles = array_map('strtolower', $roles);
 
-    $stmt = db()->prepare("SELECT id, email, full_name, role, is_admin, approval_status FROM users WHERE id = ?");
-    $stmt->execute([$uid]);
-    $user = $stmt->fetch();
+    try {
+        $stmt = db()->prepare("SELECT id, email, full_name, role, is_admin, approval_status FROM users WHERE id = ?");
+        $stmt->execute([$uid]);
+        $user = $stmt->fetch();
+    } catch (Throwable $e) {
+        respondError('Unauthorized', 401);
+    }
 
     if (!$user) {
         respondError('Unauthorized', 401);
@@ -716,44 +824,204 @@ function requireTrainee(): array
 }
 
 /**
- * Resolve a course ID from either an integer or a string slug/keyword (e.g. 'robotics', 'external', 'default').
+ * Cryptographically secure UUID v4 generator
+ */
+function generateUuidV4(): string
+{
+    $data = random_bytes(16);
+    $data[6] = chr((ord($data[6]) & 0x0f) | 0x40); // version 4
+    $data[8] = chr((ord($data[8]) & 0x3f) | 0x80); // variant RFC 4122
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+}
+
+/**
+ * Ensure UUID schema is present and backfilled
+ */
+function ensureUuidSchema(): void
+{
+    static $schemaChecked = false;
+    if ($schemaChecked) return;
+    $schemaChecked = true;
+
+    try {
+        $db = db();
+        $tables = [
+            'users'               => 'id',
+            'training_courses'    => 'id',
+            'training_ideas'      => 'id',
+            'trainee_enrollments' => 'id',
+            'training_topics'     => 'id'
+        ];
+
+        foreach ($tables as $table => $idCol) {
+            try {
+                $cols = $db->query("SHOW COLUMNS FROM `$table`")->fetchAll(PDO::FETCH_COLUMN);
+                if ($cols && !in_array('uuid', $cols, true)) {
+                    $db->exec("ALTER TABLE `$table` ADD COLUMN uuid CHAR(36) NULL AFTER `$idCol`");
+                }
+                if ($cols) {
+                    $rows = $db->query("SELECT `$idCol` FROM `$table` WHERE uuid IS NULL OR uuid = '' LIMIT 100")->fetchAll(PDO::FETCH_COLUMN);
+                    if (!empty($rows)) {
+                        $update = $db->prepare("UPDATE `$table` SET uuid = ? WHERE `$idCol` = ?");
+                        foreach ($rows as $rowId) {
+                            $update->execute([generateUuidV4(), $rowId]);
+                        }
+                    }
+                }
+            } catch (Throwable $e) {}
+        }
+    } catch (Throwable $e) {}
+}
+
+/**
+ * Resolve User ID from UUID or numeric ID
+ */
+function resolveUserId(mixed $rawId): int
+{
+    if (empty($rawId)) return 0;
+    $rawStr = trim((string)$rawId);
+
+    if (is_numeric($rawStr) && (int)$rawStr > 0) {
+        return (int)$rawStr;
+    }
+
+    if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $rawStr)) {
+        try {
+            $stmt = db()->prepare("SELECT id FROM users WHERE uuid = ? LIMIT 1");
+            $stmt->execute([$rawStr]);
+            $found = $stmt->fetchColumn();
+            if ($found) return (int)$found;
+        } catch (Throwable $e) {}
+    }
+
+    return 0;
+}
+
+/**
+ * Get User UUID from internal ID
+ */
+function getUserUuid(int $userId): string
+{
+    if ($userId <= 0) return '';
+    try {
+        $stmt = db()->prepare("SELECT uuid FROM users WHERE id = ? LIMIT 1");
+        $stmt->execute([$userId]);
+        $u = $stmt->fetchColumn();
+        if ($u && is_string($u) && strlen($u) >= 10) return (string)$u;
+    } catch (Throwable $e) {}
+
+    return (string)$userId;
+}
+
+/**
+ * Resolve a course ID from UUID, integer or a string slug/keyword.
  */
 function resolveCourseId(mixed $rawId): int
 {
     if (empty($rawId)) return 0;
-    if (is_numeric($rawId)) {
-        $id = (int)$rawId;
-        if ($id > 0) return $id;
-    }
-
     $rawStr = trim((string)$rawId);
     if (empty($rawStr)) return 0;
 
-    $db = db();
-    // 1. Check if course_code matches
-    $stmt = $db->prepare("SELECT id FROM training_courses WHERE LOWER(course_code) = LOWER(?) OR LOWER(name) = LOWER(?) LIMIT 1");
-    $stmt->execute([$rawStr, $rawStr]);
-    $found = $stmt->fetchColumn();
-    if ($found) return (int)$found;
+    if (is_numeric($rawStr)) {
+        $id = (int)$rawStr;
+        if ($id > 0) return $id;
+    }
 
-    // 2. Check slug / keyword matching
-    if (stripos($rawStr, 'robot') !== false) {
-        $rStmt = $db->query("SELECT id FROM training_courses WHERE LOWER(name) LIKE '%robot%' OR LOWER(category) LIKE '%robot%' ORDER BY id ASC LIMIT 1");
-        $rId = $rStmt->fetchColumn();
-        if ($rId) return (int)$rId;
+    // 1. Check if UUID matches
+    if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $rawStr)) {
+        try {
+            $stmt = db()->prepare("SELECT id FROM training_courses WHERE uuid = ? LIMIT 1");
+            $stmt->execute([$rawStr]);
+            $found = $stmt->fetchColumn();
+            if ($found) return (int)$found;
+        } catch (Throwable $e) {}
     }
-    if (stripos($rawStr, 'extern') !== false || stripos($rawStr, 'خارجي') !== false) {
-        $eStmt = $db->query("SELECT id FROM training_courses WHERE course_type = 'external' OR LOWER(name) LIKE '%external%' OR LOWER(name) LIKE '%خارجي%' ORDER BY id ASC LIMIT 1");
-        $eId = $eStmt->fetchColumn();
-        if ($eId) return (int)$eId;
+
+    $db = db();
+    // 2. Check if course_code matches
+    try {
+        $stmt = $db->prepare("SELECT id FROM training_courses WHERE LOWER(course_code) = LOWER(?) OR LOWER(name) = LOWER(?) LIMIT 1");
+        $stmt->execute([$rawStr, $rawStr]);
+        $found = $stmt->fetchColumn();
+        if ($found) return (int)$found;
+    } catch (Throwable $e) {}
+
+    // 3. Check slug / keyword matching
+    try {
+        if (stripos($rawStr, 'robot') !== false) {
+            $rStmt = $db->query("SELECT id FROM training_courses WHERE LOWER(name) LIKE '%robot%' OR LOWER(category) LIKE '%robot%' ORDER BY id ASC LIMIT 1");
+            $rId = $rStmt->fetchColumn();
+            if ($rId) return (int)$rId;
+        }
+        if (stripos($rawStr, 'extern') !== false || stripos($rawStr, 'خارجي') !== false) {
+            $eStmt = $db->query("SELECT id FROM training_courses WHERE course_type = 'external' OR LOWER(name) LIKE '%external%' OR LOWER(name) LIKE '%خارجي%' ORDER BY id ASC LIMIT 1");
+            $eId = $eStmt->fetchColumn();
+            if ($eId) return (int)$eId;
+        }
+        if ($rawStr === 'default') {
+            $dStmt = $db->query("SELECT id FROM training_courses ORDER BY id ASC LIMIT 1");
+            $dId = $dStmt->fetchColumn();
+            if ($dId) return (int)$dId;
+        }
+    } catch (Throwable $e) {}
+
+    return 0;
+}
+
+/**
+ * Get Course UUID from internal ID
+ */
+function getCourseUuid(int $courseId): string
+{
+    if ($courseId <= 0) return '';
+    try {
+        $stmt = db()->prepare("SELECT uuid FROM training_courses WHERE id = ? LIMIT 1");
+        $stmt->execute([$courseId]);
+        $u = $stmt->fetchColumn();
+        if ($u && is_string($u) && strlen($u) >= 10) return (string)$u;
+    } catch (Throwable $e) {}
+
+    return (string)$courseId;
+}
+
+/**
+ * Resolve Idea ID from UUID or numeric ID
+ */
+function resolveIdeaId(mixed $rawId): int
+{
+    if (empty($rawId)) return 0;
+    $rawStr = trim((string)$rawId);
+
+    if (is_numeric($rawStr) && (int)$rawStr > 0) {
+        return (int)$rawStr;
     }
-    if ($rawStr === 'default') {
-        $dStmt = $db->query("SELECT id FROM training_courses ORDER BY id ASC LIMIT 1");
-        $dId = $dStmt->fetchColumn();
-        if ($dId) return (int)$dId;
+
+    if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $rawStr)) {
+        try {
+            $stmt = db()->prepare("SELECT id FROM training_ideas WHERE uuid = ? LIMIT 1");
+            $stmt->execute([$rawStr]);
+            $found = $stmt->fetchColumn();
+            if ($found) return (int)$found;
+        } catch (Throwable $e) {}
     }
 
     return 0;
+}
+
+/**
+ * Get Idea UUID from internal ID
+ */
+function getIdeaUuid(int $ideaId): string
+{
+    if ($ideaId <= 0) return '';
+    try {
+        $stmt = db()->prepare("SELECT uuid FROM training_ideas WHERE id = ? LIMIT 1");
+        $stmt->execute([$ideaId]);
+        $u = $stmt->fetchColumn();
+        if ($u && is_string($u) && strlen($u) >= 10) return (string)$u;
+    } catch (Throwable $e) {}
+
+    return (string)$ideaId;
 }
 
 /**
@@ -889,10 +1157,19 @@ function sanitizeUserResponse(array $user, bool $isSelf = false): array
     // Always strip password hash
     unset($user['password_hash']);
 
+    // Ensure UUID is present and mask integer ID with UUID
+    if (!empty($user['id']) && is_numeric($user['id'])) {
+        $realId = (int)$user['id'];
+        $uuid = !empty($user['uuid']) ? (string)$user['uuid'] : getUserUuid($realId);
+        $user['uuid'] = $uuid;
+        $user['id'] = $uuid; // Mask real database ID with UUID
+    }
+
     // Strip admin flag and verification status from non-self views
     if (!$isSelf) {
         unset($user['is_admin']);
         unset($user['email_verified']);
+        unset($user['internal_id']);
     }
 
     return $user;

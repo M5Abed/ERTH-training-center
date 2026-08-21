@@ -18,18 +18,27 @@ try {
     $role   = strtolower($user['role'] ?? 'trainee');
     $isEval = (bool)($user['is_admin'] || $role === 'admin' || $role === 'trainer');
 
-    $ideaId = (int)($_GET['idea_id'] ?? 0);
+    $ideaId = resolveIdeaId($_GET['idea_id'] ?? 0);
     if (!$ideaId) respondError('idea_id is required');
 
     $db = db();
     if ($isEval) {
-        $stmt = $db->prepare('SELECT i.*, u.full_name AS owner_name, u.student_id AS owner_student_id FROM training_ideas i LEFT JOIN users u ON u.id = i.owner_id WHERE i.id = ?');
+        $stmt = $db->prepare('
+            SELECT i.*, u.full_name AS owner_name, u.student_id AS owner_student_id, tc.course_type, te.training_type 
+            FROM training_ideas i 
+            LEFT JOIN users u ON u.id = i.owner_id 
+            LEFT JOIN training_courses tc ON tc.id = i.course_id
+            LEFT JOIN trainee_enrollments te ON (te.trainee_id = i.owner_id AND te.course_id = i.course_id)
+            WHERE i.id = ?
+        ');
         $stmt->execute([$ideaId]);
     } else {
         $stmt = $db->prepare('
-            SELECT i.*, u.full_name AS owner_name, u.student_id AS owner_student_id
+            SELECT i.*, u.full_name AS owner_name, u.student_id AS owner_student_id, tc.course_type, te.training_type
             FROM training_ideas i
             LEFT JOIN users u ON u.id = i.owner_id
+            LEFT JOIN training_courses tc ON tc.id = i.course_id
+            LEFT JOIN trainee_enrollments te ON (te.trainee_id = i.owner_id AND te.course_id = i.course_id)
             WHERE i.id = ?
               AND (i.owner_id = ? OR EXISTS (SELECT 1 FROM training_idea_members tim WHERE tim.idea_id = i.id AND tim.user_id = ?))
         ');
@@ -38,66 +47,22 @@ try {
     $idea = $stmt->fetch();
     if (!$idea) respondError('Idea not found or access denied', 404);
 
-    // ── Load catalog and find matching project ─────────────────────────────────
-    $catalog = [];
-    if (file_exists(__DIR__ . '/catalog_64_data.php')) {
-        require_once __DIR__ . '/catalog_64_data.php';
-        if (function_exists('getCatalog64')) {
-            $catalog = getCatalog64();
-        }
-    }
-    if (empty($catalog)) {
-        try {
-            $catRows = $db->query("SELECT id, title, category, level, skills FROM projects_catalog")->fetchAll(PDO::FETCH_ASSOC);
-            foreach ($catRows as $cr) {
-                $pId = (int)$cr['id'];
-                $secRows = $db->prepare("SELECT section_key, content FROM proposals_pregenerated WHERE catalog_project_id = ?");
-                $secRows->execute([$pId]);
-                $sections = [];
-                while ($sr = $secRows->fetch(PDO::FETCH_ASSOC)) {
-                    $sections[$sr['section_key']] = $sr['content'];
-                }
-                $catalog[] = [
-                    'id'            => $pId,
-                    'title'         => $cr['title'],
-                    'category'      => $cr['category'],
-                    'level'         => $cr['level'],
-                    'skills'        => $cr['skills'],
-                    'display_order' => $pId,
-                    'sections'      => $sections,
-                ];
-            }
-        } catch (Throwable $e) {}
-    }
+    // ── Check if project has custom proposal or catalog ID ────────────────────
+    $hasCatalogId = !empty($idea['catalog_project_id']);
     $catProject = null;
 
-    // Priority 1: explicit catalog_project_id
-    if (!empty($idea['catalog_project_id'])) {
-        foreach ($catalog as $cp) {
-            if ($cp['id'] === (int)$idea['catalog_project_id']) { $catProject = $cp; break; }
+    if ($hasCatalogId) {
+        $catalog = [];
+        if (file_exists(__DIR__ . '/catalog_64_data.php')) {
+            require_once __DIR__ . '/catalog_64_data.php';
+            if (function_exists('getCatalog64')) {
+                $catalog = getCatalog64();
+            }
         }
-    }
-    // Priority 2: title exact match
-    if (!$catProject && !empty($idea['title'])) {
         foreach ($catalog as $cp) {
-            if (strcasecmp($cp['title'], $idea['title']) === 0) { $catProject = $cp; break; }
-        }
-    }
-    // Priority 3: title match
-    if (!$catProject && !empty($idea['title'])) {
-        foreach ($catalog as $cp) {
-            if (strcasecmp($cp['title'], $idea['title']) === 0) { $catProject = $cp; break; }
-        }
-    }
-    // Priority 4: fuzzy substring match on title
-    if (!$catProject) {
-        $searchTitle = strtolower($idea['title'] ?: '');
-        if ($searchTitle) {
-            foreach ($catalog as $cp) {
-                if (stripos($cp['title'], $searchTitle) !== false || stripos($searchTitle, $cp['title']) !== false) {
-                    $catProject = $cp;
-                    break;
-                }
+            if ($cp['id'] === (int)$idea['catalog_project_id']) { 
+                $catProject = $cp; 
+                break; 
             }
         }
     }
@@ -107,7 +72,7 @@ try {
     $a  = fn($v) => is_array($v) ? $v : [];
     $today = date('d F Y');
 
-    // ── Merge proposal_json + catalog sections ─────────────────────────────────
+    // ── Extract stored proposal_json ───────────────────────────────────────────
     $p = !empty($idea['proposal_json']) ? json_decode($idea['proposal_json'], true) : [];
     if (!is_array($p)) $p = [];
 
@@ -120,10 +85,10 @@ try {
         }
     }
 
-    // Override / fill gaps with catalog data (catalog has richer content)
+    // If official 64-catalog project with pregenerated sections, fill missing
     if ($catProject && !empty($catProject['sections'])) {
         foreach ($catProject['sections'] as $sk => $sVal) {
-            if (empty($secMap[$sk]) || strlen(trim($secMap[$sk])) < 50) {
+            if (empty($secMap[$sk]) || strlen(trim($secMap[$sk])) < 30) {
                 $secMap[$sk] = $sVal;
             }
         }
@@ -133,17 +98,8 @@ try {
     $title = $s($p['project_title'] ?? $p['title'] ?? '', '');
     if (empty($title)) $title = $s($idea['title'] ?? 'Training Project');
 
-    $category = $s($catProject['category'] ?? $p['category'] ?? 'software');
-    $platformMap = [
-        'software'   => 'Python / OpenCV / Deep Learning on Laptop',
-        'yanshee'    => 'Yanshee Humanoid Robot',
-        'nao'        => 'NAO Humanoid Robot',
-        'integrated' => 'Integrated Capstone (Software + Humanoid Robot)',
-    ];
-    $platform      = $platformMap[$category] ?? 'Python / OpenCV Environment on Laptop';
-    $trainingTrack = ucfirst($category);
-    $level         = $catProject['level'] ?? 'Intermediate';
-    $skills        = $catProject['skills'] ?? $s($idea['tech_stack'] ?? 'AI, Computer Vision, Python');
+    $skills = $s($idea['tech_stack'] ?? $p['tech_stack'] ?? ($catProject['skills'] ?? 'Modern Software & Applied Frameworks'));
+    $platform = $s($p['category'] ?? ($catProject['category'] ?? 'Software Engineering / Computing Platform'));
 
     // ── Team members from DB ────────────────────────────────────────────────────
     $memStmt = $db->prepare('
@@ -175,77 +131,93 @@ try {
         }
     }
 
+    $isExternalIdea = (($idea['course_type'] ?? '') === 'external' || ($idea['training_type'] ?? '') === 'external');
+    if ($isExternalIdea) {
+        $memberList = [];
+        $memberIds  = [];
+    }
+
     $teamData = $p['team'] ?? [];
     if (empty($leaderName)) {
         $leaderName = $s($teamData['leader'] ?? $idea['owner_name'], $idea['owner_name'] ?: 'Student');
     }
-    if (empty($memberList) && !empty($teamData['members'])) {
-        $memberList = $a($teamData['members']);
-    }
-    if (!empty($_GET['team_members'])) {
-        $memberList = array_map('trim', explode(',', $_GET['team_members']));
+    if (!$isExternalIdea) {
+        if (empty($memberList) && !empty($teamData['members'])) {
+            $memberList = $a($teamData['members']);
+        }
+        if (!empty($_GET['team_members'])) {
+            $memberList = array_map('trim', explode(',', $_GET['team_members']));
+        }
+    } else {
+        $memberList = [];
     }
 
     $trainerName = $s($_GET['trainer_name'] ?? $teamData['trainer'] ?? 'Dr. Supervising Trainer', 'Supervising Trainer');
-    $courseName  = $s($teamData['course'] ?? 'AI & Robotics Field Training', 'Field Training');
+    $courseName  = $s($idea['course_name'] ?? $teamData['course'] ?? 'Field Training', 'Field Training');
     $startDate   = $s($_GET['start_date'] ?? '14 July 2026', '14 July 2026');
     $endDate     = $s($_GET['end_date'] ?? '18 August 2026', '18 August 2026');
 
-    // ── Extract full section content ────────────────────────────────────────────
+    // ── Extract full dynamic section content ────────────────────────────────────
     $abstract    = $secMap['abstract']                    ?? $s($idea['description'] ?? '');
     $intro       = $secMap['introduction_background']     ?? $s($p['ch1_introduction'] ?? '');
+    $problem     = $secMap['problem_definition']          ?? $s($p['ch3_problem_statement'] ?? $idea['problem_statement'] ?? '');
     $objectives  = $secMap['objectives_scope']            ?? $s($p['ch1_aim'] ?? '');
     $related     = $secMap['related_work']                ?? $s($p['ch2_gap'] ?? '');
     $methodology = $secMap['methodology']                 ?? $s($p['ch4_methodology'] ?? '');
     $sysDesign   = $secMap['expected_system_design']      ?? $s($p['ch4_system_architecture'] ?? '');
-    $problem     = $secMap['problem_definition']          ?? $s($p['ch3_problem_statement'] ?? $idea['problem_statement'] ?? '');
 
-    // Build rich derived content for sections
-    $acknowledgment = "We would like to express our sincere appreciation and gratitude to New Mansoura University, the Faculty of Artificial Intelligence & Robotics, our academic supervisors, and our technical trainers at the ERTH Training Center.\n\nTheir continuous mentorship, technical support, and provision of state-of-the-art laboratory robotics hardware, computing resources, and simulation platforms have been invaluable to the successful completion of this field training project.\n\nWe are grateful to " . $trainerName . " for their guidance throughout this project titled \"" . $title . "\".";
+    // For custom AI ideas, append formal academic advisory disclaimer note
+    $isCustomIdea = empty($idea['catalog_project_id']);
+    if ($isCustomIdea) {
+        $abstract .= "\n\n[Academic Advisory & Review Notice]:\nThis proposal was generated with AI assistance as an exploratory academic baseline. The student is solely responsible for reviewing, refining, and adapting all technical and experimental details prior to final institutional evaluation and defense.";
+    }
 
-    $ch1FieldTraining = "This project, titled \"" . $title . "\", was completed as part of the AI & Robotics Field Training program at New Mansoura University, Faculty of Artificial Intelligence & Robotics.\n\nThe training program is designed to bridge academic theory with practical engineering experience by requiring students to design, implement, and document a complete AI or robotics system under laboratory conditions.\n\n" . ($intro ?: "The selected application area for this project is " . $title . ", which falls within the " . $trainingTrack . " track, utilizing " . $skills . " as the primary technical foundation.");
+    // Build rich, coherent academic text with zero dummy text
+    $acknowledgment = "We would like to express our sincere appreciation and gratitude to New Mansoura University, the Faculty of Artificial Intelligence & Computing, our academic supervisors, and our technical trainers at the ERTH Training Center.\n\nTheir continuous mentorship, technical support, and provision of state-of-the-art laboratory computing infrastructure, frameworks, and testing platforms have been invaluable to the successful completion of this field training project.\n\nWe are grateful to " . $trainerName . " for their academic guidance throughout this project titled \"" . $title . "\".";
 
-    $ch1Background = "The technical foundation for this project draws on the following core concepts:\n\n• Computer Vision and Perception: The ability to extract meaningful information from visual input using image processing and machine learning.\n• Machine Learning / Deep Learning: Training models to recognize patterns and make decisions from data.\n• System Integration: Combining hardware sensors, software pipelines, and output interfaces into a cohesive system.\n\nThe platform selected for implementation is: " . $platform . ".\n\nThis platform provides the necessary capabilities for the " . $title . " system, enabling " . $skills . " to be applied effectively in a controlled laboratory environment.";
+    $ch1FieldTraining = "This project, titled \"" . $title . "\", was completed as part of the Undergraduate Field Training program at New Mansoura University.\n\nThe training program is designed to bridge academic theory with practical engineering experience by requiring students to design, implement, and document a complete, working software or engineering system.\n\n" . ($intro ?: "The application focus of this project is \"" . $title . "\", utilizing " . $skills . " as its primary technical foundation.");
 
-    $ch1Objectives = !empty($objectives) ? $objectives : "Overall Aim: To design and implement a working " . $title . " system that can be demonstrated reliably in a laboratory setting.\n\nMeasurable Objectives:\n1. Implement the core " . $title . " pipeline using " . $skills . ".\n2. Demonstrate the system on realistic inputs, not just isolated examples.\n3. Validate system performance through a structured test plan.\n4. Document all implementation decisions, results, and known limitations.\n5. Deliver a complete technical report and live demonstration.\n\nIn Scope: Building and testing the core system pipeline; demonstrating it during evaluation; full technical documentation.\nOut of Scope: Large-scale production deployment; extensive data collection beyond training requirements.";
+    $ch1Background = "The technical foundation for this project draws on modern engineering principles and specialized domain concepts:\n\n• Architecture & System Design: Modular component design, separation of concerns, and clean interface abstraction.\n• Implementation Technologies: Utilizing " . $skills . " for core execution, processing, and user interaction.\n• Verification & Validation: Structured testing strategies to ensure reliability and performance.\n\nDevelopment Platform & Frameworks:\n" . $platform . "\n\nThis technology stack was selected to achieve optimal performance, maintainability, and rapid prototyping capability for " . $title . ".";
 
-    $ch2ExistingSystems = !empty($related) ? $related : "Several existing systems and research projects are relevant to " . $title . ". These include:\n\n1. OpenCV-based baseline systems: Classical computer vision approaches that are well-documented and widely used in educational contexts. These systems are fast to set up but fragile under real-world variation.\n\n2. Deep Learning approaches: CNN-based models that generalize better to real-world inputs but require more computational resources and labeled training data.\n\n3. Platform-specific implementations: Systems built specifically for " . $platform . " that demonstrate the integration of AI models with physical hardware.\n\nEach of these approaches has been studied to inform the design choices for this project.";
+    $ch1Objectives = !empty($objectives) ? $objectives : "Overall Aim: To design and implement a working " . $title . " system that meets university training and industry standards.\n\nMeasurable Objectives:\n1. Implement the core " . $title . " pipeline using " . $skills . ".\n2. Demonstrate the system on realistic test scenarios and inputs.\n3. Validate system performance through structured verification.\n4. Document all implementation decisions, results, and known limitations.\n5. Deliver a complete technical report and live demonstration.\n\nIn Scope: Building and testing the core system pipeline; live evaluation demonstration; full technical documentation.\nOut of Scope: Proprietary third-party hardware redesign or commercial production scaling.";
 
-    $ch2Comparison = "The following comparison table summarizes key differences between related approaches:\n\n| System | Platform | Main Feature | Limitation | Source |\n|--------|----------|-------------|-----------|--------|\n| Classical CV Pipeline | Laptop / PC | Fast, easy to reason about | Fragile under lighting variation | [1] |\n| CNN-based Deep Learning | GPU Server | High accuracy, generalizes well | Requires large dataset and GPU | [2] |\n| " . $title . " (This Project) | " . $platform . " | " . substr($title, 0, 40) . " | Limited to laboratory conditions | This work |\n\nThis project improves on existing approaches by applying " . $skills . " to achieve the described capability within the constraints of the training program.";
+    $ch2ExistingSystems = !empty($related) ? $related : "Comparative Analysis of Relevant Approaches:\n\n1. Traditional / Legacy Solutions: Often rely on manual, fragmented workflows with high operational latency and limited accessibility.\n2. Specialized Commercial Platforms: Offer advanced feature sets but suffer from closed-source lock-in, recurring licensing costs, and rigid integration constraints.\n3. Proposed Project (" . $title . "): Implements an agile, tailored solution using " . $skills . ", combining high customizability, modern usability, and verifiable benchmarks.";
 
-    $ch2Gap = "The identified gap in existing work is: existing systems for " . $title . " either require more resources than available in a training laboratory, or they lack sufficient documentation for a student to replicate and understand the implementation.\n\nThis project addresses this gap by:\n1. Implementing a complete, documented pipeline using " . $skills . ".\n2. Testing the system systematically with defined test cases.\n3. Providing a reproducible implementation that can be extended in future training cycles.";
+    $ch2Comparison = "The following comparison table summarizes key differences between related approaches and this project:\n\n| System / Approach | Technology Stack | Key Advantage | Limitation | Source |\n|-------------------|------------------|---------------|------------|--------|\n| Legacy Workflow | Manual / Static Tools | Simple baseline | High latency, error-prone | Prior Work |\n| Commercial Suite | Proprietary Cloud | Comprehensive feature set | Closed-source, high cost | Standard Solutions |\n| " . $title . " | " . substr($skills, 0, 30) . " | Tailored, modern & accessible | Scoped for training benchmarks | This Work |\n\nThis project addresses the limitations of existing approaches by applying " . $skills . " to achieve the required capabilities within an efficient, open architecture.";
 
-    $ch3Problem = !empty($problem) ? $problem : "Current Situation: The task addressed by " . $title . " currently depends on manual processes or is not automated in the target environment.\n\nAffected Users: Students, instructors, and researchers in the AI & Robotics training program who would benefit from an automated solution.\n\nTechnical Challenge: Building a reliable " . $title . " system that works consistently under laboratory conditions using " . $skills . ", while remaining simple enough to implement within the training timeframe.\n\nSuccess Definition: A system that processes realistic inputs, produces correct outputs reliably, and can be demonstrated to an evaluator without manual intervention.";
+    $ch2Gap = "Identified Engineering Gap:\n\nExisting solutions in the application area of " . $title . " either lack open interoperability or fail to address the specific domain constraints required by end users.\n\nThis project bridges the gap by:\n1. Designing a cohesive, modular pipeline tailored to " . $title . ".\n2. Leveraging modern tools (" . $skills . ") for verifiable reliability.\n3. Delivering complete academic documentation, source code, and reproducible test cases.";
 
-    $ch3Requirements = "Stakeholders:\n• Primary Users: Trainees and instructors at the ERTH Training Center.\n• Secondary Users: Lab supervisors and external evaluators.\n• Environment: NMU AI & Robotics Laboratory, " . $platform . ".\n\nFunctional Requirements:\n• FR-01 [High]: The system shall process input from " . $platform . " in real time.\n• FR-02 [High]: The system shall produce correct outputs for at least 80% of test inputs.\n• FR-03 [Medium]: The system shall display results in a clear, human-readable format.\n• FR-04 [Low]: The system shall log results for post-demo review.\n\nNon-Functional Requirements:\n• NFR-01 [High]: The system should respond within 2 seconds per input under normal conditions.\n• NFR-02 [High]: The system should be safe to operate in a shared laboratory environment.\n• NFR-03 [Medium]: The system should be documented sufficiently for a peer to replicate.";
+    $ch3Problem = !empty($problem) ? $problem : "Problem Context: The task addressed by \"" . $title . "\" requires an automated, robust solution to replace manual, inefficient, or unintegrated processes.\n\nAffected Stakeholders: Students, faculty, and practitioners requiring reliable execution of " . $title . " workflows.\n\nTechnical Challenge: Developing a stable, responsive system using " . $skills . " that meets all functional requirements within the field training timeframe.\n\nSuccess Criteria: A functional prototype that accurately executes target workflows and passes all evaluation benchmarks.";
 
-    $ch3Plan = "Project Tasks and Timeline:\n\nWeek 1: System design, component study, environment setup, and initial testing of " . $skills . ".\nWeek 2: Core algorithm implementation and unit testing of each pipeline stage.\nWeek 3: Integration testing, edge-case handling, and performance optimization.\nWeek 4: Documentation, final report writing, and demonstration preparation.\n\nSuccess Criteria:\n• Core pipeline processes at least 10 varied inputs correctly during evaluation.\n• System response time < 2 seconds per input.\n• Complete documentation submitted with report.\n\nRisk Register:\n• Risk: Hardware/platform unavailability | Likelihood: Low | Impact: High | Mitigation: Test on alternative hardware or simulation.\n• Risk: Algorithm accuracy below target | Likelihood: Medium | Impact: High | Mitigation: Use pretrained models as fallback.\n• Risk: Documentation incomplete | Likelihood: Low | Impact: Medium | Mitigation: Maintain running notes from Day 1.";
+    $ch3Requirements = "Stakeholders & Requirements Specification:\n\nPrimary Stakeholders:\n• End Users: Individuals interacting with " . $title . ".\n• Academic Supervisors: Instructors reviewing deliverables against quality benchmarks.\n\nFunctional Requirements (FR):\n• FR-01 [Core Processing]: The system shall reliably execute core " . $title . " workflows using " . $skills . ".\n• FR-02 [Data Management]: The system shall validate, process, and persist inputs with zero data corruption.\n• FR-03 [User Interface]: The system shall provide an intuitive, responsive interface for input capture and output display.\n• FR-04 [Feedback & Reporting]: The system shall provide real-time status notifications and exportable summaries.\n\nNon-Functional Requirements (NFR):\n• NFR-01 [Performance]: System operations and responses should execute within optimal response latency.\n• NFR-02 [Usability]: Intuitive workflow adhering to standard UI/UX design heuristics.\n• NFR-03 [Reliability & Security]: Graceful error handling, input validation, and secure execution.";
 
-    $ch4DevApproach = !empty($methodology) ? $methodology : "Development Methodology: This project follows a staged development approach:\n\nStage 1 — Requirements & Design: Analyze the problem, study relevant tools, and finalize the system design before writing code.\n\nStage 2 — Implementation (3 independent modules):\n  Module A: Input/Perception — Get raw input flowing reliably from " . $platform . " before adding any intelligence.\n  Module B: Core Logic — Implement and validate the " . $title . " algorithm in isolation using saved test inputs.\n  Module C: Output/Action — Connect the validated logic to its final output and polish the end-to-end experience.\n\nStage 3 — Testing & Validation: Run the structured test plan, record results, and fix identified issues.\n\nStage 4 — Documentation & Presentation: Write the final report and prepare the live demonstration.";
+    $ch3Plan = "Project Execution Timeline & Milestones:\n\n• Phase 1 (Week 1): Requirements elicitation, architectural design, environment configuration, and technology stack validation (" . $skills . ").\n• Phase 2 (Week 2): Core component implementation, algorithm development, and initial module unit testing.\n• Phase 3 (Week 3): System integration, data pipeline connection, and comprehensive scenario testing.\n• Phase 4 (Week 4): Performance optimization, documentation completion, final report authoring, and presentation preparation.\n\nSuccess Criteria:\n• Core capabilities of " . $title . " execute without unhandled exceptions.\n• All functional requirements verified against defined test cases.\n• Complete technical documentation delivered.";
 
-    $ch4Platform = "Selected Platform: " . $platform . "\n\nHardware Specifications:\n• Compute: Laptop / Host PC (Intel Core i5/i7 or equivalent, 8-16 GB RAM, optional NVIDIA GPU)\n• Camera / Sensors: USB Camera / Built-in webcam / Depth sensor (640x480 resolution at 30 fps)\n• Communication: USB / Wi-Fi local network interface\n\nSoftware Environment:\n• Operating System: Ubuntu 22.04 LTS / Windows 11\n• Programming Language: Python 3.10+\n• Core Libraries: OpenCV (cv2), NumPy, PyTorch / TensorFlow, MediaPipe / Scikit-learn\n• Development Tools: VS Code, Git, Jupyter Notebook\n\nJustification: " . $platform . " was selected because it provides the optimal balance of compute power, library support (" . $skills . "), and rapid prototyping capability for a student training project.";
+    $ch4DevApproach = !empty($methodology) ? $methodology : "Development Methodology: This project follows a staged engineering lifecycle:\n\nStage 1 — Requirements & Modeling: Detailed analysis of problem parameters and technical requirements.\nStage 2 — Modular Implementation: Incremental implementation of core business logic, services, and data layers using " . $skills . ".\nStage 3 — Integration & Verification: Comprehensive unit testing, scenario verification, and latency benchmarking.\nStage 4 — Final Packaging: Comprehensive documentation, report authoring, and live evaluation demo.";
 
-    $ch4Architecture = !empty($sysDesign) ? $sysDesign : "System Architecture:\n\nThe system consists of three decoupled components:\n\n1. Perception / Input Module:\n   Captures visual frames or sensor data from " . $platform . " and applies preprocessing (resizing, normalization, color-space conversion).\n\n2. Core Processing / Algorithm Module:\n   Executes the " . $title . " pipeline using " . $skills . ". Produces intermediate features and final predictions.\n\n3. Output / Action / Visualization Module:\n   Renders annotated visual output on screen and optionally commands physical actuators or robot motors.\n\nData Flow: Input -> Preprocessing -> Algorithm Inference -> Decision Logic -> Output Rendering / Robot Command.";
+    $ch4Platform = "Selected Technology Stack & Platform:\n\nEnvironment Overview:\n• Core Technologies: " . $skills . "\n• Primary Platform: " . $platform . "\n• Version Control: Git / GitHub\n• Development Tools: Modern IDEs, Terminal, Automated Testing Suites\n\nJustification: This technology stack was specifically selected for " . $title . " due to its strong community ecosystem, rich library support, and superior developer velocity.";
 
-    $ch4Algorithm = "Algorithm Logic and Pseudocode:\n\nAlgorithm: " . $title . " Main Execution Loop\n\nInput: Continuous frames from input sensor\nOutput: Processed results, annotated display, and action triggers\n\nStep 1: Initialize video stream and load trained weights / models (" . $skills . ")\nStep 2: While system is active:\n    Step 2.1: Read current frame from sensor\n    Step 2.2: Preprocess frame (resize, normalize)\n    Step 2.3: Run core detection / classification pipeline\n    Step 2.4: If confidence > threshold:\n        Step 2.4a: Generate action response or UI annotation\n        Step 2.4b: Update system state and logs\n    Step 2.5: Else:\n        Step 2.5a: Maintain idle / standby state\n    Step 2.6: Render output overlay and display FPS counter\nStep 3: Release camera resources and save final execution summary.";
+    $ch4Architecture = !empty($sysDesign) ? $sysDesign : "System Architecture & Component Breakdown:\n\nThe system consists of three decoupled layers:\n\n1. Presentation & Interaction Layer:\n   Captures user inputs, handles client-side state, and renders dynamic responses.\n\n2. Core Processing & Business Logic Layer:\n   Executes the " . $title . " pipeline using " . $skills . ". Validates data constraints and coordinates operations.\n\n3. Data Persistence & Service Layer:\n   Manages structured records, caching, and external interface communication.\n\nData Flow: User Input -> Client Validation -> API / Core Processing -> Business Engine -> Persistent State -> Output Display.";
 
-    $ch5Implementation = "Implementation Details:\n\nThe project was implemented in Python across modular source files:\n\n1. config.py: Holds configuration constants (camera index, model thresholds, UI settings).\n2. detector.py: Implements the core " . $title . " algorithm using " . $skills . ".\n3. visualizer.py: Handles drawing bounding boxes, labels, and status dashboards on the display feed.\n4. main.py: Orchestrates the pipeline, handles keyboard interrupts, and manages program lifecycle.\n\nKey Integration Steps:\n• Ensured camera frame acquisition runs in a lightweight thread to prevent UI freezing.\n• Handled missing frames gracefully without crashing the loop.\n• Tuned detection thresholds based on empirical testing in the training lab.";
+    $ch4Algorithm = "Core Workflow & Execution Algorithm:\n\nAlgorithm: " . $title . " Main Operational Loop\n\nInput: User interaction requests or structured input payloads\nOutput: Processed results, verified data states, and interactive feedback\n\nStep 1: System initialization and dependency validation (" . $skills . ")\nStep 2: Authenticate session and receive input payload\nStep 3: Validate input schema and apply preprocessing filters\nStep 4: Execute core domain logic and processing pipeline\nStep 5: Handle exception boundaries and verify output integrity\nStep 6: Update database persistence layer and trigger notifications\nStep 7: Render formatted output and return response to user interface.";
 
-    $ch5Code = "# Core Implementation Snippet for " . $title . "\n\nimport cv2\nimport numpy as np\n\ndef process_frame(frame, threshold=0.7):\n    \"\"\"Process an incoming camera frame and return results.\"\"\"\n    # 1. Preprocess\n    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)\n    resized = cv2.resize(rgb, (320, 240))\n    \n    # 2. Run algorithm pipeline (" . substr($skills, 0, 30) . ")\n    results = {\"status\": \"success\", \"detections\": []}\n    \n    # 3. Decision thresholding\n    # [Implementation details encapsulated in detector module]\n    return results\n\nif __name__ == \"__main__\":\n    cap = cv2.VideoCapture(0)\n    while cap.isOpened():\n        ret, frame = cap.read()\n        if not ret: break\n        res = process_frame(frame)\n        cv2.imshow(\"" . substr($title, 0, 25) . "\", frame)\n        if cv2.waitKey(1) & 0xFF == ord('q'): break\n    cap.release()\n    cv2.destroyAllWindows()";
+    $ch5Implementation = "Implementation & Development Details:\n\nThe project was implemented in a modular structure using " . $skills . ":\n\n1. Module Configuration: Centralized configuration files and environment definitions.\n2. Business Logic & Core Engine: Implements the fundamental algorithms and capabilities of " . $title . ".\n3. Data Management & Persistence: Structured schema and database interaction.\n4. User Interface & API Endpoints: Clean communication layer linking user interactions to the backend engine.\n\nKey Engineering Highlights:\n• Decoupled modular design ensuring high cohesion and low coupling.\n• Comprehensive input validation and resilient error boundary handling.\n• Optimized execution flow for seamless responsiveness.";
 
-    $ch5Scenario = "Demonstration Scenario:\n\nScenario: Live Evaluation Demonstration\n\n1. Setup: Laptop connected to lab camera; terminal launched in project directory.\n2. Startup: Run `python main.py`; system loads models within 3 seconds.\n3. Normal Input: Present standard test object / gesture / scene to the camera.\n4. Result: System recognizes input with > 85% confidence and renders overlay.\n5. Edge Case: Introduce partial occlusion or altered lighting; system logs confidence drop and activates fallback.\n6. Teardown: Press 'Q' to cleanly exit and inspect generated log metrics.";
+    $ch5Code = "// Core Implementation Architecture for " . $title . "\n// Technologies: " . $skills . "\n\nasync function executePipeline(inputData) {\n    try {\n        // 1. Validate incoming data payload\n        const validated = validateInput(inputData);\n        \n        // 2. Execute core processing logic\n        const result = await processDomainLogic(validated);\n        \n        // 3. Persist and return output\n        await logExecutionMetrics(result);\n        return { success: true, data: result };\n    } catch (error) {\n        console.error('Execution failure in " . substr($title, 0, 30) . ":', error);\n        return { success: false, error: error.message };\n    }\n}";
 
-    $ch6TestPlan = "Test Strategy:\n\nThe system was tested across three levels:\n\n1. Unit Testing: Verified each function (preprocessing, inference, postprocessing) independently using static test images.\n2. Integration Testing: Validated end-to-end pipeline latency and stability over 100 continuous frames.\n3. Scenario Testing: Executed the 5 formal test cases defined in the project plan.\n\nPass Criteria: All unit tests pass; average frame processing time < 100 ms (>= 10 FPS); 0 unhandled runtime exceptions.";
+    $ch5Scenario = "Operational Demonstration Scenario:\n\nScenario: End-to-End Evaluation Workflow for " . $title . "\n\n1. Initialization: Launch the application environment; verify all service dependencies are active.\n2. User Interaction: The user inputs primary test parameters into the interface.\n3. Processing: The system captures input and executes the " . $skills . " pipeline.\n4. Verification: The output is rendered in real time and validated against expected ground truth.\n5. Edge-Case Validation: Intentionally submit boundary inputs; verify graceful error trapping.\n6. Conclusion: All logs and execution records are confirmed in the administrative view.";
 
-    $ch6Results = "Evaluation Results and Metrics:\n\n• Test Case 1 (Standard Input): PASS (Confidence: 94.2%, Latency: 42ms)\n• Test Case 2 (Varied Angle): PASS (Confidence: 87.5%, Latency: 45ms)\n• Test Case 3 (Low Light Input): PASS (Confidence: 81.0%, Latency: 44ms)\n• Test Case 4 (Rapid Motion): PASS (Track maintained across 92% of frames)\n• Test Case 5 (False Positive Rejection): PASS (0 false triggers on blank input)\n\nSummary Metrics:\n• Overall Accuracy: 88.7%\n• Average Processing Latency: 44 ms (approx. 22 FPS)\n• Resource Utilization: CPU ~28%, RAM ~420 MB";
+    $ch6TestPlan = "Testing Strategy & Quality Assurance:\n\nTesting Levels:\n1. Unit Testing: Independent verification of individual utility functions and algorithmic modules.\n2. Integration Testing: Verification of data flow between API services, database layers, and user interfaces.\n3. User Acceptance Testing: End-to-end verification of all functional requirements under realistic usage scenarios.\n\nQuality Benchmarks:\n• 100% pass rate on core functional test cases.\n• Graceful degradation on invalid input with user-friendly error alerts.\n• Stable execution without memory leaks or crashes.";
 
-    $ch6Discussion = "Discussion and Analysis:\n\nThe experimental results demonstrate that " . $title . " achieves its design objectives under laboratory conditions using " . $skills . ".\n\nStrengths:\n• Fast inference time enabling real-time feedback without perceptible lag.\n• Modular code structure that simplifies testing and future component upgrades.\n• Low hardware resource requirements, running smoothly on standard laptops.\n\nLimitations and Edge Cases:\n• Performance degrades under extreme direct sunlight or near-complete darkness.\n• Occlusion exceeding 60% of the target area causes temporary loss of detection.\n\nFuture Improvements:\n• Implement temporal smoothing across adjacent frames to reduce jitter.\n• Add an automatic exposure adjustment preprocessing step for extreme lighting.\n• Deploy onto dedicated embedded hardware (e.g. Raspberry Pi 4 / Jetson Nano).";
+    $ch6Results = "Evaluation Results & Verification Metrics:\n\n• Test Case 1 [Standard Execution]: PASS — Core pipeline produced correct output matching specification.\n• Test Case 2 [Boundary Input]: PASS — Validation layer caught invalid parameters cleanly.\n• Test Case 3 [Performance Benchmark]: PASS — Response latency and throughput met performance targets.\n• Test Case 4 [Data Integrity]: PASS — Persistent storage recorded verified states without data loss.\n• Test Case 5 [UI Responsiveness]: PASS — Interface rendered updates smoothly across varied viewport sizes.\n\nSummary Assessment:\nThe prototype system meets all defined project requirements and demonstrates high stability.";
 
-    $ch7Conclusion = "Conclusion and Summary:\n\nThis field training project successfully designed, implemented, and evaluated a working " . $title . " system at New Mansoura University.\n\nKey Achievements:\n1. Delivered a fully functional pipeline utilizing " . $skills . " on " . $platform . ".\n2. Achieved an overall accuracy of 88.7% with a real-time response latency of 44 ms.\n3. Produced comprehensive documentation, modular codebase, and verified test cases.\n\nThe project met all primary training objectives and established a solid foundation for future extensions in advanced AI and robotics systems.";
+    $ch6Discussion = "Discussion, Strengths & Future Directions:\n\nKey Strengths:\n• Clean, modular architectural separation enabling easy maintenance.\n• Practical implementation addressing genuine user requirements.\n• Modern technology foundation utilizing " . $skills . ".\n\nLimitations:\n• Current implementation is scoped for laboratory and training deployment.\n• Advanced analytics and automated scaling can be expanded in subsequent versions.\n\nFuture Enhancements:\n• Integration of cloud-native automated CI/CD pipelines.\n• Extension of machine learning intelligence for predictive insights.";
 
-    $references = "References and Bibliography:\n\n[1] Bradski, G., \"The OpenCV Library,\" Dr. Dobb's Journal of Software Tools, 2000.\n[2] Redmon, J., et al., \"You Only Look Once: Unified, Real-Time Object Detection,\" CVPR, 2016.\n[3] New Mansoura University, \"AI & Robotics Field Training Laboratory Manual,\" ERTH Center, 2026.\n[4] Goodfellow, I., Bengio, Y., Courville, A., \"Deep Learning,\" MIT Press, 2016.\n[5] Official Platform Documentation for " . $platform . ", 2026.";
+    $ch7Conclusion = "Conclusion:\n\nThis training project successfully designed, implemented, and verified \"" . $title . "\" at New Mansoura University.\n\nKey Accomplishments:\n1. Developed a functional, robust system using " . $skills . ".\n2. Verified all core functional requirements through structured test suites.\n3. Authored comprehensive technical documentation, architecture designs, and source code.\n\nThe project successfully fulfills all academic field training objectives and provides a solid foundation for future development.";
 
-    $appendices = "Appendix A: Hardware & Software Setup Instructions\n• Install Python 3.10+ and git.\n• Clone repository and run `pip install -r requirements.txt`.\n• Connect camera and execute `python main.py`.\n\nAppendix B: Project Code Repository Structure\n• /src: Main source files\n• /models: Pretrained weights and configuration\n• /docs: Report and test logs\n\nAppendix C: Weekly Training Attendance and Progress Log\n• Week 1: Design approved\n• Week 2: Prototype complete\n• Week 3: Testing verified\n• Week 4: Final documentation delivered";
+    $references = "References & Academic Bibliography:\n\n[1] Pressman, R. S., Software Engineering: A Practitioner's Approach, McGraw-Hill Education.\n[2] Official Technology Documentation for " . $skills . ", 2026.\n[3] New Mansoura University, Undergraduate Field Training Guidelines, Faculty of Computing & AI, 2026.\n[4] IEEE Standard for Software Quality Assurance Processes, IEEE Std 730.";
+
+    $appendices = "Appendix A: Setup & Execution Instructions\n• Install prerequisite runtime dependencies for " . $skills . ".\n• Clone repository and execute setup scripts.\n• Launch application server and verify endpoint health.\n\nAppendix B: Project Code Repository Structure\n• /src: Main application and core module files\n• /config: Environment configurations\n• /docs: Report and test logs\n\nAppendix C: Weekly Training Attendance and Progress Log\n• Week 1: Requirements & Architecture approved\n• Week 2: Prototype implementation complete\n• Week 3: Integration and scenario testing verified\n• Week 4: Final documentation delivered";
 
     // Map 29 section placeholders to contents
     $sectionContents = [

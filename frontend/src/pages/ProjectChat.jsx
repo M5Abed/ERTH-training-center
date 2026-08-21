@@ -122,7 +122,7 @@ export default function ProjectChat() {
                     if (item.type === 'date') {
                         return <div key={`d-${i}`} className="chat-date-sep"><span>{item.date}</span></div>;
                     }
-                    const isMe = item.user_id == user?.id;
+                    const isMe = String(item.user_id) === String(user?.id);
                     return (
                         <div key={item.id} className={`chat-bubble-row ${isMe ? 'chat-bubble-row--me' : ''}`}>
                             {!isMe && (

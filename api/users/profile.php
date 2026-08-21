@@ -9,20 +9,27 @@ if ($method === 'GET') {
         $reqId = null;
     }
     $uid = empty($_SESSION['user_id']) ? null : (int)$_SESSION['user_id'];
+    if (!$uid) {
+        try {
+            $uid = requireSession();
+        } catch (Throwable $e) {}
+    }
 
     if (!$reqId && !$uid) { respondError('No user specified', 400); }
 
+    $targetId = $reqId ? resolveUserId($reqId) : $uid;
+
     $stmt = db()->prepare("
-        SELECT u.id, u.email, u.full_name, u.student_id, u.academic_id,
+        SELECT u.id, u.uuid, u.email, u.full_name, u.student_id, u.academic_id,
                u.academic_year, u.major, u.department, u.final_track,
                u.role, u.is_admin, u.approval_status, u.email_verified, u.created_at
         FROM users u
-        WHERE " . ($reqId ? "(u.student_id = ? OR u.id = ?)" : "u.id = ?") . "
+        WHERE " . ($targetId ? "u.id = ?" : "(u.student_id = ? OR u.uuid = ?)") . "
     ");
-    if ($reqId) {
-        $stmt->execute([$reqId, $reqId]);
+    if ($targetId) {
+        $stmt->execute([$targetId]);
     } else {
-        $stmt->execute([$uid]);
+        $stmt->execute([$reqId, $reqId]);
     }
     $user = $stmt->fetch();
 

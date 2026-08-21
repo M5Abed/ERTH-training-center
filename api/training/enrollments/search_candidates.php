@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);
 }
 
-$courseId = (int)($_GET['course_id'] ?? 0);
+$courseId = resolveCourseId($_GET['course_id'] ?? 0);
 $q        = trim($_GET['q'] ?? '');
 $offset   = max(0, (int)($_GET['offset'] ?? 0));
 $limit    = 50;
@@ -24,12 +24,12 @@ $params = [];
 
 if ($q !== '') {
     $like = '%' . $q . '%';
-    $where .= " AND (u.full_name LIKE ? OR u.student_id LIKE ? OR u.email LIKE ? OR CAST(u.id AS CHAR) = ?)";
-    $params = [$like, $like, $like, $q];
+    $where .= " AND (u.full_name LIKE ? OR u.student_id LIKE ? OR u.academic_id LIKE ? OR u.email LIKE ? OR CAST(u.id AS CHAR) = ?)";
+    $params = [$like, $like, $like, $like, $q];
 }
 
 $query = "
-    SELECT u.id, u.full_name, u.email, u.student_id AS academic_id,
+    SELECT u.id, u.full_name, u.email, COALESCE(u.student_id, u.academic_id) AS academic_id,
            u.academic_year, u.major, u.role,
            CASE WHEN te.id IS NOT NULL THEN 1 ELSE 0 END AS is_enrolled
     FROM users u
@@ -46,6 +46,7 @@ $stmt->execute(array_merge([$courseId], $params));
 $candidates = $stmt->fetchAll();
 
 foreach ($candidates as &$c) {
+    $c['id'] = getUserUuid((int)$c['id']);
     $c['is_enrolled'] = (bool)$c['is_enrolled'];
 }
 

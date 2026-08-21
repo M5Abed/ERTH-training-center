@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useConfirm, useToast } from '../components/Toast';
 import { getTasks, createTask, updateTask, deleteTask, getTeamMembers, getProject } from '../services/api';
 import { ArrowLeft, Plus, X, Trash2, User, GripVertical, CheckCircle, Clock, ListTodo, Loader2, ChevronRight, ChevronLeft, Calendar } from 'lucide-react';
 import './TaskBoard.css';
@@ -13,6 +14,8 @@ const COLUMNS = [
 ];
 
 export default function TaskBoard() {
+    const confirm = useConfirm();
+    const toast = useToast();
     const { id } = useParams();
     const { t, lang } = useI18n();
     const { user } = useAuth();
@@ -68,12 +71,20 @@ export default function TaskBoard() {
         setNewAssignee('');
         setNewDeadline('');
         setAdding(false);
+        toast?.success(lang === 'ar' ? 'تمت إضافة المهمة بنجاح' : 'Task added successfully');
         reload();
     };
 
     const handleDelete = async (taskId) => {
-        if (!window.confirm(lang === 'ar' ? 'حذف هذه المهمة؟' : 'Delete this task?')) return;
+        const ok = await confirm({
+            title: lang === 'ar' ? 'حذف المهمة' : 'Delete Task',
+            message: lang === 'ar' ? 'هل أنت متأكد من حذف هذه المهمة؟' : 'Are you sure you want to delete this task?',
+            variant: 'danger',
+            confirmText: lang === 'ar' ? 'حذف' : 'Delete'
+        });
+        if (!ok) return;
         await deleteTask(taskId);
+        toast?.success(lang === 'ar' ? 'تم حذف المهمة' : 'Task deleted');
         reload();
     };
 

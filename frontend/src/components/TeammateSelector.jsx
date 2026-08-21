@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useI18n } from '../contexts/I18nContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from './Toast';
 import { Users, Search, UserPlus, X, AlertTriangle, CheckCircle2, Shield, User, Loader2, Sparkles, Crown } from 'lucide-react';
 import MemberDetailModal from './MemberDetailModal';
 import './TeammateSelector.css';
@@ -14,6 +15,7 @@ export default function TeammateSelector({
     currentIdeaId = null,
     readOnly = false
 }) {
+    const toast = useToast();
     const { lang } = useI18n();
     const { user } = useAuth();
     const isAr = lang === 'ar';
@@ -88,7 +90,7 @@ export default function TeammateSelector({
 
         // Check max limit
         if (selectedTeammates.length >= maxTeammates) {
-            alert(isAr ? `الحد الأقصى لأعضاء الفريق هو ${maxTeammates} زملاء.` : `Maximum team size is ${maxTeammates} teammates.`);
+            toast?.warning(isAr ? `الحد الأقصى لأعضاء الفريق هو ${maxTeammates} زملاء.` : `Maximum team size is ${maxTeammates} teammates.`);
             return;
         }
 

@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data = body();
 $requestId = (int)($data['request_id'] ?? 0);
-$userId = (int)($data['user_id'] ?? 0);
+$userId = resolveUserId($data['user_id'] ?? 0);
 $reason = sanitizeString($data['reason'] ?? '');
 
 if (!$requestId && !$userId) {

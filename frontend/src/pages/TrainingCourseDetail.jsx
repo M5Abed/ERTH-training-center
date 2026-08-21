@@ -7,8 +7,8 @@ import {
     CheckCircle, XCircle, FileSpreadsheet, Sparkles, Download, 
     ExternalLink, Trash2, Edit3, Loader2, ArrowLeft, Video, Link as LinkIcon, X, FileCheck, UserPlus, Code, Send,
     Play, Cpu, Terminal, Zap, ShieldAlert, Layers, Calendar, MessageSquare, UserCheck, Crown, ChevronDown, ChevronUp, AlertCircle,
-    Sliders, RotateCcw, Check, Settings, Vote, Trophy, CheckCircle2,
-    Building2, Globe, Linkedin, ShieldCheck, CheckSquare, Eye, GraduationCap, Target, Info, Search
+    Sliders, RotateCcw, Check, Settings, Vote, Trophy, CheckCircle2, ArrowUpDown,
+    Building2, Globe, Linkedin, ShieldCheck, CheckSquare, Eye, GraduationCap, Target, Info, Search, Clock
 } from 'lucide-react';
 import AddStudentModal from '../components/AddStudentModal';
 import CertificateModal from '../components/CertificateModal';
@@ -16,33 +16,52 @@ import ConfirmModal from '../components/ConfirmModal';
 import EngMagyMascot from '../components/mascot/EngMagyMascot';
 import TeammateSelector from '../components/TeammateSelector';
 import MemberDetailModal from '../components/MemberDetailModal';
+import TraineeProjects from './TraineeProjects';
+import { useToast, useConfirm } from '../components/Toast';
 import { downloadProposalDocx } from '../services/api';
 import './TrainingCourseDetail.css';
 
 export default function TrainingCourseDetail({ courseIdOverride }) {
+    const toast = useToast();
+    const confirm = useConfirm();
     const navigate = useNavigate();
     const { id: paramCourseId } = useParams();
     const courseId = courseIdOverride || paramCourseId;
     const { lang } = useI18n();
-    const { user } = useAuth();
-    
-    const role = strtolowerRole(user?.role);
+    const { user, profile } = useAuth();
+    const role = (user?.role || profile?.role || '').toLowerCase();
     const isAdmin = !!(user?.is_admin || role === 'admin');
     const isTrainer = role === 'trainer' || isAdmin;
     const isTrainee = !isTrainer;
 
     const [searchParams] = useSearchParams();
     const urlTab = searchParams.get('tab');
-    const [activeTab, setActiveTab] = useState(urlTab === 'voting' && !isTrainer ? 'topics' : (urlTab || 'topics'));
+    const [activeTab, setActiveTab] = useState(() => {
+        if (urlTab === 'voting' && !isTrainer) return 'topics';
+        if (isTrainee && (urlTab === 'idea' || urlTab === 'projects' || urlTab === 'evaluations')) return 'topics';
+        return urlTab || 'topics';
+    });
 
     useEffect(() => {
         const t = searchParams.get('tab');
+        if (isTrainee) {
+            if (t === 'idea' || t === 'projects') {
+                navigate(`/projects?course_id=${courseId}`, { replace: true });
+                return;
+            }
+            if (t === 'evaluations') {
+                navigate(`/evaluations?course_id=${courseId}`, { replace: true });
+                return;
+            }
+        }
         if (t === 'voting' && !isTrainer) {
             setActiveTab('topics');
             return;
         }
-        if (t) setActiveTab(t);
-    }, [searchParams, isTrainer]);
+        if (t) {
+            setActiveTab(t);
+        }
+    }, [searchParams, isTrainer, isTrainee, courseId, navigate]);
 
     const [course, setCourse] = useState(null);
     const [topics, setTopics] = useState([]);
@@ -51,6 +70,9 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
     const [traineeSearchQuery, setTraineeSearchQuery] = useState('');
     const [traineeSortCol, setTraineeSortCol] = useState('name');
     const [traineeSortDir, setTraineeSortDir] = useState('asc');
+    const [exportingTrainees, setExportingTrainees] = useState(false);
+    const [startDateFilter, setStartDateFilter] = useState('all'); // 'all', 'with_date', 'no_date', 'after_date'
+    const [filterAfterDate, setFilterAfterDate] = useState('');
     
     // Trainers Management state
     const [availableTrainers, setAvailableTrainers] = useState([]);
@@ -64,6 +86,37 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
     const [myEval, setMyEval] = useState(null);
     const [allEvals, setAllEvals] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    const handleExportTrainees = async (format = 'csv') => {
+        setExportingTrainees(true);
+        try {
+            const url = `/api/admin/export.php?type=trainees&course_id=${courseId}&format=${format}`;
+            const res = await fetch(url, {
+                credentials: 'include',
+                headers: authHeaders()
+            });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                toast?.error(errData.error || `Export failed (${res.status})`);
+                return;
+            }
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            const disp = res.headers.get('Content-Disposition') || '';
+            const nameMatch = disp.match(/filename="?([^"]+)"?/);
+            a.download = nameMatch ? nameMatch[1] : `Export_Trainees_${format}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(a.href);
+            toast?.success(lang === 'ar' ? 'تم تصدير البيانات بنجاح' : 'Export downloaded successfully');
+        } catch (e) {
+            toast?.error('Export connection error');
+        } finally {
+            setExportingTrainees(false);
+        }
+    };
 
     // Proposal Update / Re-upload state
     const [showUpdateProposalModal, setShowUpdateProposalModal] = useState(false);
@@ -85,6 +138,13 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
     const [allGlobalProviders, setAllGlobalProviders] = useState([]);
     const [verificationRequests, setVerificationRequests] = useState([]);
     const [loadingVerifications, setLoadingVerifications] = useState(false);
+
+    const isExternalCourse = Boolean(
+        course?.course_type === 'external' ||
+        course?.training_type === 'external' ||
+        (totalExternal > 0 && totalInternal === 0) ||
+        trainees.some(t => t.training_type === 'external' || t.training_start_date)
+    );
 
     // External Modals
     const [showAddProviderModal, setShowAddProviderModal] = useState(false);
@@ -117,14 +177,14 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
     });
 
     const openEditCourseModal = () => {
+        const isEndLater = !course?.end_date;
         setEditCourseForm({
             name: course?.name || '',
             description: course?.description || '',
             start_date: course?.start_date || '',
             end_date: course?.end_date || '',
+            set_up_later: isEndLater,
             duration_hours: course?.duration_hours || 40,
-            category: course?.category || '',
-            level: course?.level || '',
             course_type: course?.course_type || 'both'
         });
         setShowEditCourseModal(true);
@@ -140,19 +200,25 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
                 headers: authHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     course_id: courseId,
-                    ...editCourseForm
+                    name: editCourseForm.name,
+                    description: editCourseForm.description,
+                    start_date: editCourseForm.start_date,
+                    end_date: editCourseForm.set_up_later ? '' : editCourseForm.end_date,
+                    duration_hours: editCourseForm.duration_hours,
+                    course_type: editCourseForm.course_type
                 })
             });
             const data = await res.json();
             if (res.ok && data.success) {
                 setShowEditCourseModal(false);
                 loadCourseDetail();
+                toast?.success(lang === 'ar' ? 'تم تحديث بيانات الدورة بنجاح' : 'Course updated successfully');
             } else {
-                alert(data.error || 'Failed to update course');
+                toast?.error(data.error || (lang === 'ar' ? 'فشل تحديث الدورة' : 'Failed to update course'));
             }
         } catch (e) {
             console.error(e);
-            alert('Connection error');
+            toast?.error(lang === 'ar' ? 'خطأ في الاتصال' : 'Connection error');
         } finally {
             setIsUpdatingCourse(false);
         }
@@ -171,13 +237,14 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
             try { data = await res.json(); } catch (err) {}
             if (res.ok && data.success) {
                 setShowDeleteCourseModal(false);
+                toast?.success(lang === 'ar' ? 'تم حذف الدورة التدريبية بنجاح' : 'Course deleted successfully');
                 navigate('/courses');
             } else {
-                alert(data.error || (lang === 'ar' ? 'فشل حذف الدورة التدريبية' : 'Failed to delete course'));
+                toast?.error(data.error || (lang === 'ar' ? 'فشل حذف الدورة التدريبية' : 'Failed to delete course'));
             }
         } catch (e) {
             console.error('Delete course error:', e);
-            alert(lang === 'ar' ? 'خطأ في الاتصال أثناء حذف الدورة' : 'Connection error while deleting course');
+            toast?.error(lang === 'ar' ? 'خطأ في الاتصال أثناء حذف الدورة' : 'Connection error while deleting course');
         } finally {
             setIsDeletingCourse(false);
         }
@@ -186,62 +253,8 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
     const isRoboticsCourse = Boolean(
         course?.category?.toLowerCase()?.includes('robot') ||
         course?.name?.toLowerCase()?.includes('robot') ||
-        course?.name?.toLowerCase()?.includes('robot') ||
-        course?.name?.includes('روبوت') ||
-        course?.name?.includes('الروبوتات') ||
-        (typeof courseId === 'string' && courseId.toLowerCase().includes('robot'))
+        course?.description?.toLowerCase()?.includes('robot')
     );
-
-    // Robotics Simulator state
-    const [simCode, setSimCode] = useState(`// Eng. Magy Robotics PWM Control Node
-#include <Wire.h>
-#include <MPU6050.h>
-
-const int MOTOR_PWM_PIN = 9;
-const int TRIG_PIN = 12;
-const int ECHO_PIN = 13;
-
-void setup() {
-  Serial.begin(115200);
-  pinMode(MOTOR_PWM_PIN, OUTPUT);
-  Serial.println("NMU Robotics Node Initialized!");
-}
-
-void loop() {
-  int sensorDist = readUltrasonicDistance();
-  if (sensorDist < 20) {
-    analogWrite(MOTOR_PWM_PIN, 0); // Emergency stop
-    Serial.println("[WARNING] Obstacle detected! Stopping motors.");
-  } else {
-    analogWrite(MOTOR_PWM_PIN, 180); // Cruise velocity
-    Serial.println("[INFO] PWM Duty Cycle: 70% | Clear path.");
-  }
-  delay(100);
-}`);
-    const [simRunning, setSimRunning] = useState(false);
-    const [simLogs, setSimLogs] = useState([
-        "[SYSTEM] Eng. Magy Simulator Ready.",
-        "[STATUS] Microcontroller connected via USB Serial (115200 baud).",
-        "[READY] Press 'Run ROS2 Node' to execute hardware simulation."
-    ]);
-    const [pwmGauge, setPwmGauge] = useState(70);
-
-    const handleRunSim = () => {
-        setSimRunning(true);
-        setSimLogs(prev => [...prev, "[EXEC] Compiling Embedded C++ ROS2 Node..."]);
-        setTimeout(() => {
-            setSimLogs(prev => [
-                ...prev,
-                "[BUILD] Compiled successfully. Flashing to ATmega328P...",
-                "[RUNNING] Motor PWM: 180 (70% Duty Cycle)",
-                "[SENSOR] Ultrasonic Distance: 45 cm | Clearance: SAFE",
-                "[IMU] Pitch: 1.2° | Roll: -0.4° | Stability: STABLE",
-                "[SUCCESS] Robotics Node running smoothly! (Press Magy for tips)"
-            ]);
-            setPwmGauge(75);
-            setSimRunning(false);
-        }, 1200);
-    };
 
     // Modals state
     const [showAddStudentModal, setShowAddStudentModal] = useState(false);
@@ -291,7 +304,7 @@ void loop() {
         try {
             await downloadProposalDocx(myIdea.id, myIdea.title || 'Proposal');
         } catch (err) {
-            alert(err.message || 'Error downloading Word document');
+            toast?.error(err.message || 'Error downloading Word document');
         } finally {
             setDownloadingIdeaDocx(false);
         }
@@ -370,7 +383,7 @@ void loop() {
 
     const handleDeleteCriterion = (index) => {
         if (courseCriteria.length <= 1) {
-            alert(lang === 'ar' ? 'يجب أن تحتوي الدورة على معيار تقييم واحد على الأقل.' : 'A course must have at least one evaluation criterion.');
+            toast?.warning(lang === 'ar' ? 'يجب أن تحتوي الدورة على معيار تقييم واحد على الأقل.' : 'A course must have at least one evaluation criterion.');
             return;
         }
         setCourseCriteria(prev => prev.filter((_, i) => i !== index));
@@ -387,14 +400,20 @@ void loop() {
         });
     };
 
-    const handleResetToDefaultCriteria = () => {
-        if (!window.confirm(lang === 'ar' ? 'هل تريد استعادة المعايير الافتراضية (5 معايير بإجمالي 100%)؟' : 'Reset to default 5 evaluation criteria (100% total)?')) return;
+    const handleResetToDefaultCriteria = async () => {
+        const ok = await confirm({
+            title: lang === 'ar' ? 'استعادة المعايير الافتراضية' : 'Reset Criteria',
+            message: lang === 'ar' ? 'هل تريد استعادة المعايير الافتراضية (5 معايير بإجمالي 100%)؟' : 'Reset to default 5 evaluation criteria (100% total)?',
+            variant: 'warning',
+            confirmText: lang === 'ar' ? 'استعادة' : 'Reset'
+        });
+        if (!ok) return;
         setCourseCriteria(defaultRubrics.map((d, i) => ({ ...d, order_index: i })));
     };
 
     const handleSaveCriteria = async () => {
         if (!isWeightValid) {
-            alert(lang === 'ar' 
+            toast?.warning(lang === 'ar' 
                 ? `إجمالي أوزان المعايير يجب أن يساوي 100% بالضبط. الإجمالي الحالي: ${totalCriteriaWeight}%` 
                 : `Total criteria weight must equal exactly 100%. Current total: ${totalCriteriaWeight}%`);
             return;
@@ -403,11 +422,11 @@ void loop() {
         for (let i = 0; i < courseCriteria.length; i++) {
             const c = courseCriteria[i];
             if (!c.name || !c.name.trim()) {
-                alert(lang === 'ar' ? `المعيار رقم (${i + 1}) لا يحتوي على اسم.` : `Criterion #${i + 1} is missing a name.`);
+                toast?.warning(lang === 'ar' ? `المعيار رقم (${i + 1}) لا يحتوي على اسم.` : `Criterion #${i + 1} is missing a name.`);
                 return;
             }
             if ((parseFloat(c.weight) || 0) <= 0) {
-                alert(lang === 'ar' ? `وزن المعيار (${c.name}) يجب أن يكون أكبر من صفر.` : `Criterion (${c.name}) must have a positive weight.`);
+                toast?.warning(lang === 'ar' ? `وزن المعيار (${c.name}) يجب أن يكون أكبر من صفر.` : `Criterion (${c.name}) must have a positive weight.`);
                 return;
             }
         }
@@ -415,7 +434,7 @@ void loop() {
         setSavingCriteria(true);
         try {
             const payload = {
-                course_id: parseInt(courseId, 10),
+                course_id: courseId,
                 criteria: courseCriteria.map((c, idx) => ({
                     name: c.name.trim(),
                     weight: parseFloat(c.weight) || 0,
@@ -431,14 +450,14 @@ void loop() {
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                alert(lang === 'ar' ? 'تم حفظ وتحديث معايير تقييم الدورة بنجاح!' : 'Course evaluation criteria saved successfully!');
+                toast?.success(lang === 'ar' ? 'تم حفظ وتحديث معايير تقييم الدورة بنجاح!' : 'Course evaluation criteria saved successfully!');
                 fetchCourseCriteria();
             } else {
-                alert(data.error || (lang === 'ar' ? 'فشل حفظ معايير التقييم' : 'Failed to save criteria'));
+                toast?.error(data.error || (lang === 'ar' ? 'فشل حفظ معايير التقييم' : 'Failed to save criteria'));
             }
         } catch (e) {
             console.error(e);
-            alert(lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم' : 'Network error saving criteria');
+            toast?.error(lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم' : 'Network error saving criteria');
         } finally {
             setSavingCriteria(false);
         }
@@ -507,7 +526,7 @@ void loop() {
                 return prev.filter(id => id !== pId);
             }
             if (prev.length >= 5) {
-                alert(lang === 'ar' ? 'يمكنك اختيار حتى 5 مشاريع كحد أقصى.' : 'You can select up to 5 projects.');
+                toast?.warning(lang === 'ar' ? 'يمكنك اختيار حتى 5 مشاريع كحد أقصى.' : 'You can select up to 5 projects.');
                 return prev;
             }
             return [...prev, pId];
@@ -519,7 +538,7 @@ void loop() {
         const pId = Number(projectId);
         if (myVotedProjectIds.includes(pId)) return;
         if (myVotedProjectIds.length >= 5) {
-            alert(lang === 'ar' ? 'لقد بلغت الحد الأقصى للتصويت (5 مشاريع). يمكنك حذف مشروع محدد لإضافة غيره.' : 'You reached the max limit (5 projects). Remove a project to add another.');
+            toast?.warning(lang === 'ar' ? 'لقد بلغت الحد الأقصى للتصويت (5 مشاريع). يمكنك حذف مشروع محدد لإضافة غيره.' : 'You reached the max limit (5 projects). Remove a project to add another.');
             return;
         }
         setMyVotedProjectIds(prev => [...prev, pId]);
@@ -531,17 +550,23 @@ void loop() {
         setMyVotedProjectIds(prev => prev.filter(id => id !== pId));
     };
 
-    const handleClearAllVotes = () => {
+    const handleClearAllVotes = async () => {
         if (courseVotingStatus !== 'open') return;
         if (myVotedProjectIds.length === 0) return;
-        if (window.confirm(lang === 'ar' ? 'هل أنت متأكد من رغبتك في مسح كافة اختيارات التصويت المحددة؟' : 'Are you sure you want to clear all selected votes?')) {
+        const ok = await confirm({
+            title: lang === 'ar' ? 'مسح اختيارات التصويت' : 'Clear Votes',
+            message: lang === 'ar' ? 'هل أنت متأكد من رغبتك في مسح كافة اختيارات التصويت المحددة؟' : 'Are you sure you want to clear all selected votes?',
+            variant: 'warning',
+            confirmText: lang === 'ar' ? 'مسح' : 'Clear'
+        });
+        if (ok) {
             setMyVotedProjectIds([]);
         }
     };
 
     const handleSubmitVotes = async () => {
         if (courseVotingStatus !== 'open') {
-            alert(lang === 'ar' ? 'التصويت مغلق حالياً' : 'Voting is currently closed');
+            toast?.warning(lang === 'ar' ? 'التصويت مغلق حالياً' : 'Voting is currently closed');
             return;
         }
         setSubmittingVotes(true);
@@ -551,20 +576,20 @@ void loop() {
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    course_id: parseInt(courseId, 10),
+                    course_id: courseId,
                     project_ids: myVotedProjectIds
                 })
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                alert(lang === 'ar' ? 'تم تسجيل وتأكيد تصويتك بنجاح!' : 'Your votes have been submitted successfully.');
+                toast?.success(lang === 'ar' ? 'تم تسجيل وتأكيد تصويتك بنجاح!' : 'Your votes have been submitted successfully.');
                 fetchCourseVotingData();
             } else {
-                alert(data.error || (lang === 'ar' ? 'فشل حفظ التصويت' : 'Failed to submit votes'));
+                toast?.error(data.error || (lang === 'ar' ? 'فشل حفظ التصويت' : 'Failed to submit votes'));
             }
         } catch (e) {
             console.error(e);
-            alert(lang === 'ar' ? 'حدث خطأ في الاتصال أثناء حفظ التصويت' : 'Network error submitting votes');
+            toast?.error(lang === 'ar' ? 'حدث خطأ في الاتصال أثناء حفظ التصويت' : 'Network error submitting votes');
         } finally {
             setSubmittingVotes(false);
         }
@@ -578,7 +603,7 @@ void loop() {
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    course_id: parseInt(courseId, 10),
+                    course_id: courseId,
                     voting_status: newStatus
                 })
             });
@@ -586,12 +611,13 @@ void loop() {
             if (res.ok && data.success) {
                 setCourseVotingStatus(newStatus);
                 fetchCourseVotingData();
+                toast?.success(lang === 'ar' ? 'تم تحديث حالة التصويت بنجاح' : 'Voting status updated');
             } else {
-                alert(data.error || 'Failed to update voting status');
+                toast?.error(data.error || 'Failed to update voting status');
             }
         } catch (e) {
             console.error(e);
-            alert('Network error updating voting status');
+            toast?.error('Network error updating voting status');
         } finally {
             setUpdatingVotingStatus(false);
         }
@@ -739,15 +765,15 @@ void loop() {
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                alert(lang === 'ar' ? 'تمت إضافة جهة التدريب وربطها بالدورة بنجاح!' : 'Provider created and associated successfully!');
+                toast?.success(lang === 'ar' ? 'تمت إضافة جهة التدريب وربطها بالدورة بنجاح!' : 'Provider created and associated successfully!');
                 setShowAddProviderModal(false);
                 setNewProviderForm({ name: '', name_ar: '', website_url: '', linkedin_url: '', is_contracted: 1 });
                 fetchExternalProviders();
             } else {
-                alert(data.error || 'Failed to create provider');
+                toast?.error(data.error || 'Failed to create provider');
             }
         } catch (e) {
-            alert('Connection error');
+            toast?.error('Connection error');
         } finally {
             setSavingProvider(false);
         }
@@ -762,7 +788,7 @@ void loop() {
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    course_id: parseInt(courseId, 10),
+                    course_id: courseId,
                     provider_id: parseInt(associatingProviderId, 10),
                     action: 'add'
                 })
@@ -770,14 +796,15 @@ void loop() {
             let data = {};
             try { data = await res.json(); } catch(err){}
             if (res.ok && data.success) {
+                toast?.success(lang === 'ar' ? 'تم ربط جهة التدريب بالدورة بنجاح' : 'Provider associated successfully');
                 setShowAssociateProviderModal(false);
                 setAssociatingProviderId('');
                 fetchExternalProviders();
             } else {
-                alert(data.error || 'Failed to associate provider');
+                toast?.error(data.error || 'Failed to associate provider');
             }
         } catch (e) {
-            alert('Connection error');
+            toast?.error('Connection error');
         }
     };
 
@@ -790,7 +817,7 @@ void loop() {
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    course_id: parseInt(courseId, 10),
+                    course_id: courseId,
                     provider_id: newTrackForm.provider_id ? parseInt(newTrackForm.provider_id, 10) : null,
                     title: newTrackForm.title,
                     description: newTrackForm.description
@@ -799,23 +826,25 @@ void loop() {
             let data = {};
             try { data = await res.json(); } catch(err){}
             if (res.ok && data.success) {
+                toast?.success(lang === 'ar' ? 'تم إنشاء المسار التدريبي بنجاح' : 'Training track created successfully');
                 setShowAddTrackModal(false);
                 setNewTrackForm({ title: '', description: '', provider_id: '' });
                 loadCourseDetail();
                 fetchExternalProviders();
             } else {
-                alert(data.error || 'Failed to create track');
+                toast?.error(data.error || 'Failed to create track');
             }
         } catch (e) {
             console.error('Error creating track:', e);
-            alert('Connection error');
+            toast?.error('Connection error');
         } finally {
             setSavingTrack(false);
         }
     };
 
-    const handleReviewVerificationSubmit = async (decision) => {
-        if (!reviewingVerif) return;
+    const handleReviewVerificationSubmit = async (decision, targetReq = reviewingVerif, customFeedback = verifFeedback) => {
+        const target = targetReq || reviewingVerif;
+        if (!target) return;
         setSubmittingVerifReview(true);
         try {
             const res = await fetch('/api/training/verification/review.php', {
@@ -823,27 +852,28 @@ void loop() {
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    course_id: parseInt(courseId, 10),
-                    trainee_id: reviewingVerif.trainee_id,
+                    course_id: courseId,
+                    trainee_id: target.trainee_id,
                     decision: decision,
-                    feedback: verifFeedback
+                    feedback: customFeedback !== undefined ? customFeedback : verifFeedback
                 })
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                alert(decision === 'approved' 
-                    ? (lang === 'ar' ? 'تمت الموافقة على وثيقة التدريب بنجاح!' : 'Verification approved!') 
-                    : (lang === 'ar' ? 'تم تسجيل رفض الوثيقة وإرسال السبب للطالب.' : 'Verification rejected.')
-                );
+                if (decision === 'approved') {
+                    toast?.success(lang === 'ar' ? 'تمت الموافقة على وثيقة التدريب بنجاح!' : 'Verification approved!');
+                } else {
+                    toast?.info(lang === 'ar' ? 'تم تسجيل رفض الوثيقة وإرسال السبب للطالب.' : 'Verification rejected.');
+                }
                 setReviewingVerif(null);
                 setVerifFeedback('');
                 fetchVerificationRequests();
                 fetchTrainees();
             } else {
-                alert(data.error || 'Failed to submit review');
+                toast?.error(data.error || 'Failed to submit review');
             }
         } catch (e) {
-            alert('Connection error');
+            toast?.error('Connection error');
         } finally {
             setSubmittingVerifReview(false);
         }
@@ -859,22 +889,23 @@ void loop() {
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    course_id: parseInt(courseId, 10),
+                    course_id: courseId,
                     trainee_id: reassignStudent.trainee_id,
                     ...reassignForm
                 })
             });
             const data = await res.json();
             if (res.ok && data.success) {
+                toast?.success(lang === 'ar' ? 'تم تحديث مسار تدريب الطالب بنجاح' : 'Student track updated successfully');
                 setShowReassignStudentModal(false);
                 setReassignStudent(null);
                 fetchTrainees();
                 loadCourseDetail();
             } else {
-                alert(data.error || 'Failed to update assignment');
+                toast?.error(data.error || 'Failed to update assignment');
             }
         } catch (e) {
-            alert('Connection error');
+            toast?.error('Connection error');
         } finally {
             setSavingReassign(false);
         }
@@ -913,39 +944,50 @@ void loop() {
     };
 
     const handleRemoveTrainee = async (traineeId, traineeName) => {
-        if (!window.confirm(lang === 'ar' 
-            ? `هل أنت متأكد من حذف المتدرب (${traineeName}) من هذه الدورة التدريبية؟` 
-            : `Are you sure you want to remove trainee (${traineeName}) from this course?`)) {
-            return;
-        }
+        const ok = await confirm({
+            title: lang === 'ar' ? 'حذف المتدرب نهائياً' : 'Delete Trainee',
+            message: lang === 'ar' 
+                ? `هل أنت متأكد من حذف المتدرب (${traineeName}) نهائياً من الدورة وكامل الموقع وقاعدة البيانات؟` 
+                : `Are you sure you want to permanently delete trainee (${traineeName}) from this course and the entire database?`,
+            variant: 'danger',
+            confirmText: lang === 'ar' ? 'حذف نهائي' : 'Delete Permanently'
+        });
+        if (!ok) return;
+
         try {
             const res = await fetch('/api/training/enrollments/remove.php', {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    course_id: parseInt(courseId, 10),
-                    trainee_id: parseInt(traineeId, 10)
+                    course_id: courseId,
+                    trainee_id: traineeId
                 })
             });
             const data = await res.json();
             if (res.ok && data.success) {
+                toast?.success(lang === 'ar' ? 'تم حذف المتدرب نهائياً من الموقع وقاعدة البيانات بنجاح' : 'Trainee deleted entirely from the site and database');
                 fetchTrainees();
                 loadCourseDetail();
             } else {
-                alert(data.error || (lang === 'ar' ? 'فشل حذف المتدرب' : 'Failed to remove trainee'));
+                toast?.error(data.error || (lang === 'ar' ? 'فشل حذف المتدرب' : 'Failed to remove trainee'));
             }
         } catch (e) {
             console.error(e);
-            alert(lang === 'ar' ? 'حدث خطأ في الاتصال أثناء الحذف' : 'Network error while removing trainee');
+            toast?.error(lang === 'ar' ? 'حدث خطأ في الاتصال أثناء الحذف' : 'Network error while removing trainee');
         }
     };
 
     const handleRemoveAllTrainees = async () => {
-        const confirmMsg = lang === 'ar' 
-            ? 'تحذير: سيتم حذف جميع المتدربين المسجلين في هذه الدورة التدريبية بالإضافة إلى تقييماتهم وشهاداتهم. هل أنت متأكد؟'
-            : 'Warning: This will remove ALL enrolled trainees, their evaluations, and certificates from this course. Are you sure?';
-        if (!window.confirm(confirmMsg)) return;
+        const ok = await confirm({
+            title: lang === 'ar' ? 'مسح وحذف كافة المتدربين نهائياً' : 'Delete All Enrolled Trainees',
+            message: lang === 'ar' 
+                ? 'تحذير: سيتم حذف جميع المتدربين المسجلين في هذه الدورة التدريبية نهائياً من الموقع وقاعدة البيانات بالإضافة إلى تقييماتهم وشهاداتهم. هل أنت متأكد؟'
+                : 'Warning: This will permanently delete ALL enrolled trainees from the site and database, including their accounts, evaluations, and certificates. Are you sure?',
+            variant: 'danger',
+            confirmText: lang === 'ar' ? 'نعم، احذف الجميع نهائياً' : 'Yes, Delete All'
+        });
+        if (!ok) return;
 
         try {
             const res = await fetch('/api/training/enrollments/remove_all.php', {
@@ -953,20 +995,21 @@ void loop() {
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    course_id: parseInt(courseId, 10),
+                    course_id: courseId,
                     confirmation: 'delete'
                 })
             });
             const data = await res.json();
             if (res.ok && data.success) {
+                toast?.success(lang === 'ar' ? 'تم مسح وحذف كافة المتدربين نهائياً من الموقع وقاعدة البيانات' : 'All trainees deleted entirely from the site and database');
                 fetchTrainees();
                 loadCourseDetail();
             } else {
-                alert(data.error || (lang === 'ar' ? 'فشل حذف المتدربين' : 'Failed to remove trainees'));
+                toast?.error(data.error || (lang === 'ar' ? 'فشل حذف المتدربين' : 'Failed to remove trainees'));
             }
         } catch (e) {
             console.error(e);
-            alert(lang === 'ar' ? 'حدث خطأ أثناء مسح المتدربين' : 'Network error while clearing trainees');
+            toast?.error(lang === 'ar' ? 'حدث خطأ أثناء مسح المتدربين' : 'Network error while clearing trainees');
         }
     };
 
@@ -1094,7 +1137,10 @@ void loop() {
         setSearchingTrainers(true);
         setHasSearched(true);
         try {
-            const res = await fetch(`/api/users/search-trainers.php?q=${encodeURIComponent(searchTrainerQuery)}`, { credentials: 'include' });
+            const res = await fetch(`/api/users/search-trainers.php?q=${encodeURIComponent(searchTrainerQuery)}`, {
+                credentials: 'include',
+                headers: authHeaders()
+            });
             const data = await res.json();
             setAvailableTrainers(data || []);
         } catch (e) {
@@ -1110,25 +1156,33 @@ void loop() {
             const res = await fetch('/api/training/courses/assign_trainer.php', {
                 method: 'POST',
                 credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ course_id: courseId, trainer_id: trainerId })
             });
             const data = await res.json();
             if (res.ok && data.success) {
+                toast?.success(lang === 'ar' ? 'تم تعيين المدرب بنجاح' : 'Trainer assigned successfully');
                 loadCourseDetail();
             } else {
-                alert(data.error || 'Failed to assign trainer');
+                toast?.error(data.error || 'Failed to assign trainer');
             }
         } catch (e) {
             console.error(e);
-            alert('Connection error');
+            toast?.error('Connection error');
         } finally {
             setAssigningTrainer(false);
         }
     };
 
     const handleRemoveTrainer = async (assignmentId) => {
-        if (!window.confirm(lang === 'ar' ? 'هل أنت متأكد من إزالة هذا المدرب؟' : 'Are you sure you want to remove this trainer?')) return;
+        const ok = await confirm({
+            title: lang === 'ar' ? 'إزالة المدرب' : 'Remove Trainer',
+            message: lang === 'ar' ? 'هل أنت متأكد من إزالة هذا المدرب؟' : 'Are you sure you want to remove this trainer?',
+            variant: 'danger',
+            confirmText: lang === 'ar' ? 'إزالة' : 'Remove'
+        });
+        if (!ok) return;
+
         try {
             const res = await fetch('/api/training/courses/remove_trainer.php', {
                 method: 'POST',
@@ -1138,21 +1192,27 @@ void loop() {
             });
             const data = await res.json();
             if (res.ok && data.success) {
+                toast?.success(lang === 'ar' ? 'تمت إزالة المدرب بنجاح' : 'Trainer removed successfully');
                 loadCourseDetail();
             } else {
-                alert(data.error || 'Failed to remove trainer');
+                toast?.error(data.error || 'Failed to remove trainer');
             }
         } catch (e) {
             console.error(e);
-            alert('Connection error');
+            toast?.error('Connection error');
         }
     };
 
     const handleDeleteTopic = async (topicId) => {
-        const confirmMsg = lang === 'ar' 
-            ? 'هل أنت متأكد من حذف هذا الموضوع التدريبي وجميع المواد التابعة له؟' 
-            : 'Are you sure you want to delete this topic and all its materials?';
-        if (!window.confirm(confirmMsg)) return;
+        const ok = await confirm({
+            title: lang === 'ar' ? 'حذف الموضوع' : 'Delete Topic',
+            message: lang === 'ar' 
+                ? 'هل أنت متأكد من حذف هذا الموضوع التدريبي وجميع المواد التابعة له؟' 
+                : 'Are you sure you want to delete this topic and all its materials?',
+            variant: 'danger',
+            confirmText: lang === 'ar' ? 'حذف' : 'Delete'
+        });
+        if (!ok) return;
 
         try {
             const res = await fetch('/api/training/topics/delete.php', {
@@ -1163,21 +1223,27 @@ void loop() {
             });
             const data = await res.json();
             if (res.ok && data.success) {
+                toast?.success(lang === 'ar' ? 'تم حذف الموضوع بنجاح' : 'Topic deleted successfully');
                 loadCourseDetail();
             } else {
-                alert(data.error || 'Failed to delete topic');
+                toast?.error(data.error || 'Failed to delete topic');
             }
         } catch (err) {
             console.error(err);
-            alert(lang === 'ar' ? 'حدث خطأ أثناء الحذف' : 'Error deleting topic');
+            toast?.error(lang === 'ar' ? 'حدث خطأ أثناء الحذف' : 'Error deleting topic');
         }
     };
 
     const handleDeleteMaterial = async (materialId) => {
-        const confirmMsg = lang === 'ar' 
-            ? 'هل أنت متأكد من حذف هذه المادة التعليمية؟' 
-            : 'Are you sure you want to delete this material?';
-        if (!window.confirm(confirmMsg)) return;
+        const ok = await confirm({
+            title: lang === 'ar' ? 'حذف المادة' : 'Delete Material',
+            message: lang === 'ar' 
+                ? 'هل أنت متأكد من حذف هذه المادة التعليمية؟' 
+                : 'Are you sure you want to delete this material?',
+            variant: 'danger',
+            confirmText: lang === 'ar' ? 'حذف' : 'Delete'
+        });
+        if (!ok) return;
 
         try {
             const res = await fetch('/api/training/content/delete.php', {
@@ -1188,13 +1254,14 @@ void loop() {
             });
             const data = await res.json();
             if (res.ok && data.success) {
+                toast?.success(lang === 'ar' ? 'تم حذف المادة بنجاح' : 'Material deleted successfully');
                 loadCourseDetail();
             } else {
-                alert(data.error || 'Failed to delete material');
+                toast?.error(data.error || 'Failed to delete material');
             }
         } catch (err) {
             console.error(err);
-            alert(lang === 'ar' ? 'حدث خطأ أثناء الحذف' : 'Error deleting material');
+            toast?.error(lang === 'ar' ? 'حدث خطأ أثناء الحذف' : 'Error deleting material');
         }
     };
 
@@ -1229,25 +1296,55 @@ void loop() {
     };
 
     const handleGenerateAiProposal = async () => {
-        if (!aiKeyword) return;
+        const curTitle = (ideaTitleEn || '').trim();
+        const curDesc = (ideaDescEn || '').trim();
+        if (!curTitle || !curDesc) {
+            setIdeaSubmitError(
+                lang === 'ar'
+                    ? 'يرجى إدخال عنوان المشروع والوصف أولاً لتوليد المقترح بالذكاء الاصطناعي.'
+                    : 'Please enter project title and description first to generate proposal with AI.'
+            );
+            return;
+        }
         setGeneratingAi(true);
+        setIdeaSubmitError('');
         try {
             const res = await fetch('/api/training/ideas/ai_generate.php', {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ keywords: aiKeyword })
+                body: JSON.stringify({
+                    title: curTitle,
+                    description: curDesc,
+                    domain: course?.name || 'Software Engineering',
+                    full_sections: true
+                })
             });
             const data = await res.json();
-            if (res.ok && data.proposal) {
-                setIdeaTitleEn(data.proposal.title);
-                setIdeaDescEn(data.proposal.description);
-                setProblemStmt(data.proposal.problem_statement);
-                setTechStack(data.proposal.tech_stack);
-                setExpectedOutput(data.proposal.expected_output);
+            if (res.ok && data.success && data.proposal) {
+                if (data.proposal.title && (!curTitle || curTitle.length < 8)) {
+                    setIdeaTitleEn(data.proposal.title);
+                }
+                setProblemStmt(data.proposal.problem_statement || '');
+                setTechStack(data.proposal.tech_stack || '');
+                setExpectedOutput(data.proposal.expected_output || '');
+            } else {
+                setIdeaSubmitError(
+                    (lang === 'ar' ? data.error_ar : data.error_en) ||
+                    data.error ||
+                    (lang === 'ar'
+                        ? 'خدمة الذكاء الاصطناعي تشهد ضغطاً حالياً، يرجى المحاولة مرة أخرى بعد لحظات.'
+                        : 'The AI service is currently experiencing high demand. Please try again in a few moments.')
+                );
             }
-        } catch (e) { console.error(e); }
-        finally { setGeneratingAi(false); }
+        } catch (e) {
+            console.error(e);
+            setIdeaSubmitError(lang === 'ar'
+                ? 'خدمة الذكاء الاصطناعي تشهد ضغطاً حالياً، يرجى المحاولة مرة أخرى بعد لحظات.'
+                : 'The AI service is currently experiencing high demand. Please try again in a few moments.');
+        } finally {
+            setGeneratingAi(false);
+        }
     };
 
     const handleSubmitIdea = async (e) => {
@@ -1279,11 +1376,11 @@ void loop() {
 
             if (res.ok && data.success) {
                 fetchIdeas();
-                alert(lang === 'ar' ? 'تم حفظ وإرسال فكرة المشروع بنجاح' : 'Project idea saved successfully');
+                toast?.success(lang === 'ar' ? 'تم حفظ وإرسال فكرة المشروع بنجاح' : 'Project idea saved successfully');
             } else {
                 const msg = data.error || (lang === 'ar' ? 'حدث خطأ أثناء حفظ الفكرة' : 'Failed to save project idea');
                 setIdeaSubmitError(msg);
-                alert(msg);
+                toast?.error(msg);
             }
         } catch (e) { 
             console.error(e); 
@@ -1319,7 +1416,7 @@ void loop() {
 
         if (uploadMode === 'link') {
             if (!docUrl) {
-                alert(lang === 'ar' ? 'الرجاء إدخال رابط صحيح' : 'Please enter a valid link URL');
+                toast?.warning(lang === 'ar' ? 'الرجاء إدخال رابط صحيح' : 'Please enter a valid link URL');
                 setUploadingDoc(false);
                 return;
             }
@@ -1327,7 +1424,7 @@ void loop() {
             if (docTitle) formData.append('title', docTitle);
         } else {
             if (!docFile) {
-                alert(lang === 'ar' ? 'الرجاء اختيار ملف للرفع' : 'Please select a file to upload');
+                toast?.warning(lang === 'ar' ? 'الرجاء اختيار ملف للرفع' : 'Please select a file to upload');
                 setUploadingDoc(false);
                 return;
             }
@@ -1351,7 +1448,7 @@ void loop() {
                     data = JSON.parse(text);
                 } catch (_) {
                     console.error('Upload response was not JSON:', res.status, text.substring(0, 300));
-                    alert('Server Error (' + res.status + '): ' + (text.substring(0, 200) || 'Empty response'));
+                    toast?.error('Server Error (' + res.status + '): ' + (text.substring(0, 200) || 'Empty response'));
                     setUploadingDoc(false);
                     return;
                 }
@@ -1365,20 +1462,27 @@ void loop() {
                     fileInputRef.current.value = '';
                 }
                 fetchDocs();
-                alert(lang === 'ar' ? 'تم الرفع بنجاح!' : 'Document uploaded successfully!');
+                toast?.success(lang === 'ar' ? 'تم الرفع بنجاح!' : 'Document uploaded successfully!');
             } else {
-                alert(data.error || (lang === 'ar' ? 'فشل الرفع' : 'Upload failed. Please try again.'));
+                toast?.error(data.error || (lang === 'ar' ? 'فشل الرفع' : 'Upload failed. Please try again.'));
             }
         } catch (e) {
             console.error('Upload network error:', e);
-            alert(lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم' : 'Network error: Could not reach the server.');
+            toast?.error(lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم' : 'Network error: Could not reach the server.');
         } finally { 
             setUploadingDoc(false); 
         }
     };
 
     const handleDeleteDoc = async (docId) => {
-        if (!window.confirm(lang === 'ar' ? 'هل أنت متأكد من حذف هذا التوثيق/الرابط؟' : 'Are you sure you want to delete this document/link?')) return;
+        const ok = await confirm({
+            title: lang === 'ar' ? 'حذف المستند' : 'Delete Document',
+            message: lang === 'ar' ? 'هل أنت متأكد من حذف هذا التوثيق/الرابط؟' : 'Are you sure you want to delete this document/link?',
+            variant: 'danger',
+            confirmText: lang === 'ar' ? 'حذف' : 'Delete'
+        });
+        if (!ok) return;
+
         try {
             const res = await fetch('/api/training/docs/delete.php', {
                 method: 'POST',
@@ -1397,20 +1501,20 @@ void loop() {
                     data = JSON.parse(text);
                 } catch (_) {
                     console.error('Delete response was not JSON:', res.status, text.substring(0, 300));
-                    alert('Server Error (' + res.status + '): ' + (text.substring(0, 200) || 'Empty response'));
+                    toast?.error('Server Error (' + res.status + '): ' + (text.substring(0, 200) || 'Empty response'));
                     return;
                 }
             }
 
             if (res.ok && data.success) {
-                alert(lang === 'ar' ? 'تم الحذف بنجاح' : 'Deleted successfully');
+                toast?.success(lang === 'ar' ? 'تم الحذف بنجاح' : 'Deleted successfully');
                 fetchDocs();
             } else {
-                alert(data.error || (lang === 'ar' ? 'فشل الحذف' : 'Failed to delete'));
+                toast?.error(data.error || (lang === 'ar' ? 'فشل الحذف' : 'Failed to delete'));
             }
         } catch (e) {
             console.error(e);
-            alert(lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم' : 'Network error: Could not reach the server.');
+            toast?.error(lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم' : 'Network error: Could not reach the server.');
         }
     };
 
@@ -1475,7 +1579,7 @@ void loop() {
     const handleSubmitEvaluation = async (e) => {
         e.preventDefault();
         if (!selectedTraineeForEval) {
-            alert(lang === 'ar' ? 'يرجى اختيار المتدرب أولاً' : 'Please select a trainee first.');
+            toast?.warning(lang === 'ar' ? 'يرجى اختيار المتدرب أولاً' : 'Please select a trainee first.');
             return;
         }
         setSubmittingEval(true);
@@ -1496,20 +1600,20 @@ void loop() {
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                const trObj = trainees.find(t => t.trainee_id == selectedTraineeForEval);
+                const trObj = trainees.find(t => String(t.trainee_id) === String(selectedTraineeForEval));
                 const traineeName = trObj ? trObj.full_name : 'Trainee';
                 const confirmedScore = data.final_score ?? evalScore;
                 const successMsg = lang === 'ar'
                     ? `تم حفظ ونشر التقييم بنجاح للمتدرب (${traineeName})! الدرجة المعتمدة: ${confirmedScore}/100`
                     : `Evaluation saved and published successfully for (${traineeName})! Grade: ${confirmedScore}/100`;
                 fetchEvals();
-                alert(successMsg);
+                toast?.success(successMsg);
             } else {
-                alert(data.error || (lang === 'ar' ? 'فشل حفظ التقييم' : 'Failed to save evaluation'));
+                toast?.error(data.error || (lang === 'ar' ? 'فشل حفظ التقييم' : 'Failed to save evaluation'));
             }
         } catch (e) {
             console.error(e);
-            alert(lang === 'ar' ? 'حدث خطأ في الاتصال أثناء حفظ التقييم' : 'Network error: could not save evaluation');
+            toast?.error(lang === 'ar' ? 'حدث خطأ في الاتصال أثناء حفظ التقييم' : 'Network error: could not save evaluation');
         } finally {
             setSubmittingEval(false);
         }
@@ -1518,7 +1622,7 @@ void loop() {
     const handleUpdateProposalSubmit = async (e) => {
         e.preventDefault();
         if (!proposalFile) {
-            alert(lang === 'ar' ? 'يرجى اختيار ملف التقرير / المقترح المحدّث' : 'Please select the updated proposal/report file.');
+            toast?.warning(lang === 'ar' ? 'يرجى اختيار ملف التقرير / المقترح المحدّث' : 'Please select the updated proposal/report file.');
             return;
         }
         setUpdatingProposal(true);
@@ -1537,17 +1641,17 @@ void loop() {
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                alert(lang === 'ar' ? 'تم تحديث ورفع نسخة المقترح بنجاح ومزامنتها مباشرة مع لوحة المشرفين!' : 'Proposal updated and synchronized with supervisor dashboard successfully!');
+                toast?.success(lang === 'ar' ? 'تم تحديث ورفع نسخة المقترح بنجاح ومزامنتها مباشرة مع لوحة المشرفين!' : 'Proposal updated and synchronized with supervisor dashboard successfully!');
                 setShowUpdateProposalModal(false);
                 setProposalFile(null);
                 fetchDocs();
                 fetchIdeas();
             } else {
-                alert(data.error || (lang === 'ar' ? 'فشل تحديث الملف' : 'Failed to update proposal file'));
+                toast?.error(data.error || (lang === 'ar' ? 'فشل تحديث الملف' : 'Failed to update proposal file'));
             }
         } catch (e) {
             console.error(e);
-            alert(lang === 'ar' ? 'حدث خطأ أثناء رفع التحديث' : 'Network error updating proposal');
+            toast?.error(lang === 'ar' ? 'حدث خطأ أثناء رفع التحديث' : 'Network error updating proposal');
         } finally {
             setUpdatingProposal(false);
         }
@@ -1584,7 +1688,7 @@ void loop() {
             }
         } catch (e) {
             console.error(e);
-            alert('Error loading certificate data');
+            toast?.error('Error loading certificate data');
         } finally {
             setIssuingCertId(null);
         }
@@ -1611,12 +1715,13 @@ void loop() {
                     isPendingIssuance: false
                 });
                 fetchTrainees();
+                toast?.success(lang === 'ar' ? 'تم إصدار الشهادة بنجاح' : 'Certificate issued successfully');
             } else {
-                alert(data.error || 'Failed to issue certificate');
+                toast?.error(data.error || 'Failed to issue certificate');
             }
         } catch (e) {
             console.error(e);
-            alert('Network error while issuing certificate');
+            toast?.error('Network error while issuing certificate');
         } finally {
             setConfirmIssuing(false);
         }
@@ -1655,8 +1760,6 @@ void loop() {
             setIssuingCertId(null);
         }
     };
-
-    function strtolowerRole(r) { return (r || '').toLowerCase(); }
 
     if (loading) {
         return (
@@ -1725,36 +1828,19 @@ void loop() {
                         <Building2 size={16} /> {lang === 'ar' ? 'التدريب الخارجي والجهات' : 'External Training & Providers'}
                     </button>
                 )}
-                {isRoboticsCourse && (
-                    <button className={`tab-btn ${activeTab === 'simulator' ? 'active' : ''}`} onClick={() => setActiveTab('simulator')} data-magy-key="simulator">
-                        <Code size={16} /> {lang === 'ar' ? 'مختبر كود المحاكاة' : 'ROS2 Code Simulator'}
-                    </button>
-                )}
+
                 {isTrainer && (
-                    <button className={`tab-btn ${activeTab === 'trainees' ? 'active' : ''}`} onClick={() => setActiveTab('trainees')} data-magy-key="trainees">
-                        <Users size={16} /> {lang === 'ar' ? 'المتدربين' : 'Trainees'}
-                    </button>
-                )}
-                {isTrainer && (
-                    <button className={`tab-btn ${activeTab === 'idea' ? 'active' : ''}`} onClick={() => setActiveTab('idea')} data-magy-key="idea">
-                        <Lightbulb size={16} /> {lang === 'ar' ? 'أفكار المشروعات' : 'Project Ideas'}
-                    </button>
-                )}
-                <button className={`tab-btn ${activeTab === 'evaluations' ? 'active' : ''}`} onClick={() => setActiveTab('evaluations')} data-magy-key="evaluations">
-                    <Award size={16} /> {lang === 'ar' ? 'التقييم والدرجات' : 'Evaluations'}
-                </button>
-                {isTrainer && (
-                    <button className={`tab-btn ${activeTab === 'voting' ? 'active' : ''}`} onClick={() => setActiveTab('voting')} data-magy-key="voting">
-                        <Vote size={16} /> {lang === 'ar' ? 'تصويت الـ Top 5' : 'Top 5 Voting'}
-                    </button>
-                )}
-                <Link to={`/leaderboard?course_id=${courseId}`} className="tab-btn" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <Trophy size={16} style={{ color: '#F59E0B' }} /> {lang === 'ar' ? 'لوحة الترتيب' : 'Leaderboard'}
-                </Link>
-                {isAdmin && (
-                    <button className={`tab-btn ${activeTab === 'trainers' ? 'active' : ''}`} onClick={() => setActiveTab('trainers')} data-magy-key="trainers">
-                        <Users size={16} /> {lang === 'ar' ? 'المدربين' : 'Manage Trainers'}
-                    </button>
+                    <>
+                        <button className={`tab-btn ${activeTab === 'trainees' ? 'active' : ''}`} onClick={() => setActiveTab('trainees')} data-magy-key="trainees">
+                            <Users size={16} /> {lang === 'ar' ? 'المتدربين' : 'Trainees'}
+                        </button>
+                        <button className={`tab-btn ${activeTab === 'projects' || activeTab === 'idea' ? 'active' : ''}`} onClick={() => setActiveTab('projects')} data-magy-key="projects">
+                            <FileText size={16} /> {lang === 'ar' ? 'مشاريع التدريب' : 'Projects'}
+                        </button>
+                        <button className={`tab-btn ${activeTab === 'evaluations' ? 'active' : ''}`} onClick={() => setActiveTab('evaluations')} data-magy-key="evaluations">
+                            <Award size={16} /> {lang === 'ar' ? 'التقييم الأكاديمي' : 'Evaluations'}
+                        </button>
+                    </>
                 )}
             </div>
 
@@ -1872,74 +1958,212 @@ void loop() {
                 </div>
             )}
 
-            {/* Tab: External Training & Providers Hub */}
+            {/* Tab: External Training & Verification Hub */}
             {activeTab === 'external' && isTrainer && course?.course_type === 'external' && (
                 <div className="tab-content external-training-container">
-                    {/* Header Banner */}
+                    {/* Header Banner - Clean & Focused */}
                     <div className="external-header-banner">
-                        <div>
-                            <h3 style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Building2 size={20} className="text-primary" />
-                                {lang === 'ar' ? 'إدارة التدريب الميداني الخارجي والجهات المعتمدة' : 'External Training & Industry Providers Hub'}
-                            </h3>
-                            <p style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-2)' }}>
-                                {lang === 'ar' 
-                                    ? 'هيكلية التدريب الخارجي: الجهة المعتمدة ← المسار التدريبي (Track) ← المتدربون المسجلون ← اعتماد وثائق التدريب.'
-                                    : 'External training structure: Provider → Track → Enrolled Students → Verification Document Approvals.'}
-                            </p>
+                        <div className="external-header-title-group">
+                            <div className="external-header-icon-box">
+                                <Building2 size={22} className="text-primary" />
+                            </div>
+                            <div>
+                                <h3 style={{ margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {lang === 'ar' ? 'إدارة التدريب الميداني والتحقق' : 'Field Training & Verification Hub'}
+                                </h3>
+                                <p style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-2)' }}>
+                                    {lang === 'ar' 
+                                        ? 'متابعة وتدقيق وثائق التدريب الميداني للجهات الخارجية واعتماد طلبات الطلاب.'
+                                        : 'Review trainee field verification documents and manage partner training providers.'}
+                                </p>
+                            </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            {isAdmin && (
-                                <>
-                                    <button className="btn btn-primary btn-sm" onClick={() => setShowAddProviderModal(true)}>
-                                        <Plus size={15} /> {lang === 'ar' ? 'إنشاء جهة تدريب جديدة' : 'Create Provider'}
-                                    </button>
-                                    <button className="btn btn-outline btn-sm" onClick={() => setShowAssociateProviderModal(true)}>
-                                        <Building2 size={15} /> {lang === 'ar' ? 'ربط جهة تدريب بالدورة' : 'Link Provider to Course'}
-                                    </button>
-                                </>
-                            )}
+
+                        {/* Stats Summary Pills - Internal Students Removed */}
+                        <div className="external-stats-pills">
+                            <div className="external-stat-pill" style={{ borderColor: 'rgba(59, 130, 246, 0.3)', background: 'rgba(59, 130, 246, 0.05)' }}>
+                                <Users size={14} className="text-primary" />
+                                <span>{lang === 'ar' ? 'الطلاب بالتدريب الخارجي:' : 'External Students:'} <strong>{totalExternal}</strong></span>
+                            </div>
+                            <div className="external-stat-pill">
+                                <ShieldCheck size={14} style={{ color: '#059669' }} />
+                                <span>{lang === 'ar' ? 'الجهات المعتمدة:' : 'Linked Providers:'} <strong>{courseExternalProviders.length}</strong></span>
+                            </div>
+                            <div className="external-stat-pill" style={verificationRequests.filter(v => v.verification_status === 'pending').length > 0 ? { borderColor: 'rgba(245, 158, 11, 0.4)', background: 'rgba(245, 158, 11, 0.08)' } : {}}>
+                                <Clock size={14} style={{ color: '#d97706' }} />
+                                <span>{lang === 'ar' ? 'طلبات بانتظار التحقق:' : 'Pending Queue:'} <strong>{verificationRequests.filter(v => v.verification_status === 'pending').length}</strong></span>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Stats Summary Pills */}
-                    <div className="external-stats-pills">
-                        <div className="external-stat-pill">
-                            <GraduationCap size={14} />
-                            <span>{lang === 'ar' ? 'الطلاب بالتدريب الداخلي:' : 'Internal Students:'} <strong>{totalInternal}</strong></span>
+                    {/* 1. Verification Queue Section (Placed Before Official Contracted Providers) */}
+                    <div className="verification-requests-box" style={{ marginTop: '1.25rem' }}>
+                        <div className="verification-box-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '8px' }}>
+                            <div>
+                                <h4 style={{ margin: 0, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800 }}>
+                                    <FileCheck size={19} className="text-primary" />
+                                    <span>{lang === 'ar' ? 'طابور التحقق والاعتماد (Verification Queue)' : 'Verification Queue'}</span>
+                                    {verificationRequests.filter(v => v.verification_status === 'pending').length > 0 && (
+                                        <span className="pending-badge-count" style={{ background: '#fef3c7', color: '#d97706', padding: '2px 8px', borderRadius: '12px', fontSize: '0.72rem', fontWeight: 700 }}>
+                                            {verificationRequests.filter(v => v.verification_status === 'pending').length} {lang === 'ar' ? 'معلق' : 'Pending'}
+                                        </span>
+                                    )}
+                                </h4>
+                                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-2)' }}>
+                                    {lang === 'ar' 
+                                        ? 'مراجعة وتدقيق مستندات ووثائق التدريب الخارجي المرفوعة من قبل الطلاب لاعتماد التدريب الميداني.'
+                                        : 'Review and audit student-uploaded training verification documents to approve field training.'}
+                                </p>
+                            </div>
+                            <button className="btn btn-outline btn-sm" onClick={fetchVerificationRequests} disabled={loadingVerifications} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                {loadingVerifications ? <Loader2 className="spin" size={14} /> : <RotateCcw size={14} />}
+                                <span>{lang === 'ar' ? 'تحديث الكشف' : 'Refresh'}</span>
+                            </button>
                         </div>
-                        <div className="external-stat-pill" style={{ borderColor: 'rgba(59, 130, 246, 0.4)', background: 'rgba(59, 130, 246, 0.05)' }}>
-                            <Building2 size={14} />
-                            <span>{lang === 'ar' ? 'الطلاب بالتدريب الخارجي:' : 'External Students:'} <strong>{totalExternal}</strong></span>
-                        </div>
-                        <div className="external-stat-pill">
-                            <ShieldCheck size={14} />
-                            <span>{lang === 'ar' ? 'الجهات المعتمدة المرتبطة:' : 'Linked Providers:'} <strong>{courseExternalProviders.length}</strong></span>
-                        </div>
-                        <div className="external-stat-pill">
-                            <FileText size={14} />
-                            <span>{lang === 'ar' ? 'طلبات التحقق المعلقة:' : 'Pending Verifications:'} <strong>{verificationRequests.filter(v => v.verification_status === 'pending').length}</strong></span>
-                        </div>
+
+                        {verificationRequests.length === 0 ? (
+                            <div className="empty-tab" style={{ padding: '2rem 1rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #e2e8f0', marginTop: '0.5rem' }}>
+                                <CheckCircle size={36} style={{ color: '#10b981', margin: '0 auto 8px auto', display: 'block' }} />
+                                <p style={{ margin: 0, fontWeight: 700, color: '#1e293b' }}>
+                                    {lang === 'ar' ? 'لا توجد طلبات تحقق مرفوعة حالياً' : 'No verification requests in queue'}
+                                </p>
+                                <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                                    {lang === 'ar' ? 'جميع وثائق التدريب الميداني مدققة ومحدثة بالكامل.' : 'All student verification records are currently audited.'}
+                                </span>
+                            </div>
+                        ) : (
+                            <div style={{ overflowX: 'auto', marginTop: '0.5rem' }}>
+                                <table className="verification-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>{lang === 'ar' ? 'المتدرب' : 'Student'}</th>
+                                            <th>{lang === 'ar' ? 'جهة التدريب' : 'Training Provider'}</th>
+                                            <th>{lang === 'ar' ? 'وثيقة الإثبات' : 'Document'}</th>
+                                            <th>{lang === 'ar' ? 'الحالة' : 'Status'}</th>
+                                            <th>{lang === 'ar' ? 'الملاحظات / سبب الرفض' : 'Feedback / Reason'}</th>
+                                            {(isAdmin || isTrainer) && <th>{lang === 'ar' ? 'الإجراء' : 'Actions'}</th>}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {verificationRequests.map((req, idx) => (
+                                            <tr key={req.enrollment_id || idx}>
+                                                <td>{idx + 1}</td>
+                                                <td>
+                                                    <strong>{req.trainee_name}</strong>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                        {req.student_id ? `ID: ${req.student_id}` : req.trainee_email}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <strong>{req.custom_provider_name || 'Custom Company'}</strong>
+                                                    <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+                                                        {req.custom_provider_website && (
+                                                            <a href={req.custom_provider_website} target="_blank" rel="noopener noreferrer" className="provider-link" style={{ fontSize: '0.74rem' }}>
+                                                                <Globe size={11} /> {lang === 'ar' ? 'موقع' : 'Web'}
+                                                            </a>
+                                                        )}
+                                                        {req.custom_provider_linkedin && (
+                                                            <a href={req.custom_provider_linkedin} target="_blank" rel="noopener noreferrer" className="provider-link" style={{ fontSize: '0.74rem' }}>
+                                                                <Linkedin size={11} /> LinkedIn
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    {req.verification_doc_url ? (
+                                                        <a
+                                                            href={req.verification_doc_url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="btn btn-outline btn-sm"
+                                                            style={{ padding: '3px 8px', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
+                                                        >
+                                                            <Eye size={13} /> {lang === 'ar' ? 'معاينة الوثيقة' : 'View Document'}
+                                                        </a>
+                                                    ) : (
+                                                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{lang === 'ar' ? 'لم يتم الرفع' : 'Not uploaded'}</span>
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    {req.verification_status === 'approved' ? (
+                                                        <span className="badge badge-approved" style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                            <CheckCircle size={12} /> {lang === 'ar' ? 'معتمد ومقبول' : 'Approved'}
+                                                        </span>
+                                                    ) : req.verification_status === 'rejected' ? (
+                                                        <span className="badge badge-rejected" style={{ fontSize: '0.75rem', background: '#fee2e2', color: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                            <XCircle size={12} /> {lang === 'ar' ? 'مرفوض' : 'Rejected'}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="badge badge-pending" style={{ fontSize: '0.75rem', background: '#fef3c7', color: '#d97706', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                            <Clock size={12} /> {lang === 'ar' ? 'قيد المراجعة' : 'Pending'}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td style={{ maxWidth: '220px', fontSize: '0.8rem', color: 'var(--text-2)' }}>
+                                                    {req.verification_feedback || '—'}
+                                                </td>
+                                                {(isAdmin || isTrainer) && (
+                                                    <td>
+                                                        <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-primary btn-sm"
+                                                                disabled={submittingVerifReview}
+                                                                style={{ padding: '3px 8px', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                                                onClick={() => {
+                                                                    setReviewingVerif(req);
+                                                                    setVerifFeedback('');
+                                                                    handleReviewVerificationSubmit('approved', req, '');
+                                                                }}
+                                                            >
+                                                                <Check size={13} /> {lang === 'ar' ? 'اعتماد' : 'Approve'}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-outline btn-sm"
+                                                                disabled={submittingVerifReview}
+                                                                style={{ padding: '3px 8px', fontSize: '0.75rem', color: '#dc2626', borderColor: '#fca5a5', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                                                onClick={() => {
+                                                                    const reason = prompt(lang === 'ar' ? 'يرجى كتابة سبب رفض وثيقة التدريب لإبلاغ الطالب:' : 'Please enter rejection reason:');
+                                                                    if (reason) {
+                                                                        setReviewingVerif(req);
+                                                                        setVerifFeedback(reason);
+                                                                        handleReviewVerificationSubmit('rejected', req, reason);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <X size={13} /> {lang === 'ar' ? 'رفض' : 'Reject'}
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
 
-                    {/* 1. Contracted Providers Section */}
-                    <div>
+                    {/* 2. Official Contracted Providers Section */}
+                    <div style={{ marginTop: '1.75rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
-                            <h4 style={{ margin: 0, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <ShieldCheck size={18} style={{ color: '#22c55e' }} />
-                                {lang === 'ar' ? 'الجهات والمؤسسات المعتمدة والمتعاقد معها' : 'Official Contracted Providers'}
-                            </h4>
+                            <div>
+                                <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '7px' }}>
+                                    <ShieldCheck size={19} style={{ color: '#10b981' }} />
+                                    <span>{lang === 'ar' ? 'الجهات والمؤسسات المعتمدة والمتعاقد معها' : 'Official Contracted Providers'}</span>
+                                </h4>
+                                <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                                    {lang === 'ar' ? 'قائمة الشركات والمؤسسات المعتمدة ومساراتها التدريبية.' : 'Industry partner providers and designated training tracks.'}
+                                </p>
+                            </div>
                         </div>
 
                         {courseExternalProviders.length === 0 ? (
-                            <div className="empty-tab" style={{ padding: '2rem 1rem' }}>
-                                <Building2 size={36} />
-                                <p>{lang === 'ar' ? 'لم يتم ربط أي جهات تدريب معتمدة بهذه الدورة بعد.' : 'No external providers associated with this course yet.'}</p>
-                                {isAdmin && (
-                                    <button className="btn btn-outline btn-sm" onClick={() => setShowAssociateProviderModal(true)} style={{ marginTop: '0.75rem' }}>
-                                        <Plus size={14} /> {lang === 'ar' ? 'ربط جهة تدريب الآن' : 'Link a Provider Now'}
-                                    </button>
-                                )}
+                            <div className="empty-tab" style={{ padding: '2rem 1rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #e2e8f0' }}>
+                                <Building2 size={36} style={{ color: '#94a3b8', margin: '0 auto 8px auto', display: 'block' }} />
+                                <p style={{ margin: 0, fontWeight: 600 }}>{lang === 'ar' ? 'لم يتم ربط أي جهات تدريب معتمدة بهذه الدورة بعد.' : 'No external providers associated with this course yet.'}</p>
                             </div>
                         ) : (
                             <div className="provider-cards-grid">
@@ -1952,9 +2176,6 @@ void loop() {
                                             <div className="provider-card-header">
                                                 <div className="provider-title-group">
                                                     <h4>{p.name}</h4>
-                                                    {p.name && p.name !== p.name && (
-                                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{p.name}</span>
-                                                    )}
                                                     <div className="provider-links-row" style={{ marginTop: '0.35rem' }}>
                                                         {p.website_url && (
                                                             <a href={p.website_url} target="_blank" rel="noopener noreferrer" className="provider-link">
@@ -1969,11 +2190,11 @@ void loop() {
                                                     </div>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                                                    <span className="badge badge-approved" style={{ fontSize: '0.72rem', padding: '2px 6px' }}>
+                                                    <span className="badge badge-approved" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
                                                         {p.is_contracted ? (lang === 'ar' ? 'معتمد رسمياً' : 'Contracted') : (lang === 'ar' ? 'جهة مخصصة' : 'Custom')}
                                                     </span>
-                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                                        {providerStudents.length} {lang === 'ar' ? 'متدرب' : 'Students'}
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                                        {providerStudents.length} {lang === 'ar' ? 'متدرب مسجل' : 'Students'}
                                                     </span>
                                                 </div>
                                             </div>
@@ -1981,11 +2202,12 @@ void loop() {
                                             {/* Tracks under this Provider */}
                                             <div className="provider-tracks-section">
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-1)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-1)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                                                         <Target size={13} />
                                                         {lang === 'ar' ? 'المسارات التدريبية (Tracks):' : 'Training Tracks:'}
                                                     </span>
                                                     <button
+                                                        type="button"
                                                         className="btn btn-ghost btn-sm"
                                                         style={{ padding: '2px 6px', fontSize: '0.75rem' }}
                                                         onClick={() => {
@@ -2030,213 +2252,10 @@ void loop() {
                             </div>
                         )}
                     </div>
-
-                    {/* 2. Non-Contracted Providers & Student Verification Queue */}
-                    <div className="verification-requests-box" style={{ marginTop: '1.5rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '8px' }}>
-                            <div>
-                                <h4 style={{ margin: 0, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <FileCheck size={18} className="text-primary" />
-                                    {lang === 'ar' ? 'طلبات التحقق للجهات غير المتعاقد معها (Verification Requests)' : 'Non-Contracted Providers Verification Queue'}
-                                </h4>
-                                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.82rem', color: 'var(--text-2)' }}>
-                                    {lang === 'ar' 
-                                        ? 'مراجعة وتدقيق مستندات ووثائق التدريب الخارجي المرفوعة من قبل الطلاب لاعتماد جهة التدريب غير المعتمدة رسمياً.'
-                                        : 'Review and audit student-uploaded training verification documents for non-contracted companies.'}
-                                </p>
-                            </div>
-                            <button className="btn btn-outline btn-sm" onClick={fetchVerificationRequests} disabled={loadingVerifications}>
-                                {loadingVerifications ? <Loader2 className="spin" size={14} /> : <RotateCcw size={14} />}
-                                {lang === 'ar' ? 'تحديث الكشف' : 'Refresh'}
-                            </button>
-                        </div>
-
-                        {verificationRequests.length === 0 ? (
-                            <div className="empty-tab" style={{ padding: '1.5rem 1rem' }}>
-                                <CheckCircle size={32} style={{ color: '#22c55e' }} />
-                                <p>{lang === 'ar' ? 'لا توجد طلبات تحقق مرفوعة في هذه الدورة حالياً.' : 'No verification requests submitted for this course.'}</p>
-                            </div>
-                        ) : (
-                            <div style={{ overflowX: 'auto' }}>
-                                <table className="verification-table">
-                                    <thead>
-                                        <tr>
-                                            <th>#</th>
-                                            <th>{lang === 'ar' ? 'المتدرب' : 'Student'}</th>
-                                            <th>{lang === 'ar' ? 'جهة التدريب المخصصة' : 'Custom Provider'}</th>
-                                            <th>{lang === 'ar' ? 'وثيقة الإثبات' : 'Document'}</th>
-                                            <th>{lang === 'ar' ? 'الحالة' : 'Status'}</th>
-                                            <th>{lang === 'ar' ? 'الملاحظات / سبب الرفض' : 'Feedback / Reason'}</th>
-                                            <th>{lang === 'ar' ? 'الإجراء' : 'Actions'}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {verificationRequests.map((req, idx) => (
-                                            <tr key={req.enrollment_id || idx}>
-                                                <td>{idx + 1}</td>
-                                                <td>
-                                                    <strong>{req.trainee_name}</strong>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                                        {req.student_id ? `ID: ${req.student_id}` : req.trainee_email}
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <strong>{req.custom_provider_name || 'Custom Company'}</strong>
-                                                    <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
-                                                        {req.custom_provider_website && (
-                                                            <a href={req.custom_provider_website} target="_blank" rel="noopener noreferrer" className="provider-link" style={{ fontSize: '0.74rem' }}>
-                                                                <Globe size={11} /> {lang === 'ar' ? 'موقع' : 'Web'}
-                                                            </a>
-                                                        )}
-                                                        {req.custom_provider_linkedin && (
-                                                            <a href={req.custom_provider_linkedin} target="_blank" rel="noopener noreferrer" className="provider-link" style={{ fontSize: '0.74rem' }}>
-                                                                <Linkedin size={11} /> LinkedIn
-                                                            </a>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    {req.verification_doc_url ? (
-                                                        <a
-                                                            href={req.verification_doc_url}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="btn btn-outline btn-sm"
-                                                            style={{ padding: '3px 8px', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                                        >
-                                                            <Eye size={13} /> {lang === 'ar' ? 'معاينة الوثيقة' : 'View Document'}
-                                                        </a>
-                                                    ) : (
-                                                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{lang === 'ar' ? 'لم يتم الرفع' : 'Not uploaded'}</span>
-                                                    )}
-                                                </td>
-                                                <td>
-                                                    {req.verification_status === 'approved' ? (
-                                                        <span className="badge badge-approved" style={{ fontSize: '0.75rem' }}>
-                                                            <CheckCircle size={12} /> {lang === 'ar' ? 'معتمد ومقبول' : 'Approved'}
-                                                        </span>
-                                                    ) : req.verification_status === 'rejected' ? (
-                                                        <span className="badge badge-rejected" style={{ fontSize: '0.75rem', background: '#fee2e2', color: '#dc2626' }}>
-                                                            <XCircle size={12} /> {lang === 'ar' ? 'مرفوض' : 'Rejected'}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="badge badge-pending" style={{ fontSize: '0.75rem', background: '#fef3c7', color: '#d97706' }}>
-                                                            <Clock size={12} /> {lang === 'ar' ? 'قيد المراجعة' : 'Pending'}
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td style={{ maxWidth: '220px', fontSize: '0.8rem', color: 'var(--text-2)' }}>
-                                                    {req.verification_feedback || '—'}
-                                                </td>
-                                                <td>
-                                                    {isAdmin && (
-                                                        <div style={{ display: 'flex', gap: '4px' }}>
-                                                            <button
-                                                                className="btn btn-primary btn-sm"
-                                                                style={{ padding: '3px 8px', fontSize: '0.75rem' }}
-                                                                onClick={() => {
-                                                                    setReviewingVerif(req);
-                                                                    setVerifFeedback('');
-                                                                    handleReviewVerificationSubmit('approved');
-                                                                }}
-                                                            >
-                                                                <Check size={13} /> {lang === 'ar' ? 'اعتماد' : 'Approve'}
-                                                            </button>
-                                                            <button
-                                                                className="btn btn-outline btn-sm"
-                                                                style={{ padding: '3px 8px', fontSize: '0.75rem', color: '#dc2626', borderColor: '#fca5a5' }}
-                                                                onClick={() => {
-                                                                    const reason = prompt(lang === 'ar' ? 'يرجى كتابة سبب رفض وثيقة التدريب لإبلاغ الطالب:' : 'Please enter rejection reason:');
-                                                                    if (reason) {
-                                                                        setReviewingVerif(req);
-                                                                        setVerifFeedback(reason);
-                                                                        handleReviewVerificationSubmit('rejected');
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <X size={13} /> {lang === 'ar' ? 'رفض' : 'Reject'}
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
                 </div>
             )}
 
-            {/* Robotics Simulator Tab */}
-            {activeTab === 'simulator' && isRoboticsCourse && (
-                <div className="tab-content magy-simulator-view" data-magy-key="simulator">
-                    <div className="tab-action-bar">
-                        <div>
-                            <h3>{lang === 'ar' ? 'مختبر المحاكاة وكتابة الكود للروبوتات (ROS2 Simulator)' : 'ROS2 & Embedded Robotics Code Simulator'}</h3>
-                            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: '0.2rem 0 0 0' }}>
-                                {lang === 'ar' ? 'اختبر كود C++ / Python المدمج والتحكم في إشارات الـ PWM قبل رفعه على البردة.' : 'Test C++ / Python node code and motor PWM signals in real time.'}
-                            </p>
-                        </div>
-                        <button className="btn btn-primary" onClick={handleRunSim} disabled={simRunning}>
-                            {simRunning ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
-                            {lang === 'ar' ? 'تشغيل المحاكاة (Run Node)' : 'Run ROS2 Node'}
-                        </button>
-                    </div>
 
-                    <div className="sim-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.25rem' }}>
-                        <div className="sim-code-box" style={{ background: '#0f172a', borderRadius: '14px', padding: '1rem', border: '1px solid #1e293b' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.75rem' }}>
-                                <span>robotics_node.cpp (Embedded C++)</span>
-                                <span style={{ color: '#22c55e' }}>● Live Editor</span>
-                            </div>
-                            <textarea
-                                rows={14}
-                                value={simCode}
-                                onChange={e => setSimCode(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    background: 'transparent',
-                                    color: '#f8fafc',
-                                    fontFamily: 'monospace',
-                                    fontSize: '0.86rem',
-                                    border: 'none',
-                                    outline: 'none',
-                                    resize: 'vertical',
-                                    lineHeight: 1.5
-                                }}
-                                data-magy-tip="محرر كود الأنظمة المدمجة. يرجى ضبط قيم التعديل بعرض النبضة (PWM) والتأكد من شروط التوقف الفوري (Emergency Stop) لمراقبة الاستجابة في المخرجات."
-                            />
-                        </div>
-
-                        <div className="sim-output-box" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '1.25rem' }}>
-                                <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: 'var(--text-main)' }}>
-                                    {lang === 'ar' ? 'مؤشر إشارة التحكم بالمحرك PWM' : 'Motor PWM Control Gauge'}
-                                </h4>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                    <div style={{ flex: 1, height: '14px', background: '#e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                                        <div style={{ width: `${pwmGauge}%`, height: '100%', background: 'linear-gradient(90deg, #dc2626, #f59e0b)', transition: 'width 0.4s ease' }} />
-                                    </div>
-                                    <span style={{ fontWeight: 800, color: '#dc2626', fontSize: '1.1rem' }}>{pwmGauge}%</span>
-                                </div>
-                            </div>
-
-                            <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: '14px', padding: '1rem', flex: 1 }}>
-                                <div style={{ color: '#64748b', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
-                                    Serial Monitor & ROS2 Telemetry Output
-                                </div>
-                                <div style={{ fontFamily: 'monospace', fontSize: '0.82rem', color: '#38bdf8', height: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    {simLogs.map((log, idx) => (
-                                        <div key={idx}>{log}</div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Tab 2: Trainees & Excel Import */}
             {activeTab === 'trainees' && (
@@ -2245,7 +2264,9 @@ void loop() {
                         <div>
                             <h3 style={{ margin: 0 }}>{isTrainer 
                                 ? (lang === 'ar' ? 'كشف المتدربين المقيدين' : 'Enrolled Trainees') 
-                                : (lang === 'ar' ? 'أعضاء فريق العمل المعتمد' : 'My Project Team Members')}
+                                : (isExternalCourse 
+                                    ? (lang === 'ar' ? 'بيانات المتدرب والتسجيل' : 'Trainee Profile & Enrollment') 
+                                    : (lang === 'ar' ? 'أعضاء فريق العمل المعتمد' : 'My Project Team Members'))}
                             </h3>
                             {isTrainer && (
                                 <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
@@ -2255,6 +2276,16 @@ void loop() {
                         </div>
                         {isTrainer && (
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                <button 
+                                    className="btn btn-outline btn-sm" 
+                                    onClick={() => handleExportTrainees('csv')} 
+                                    disabled={exportingTrainees || trainees.length === 0}
+                                    title={lang === 'ar' ? 'تصدير كشف بيانات الطلاب بالكامل (Excel / CSV)' : 'Export Full Trainees Data (Excel / CSV)'}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                                >
+                                    {exportingTrainees ? <Loader2 className="spin" size={15} /> : <Download size={15} />}
+                                    <span>{lang === 'ar' ? 'تصدير البيانات (Export)' : 'Export Data'}</span>
+                                </button>
                                 <button className="btn btn-primary btn-sm" onClick={() => setShowAddStudentModal(true)}>
                                     <UserPlus size={16} /> {lang === 'ar' ? 'إضافة متدرب' : 'Add Student'}
                                 </button>
@@ -2270,60 +2301,119 @@ void loop() {
                         )}
                     </div>
 
-                    {/* Search Input for Trainees */}
+                    {/* Filter & Search Bar for Trainees */}
                     {isTrainer && trainees.length > 0 && (
-                        <div style={{ position: 'relative', marginBottom: '1.25rem', width: '100%' }}>
-                            <Search 
-                                size={18} 
-                                style={{ 
-                                    position: 'absolute', 
-                                    left: lang === 'ar' ? 'unset' : '14px', 
-                                    right: lang === 'ar' ? '14px' : 'unset', 
-                                    top: '50%', 
-                                    transform: 'translateY(-50%)', 
-                                    color: '#94a3b8',
-                                    pointerEvents: 'none' 
-                                }} 
-                            />
-                            <input 
-                                type="text"
-                                value={traineeSearchQuery}
-                                onChange={e => setTraineeSearchQuery(e.target.value)}
-                                placeholder={lang === 'ar' 
-                                    ? 'بحث بالاسم، البريد الإلكتروني، الرقم الجامعي، أو جهة ومسار التدريب...' 
-                                    : 'Search by name, email, student ID, track, or provider...'}
-                                style={{
-                                    width: '100%',
-                                    padding: lang === 'ar' ? '0.7rem 2.75rem 0.7rem 1rem' : '0.7rem 1rem 0.7rem 2.75rem',
-                                    borderRadius: '10px',
-                                    border: '1.5px solid var(--border, #e2e8f0)',
-                                    background: 'var(--bg-0, #ffffff)',
-                                    color: 'var(--text-0, #0f172a)',
-                                    fontSize: '0.92rem',
-                                    outline: 'none',
-                                    boxSizing: 'border-box'
-                                }}
-                            />
-                            {traineeSearchQuery && (
-                                <button
-                                    type="button"
-                                    onClick={() => setTraineeSearchQuery('')}
-                                    style={{
-                                        position: 'absolute',
-                                        right: lang === 'ar' ? 'unset' : '14px',
-                                        left: lang === 'ar' ? '14px' : 'unset',
-                                        top: '50%',
-                                        transform: 'translateY(-50%)',
-                                        background: 'none',
-                                        border: 'none',
-                                        cursor: 'pointer',
+                        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1.25rem' }}>
+                            {/* Search Input */}
+                            <div style={{ position: 'relative', flex: '1 1 280px', minWidth: '220px' }}>
+                                <Search 
+                                    size={18} 
+                                    style={{ 
+                                        position: 'absolute', 
+                                        left: lang === 'ar' ? 'unset' : '14px', 
+                                        right: lang === 'ar' ? '14px' : 'unset', 
+                                        top: '50%', 
+                                        transform: 'translateY(-50%)', 
                                         color: '#94a3b8',
+                                        pointerEvents: 'none' 
+                                    }} 
+                                />
+                                <input 
+                                    type="text"
+                                    value={traineeSearchQuery}
+                                    onChange={e => setTraineeSearchQuery(e.target.value)}
+                                    placeholder={lang === 'ar' 
+                                        ? 'بحث بالاسم، البريد، الرقم الجامعي، أو جهة التدريب...' 
+                                        : 'Search by name, email, student ID, or provider...'}
+                                    style={{
+                                        width: '100%',
+                                        padding: lang === 'ar' ? '0.65rem 2.75rem 0.65rem 1rem' : '0.65rem 1rem 0.65rem 2.75rem',
+                                        borderRadius: '10px',
+                                        border: '1.5px solid var(--border, #e2e8f0)',
+                                        background: 'var(--bg-0, #ffffff)',
+                                        color: 'var(--text-0, #0f172a)',
                                         fontSize: '0.9rem',
-                                        padding: '4px'
+                                        outline: 'none',
+                                        boxSizing: 'border-box'
                                     }}
-                                >
-                                    ✕
-                                </button>
+                                />
+                                {traineeSearchQuery && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setTraineeSearchQuery('')}
+                                        style={{
+                                            position: 'absolute',
+                                            right: lang === 'ar' ? 'unset' : '14px',
+                                            left: lang === 'ar' ? '14px' : 'unset',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            color: '#94a3b8',
+                                            fontSize: '0.9rem',
+                                            padding: '4px'
+                                        }}
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Start Date Filtering & Sorting Controls (For External Courses) */}
+                            {isExternalCourse && (
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--bg-0, #fff)', border: '1.5px solid var(--border, #e2e8f0)', borderRadius: '10px', padding: '0.35rem 0.75rem' }}>
+                                        <Calendar size={15} style={{ color: '#2563eb' }} />
+                                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-1)' }}>
+                                            {lang === 'ar' ? 'تاريخ البداية:' : 'Start Date:'}
+                                        </span>
+                                        <select 
+                                            value={startDateFilter} 
+                                            onChange={e => setStartDateFilter(e.target.value)}
+                                            style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '0.84rem', color: 'var(--text-0)', fontWeight: 600, cursor: 'pointer' }}
+                                        >
+                                            <option value="all">{lang === 'ar' ? 'الكل (جميع الطلاب)' : 'All Students'}</option>
+                                            <option value="with_date">{lang === 'ar' ? 'له تاريخ بداية محدد' : 'Has Start Date'}</option>
+                                            <option value="no_date">{lang === 'ar' ? 'بدون تاريخ بداية' : 'Missing Start Date'}</option>
+                                            <option value="after_date">{lang === 'ar' ? 'بدأوا بعد تاريخ معين...' : 'Started After Date...'}</option>
+                                        </select>
+                                    </div>
+
+                                    {startDateFilter === 'after_date' && (
+                                        <input
+                                            type="date"
+                                            value={filterAfterDate}
+                                            onChange={e => setFilterAfterDate(e.target.value)}
+                                            style={{
+                                                padding: '0.35rem 0.65rem',
+                                                borderRadius: '8px',
+                                                border: '1.5px solid #2563eb',
+                                                background: 'var(--bg-0, #ffffff)',
+                                                color: 'var(--text-0)',
+                                                fontSize: '0.84rem',
+                                                outline: 'none'
+                                            }}
+                                            title={lang === 'ar' ? 'اختر التاريخ لحصر الطلاب المتأخرين' : 'Select cutoff date'}
+                                        />
+                                    )}
+
+                                    {/* Quick Sort Toggle Button for Start Date */}
+                                    <button
+                                        type="button"
+                                        className={`btn btn-sm ${traineeSortCol === 'training_start_date' ? 'btn-primary' : 'btn-outline'}`}
+                                        onClick={() => handleTraineeSort('training_start_date')}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', padding: '0.4rem 0.75rem', borderRadius: '8px' }}
+                                        title={lang === 'ar' ? 'ترتيب الطلاب حسب تاريخ بداية التدريب' : 'Sort by Start Date'}
+                                    >
+                                        <ArrowUpDown size={13} />
+                                        <span>
+                                            {traineeSortCol === 'training_start_date' 
+                                                ? (traineeSortDir === 'asc' ? (lang === 'ar' ? 'الأقدم أولاً' : 'Oldest First') : (lang === 'ar' ? 'الأحدث أولاً' : 'Newest First')) 
+                                                : (lang === 'ar' ? 'ترتيب بالبداية' : 'Sort by Date')}
+                                        </span>
+                                    </button>
+                                </div>
                             )}
                         </div>
                     )}
@@ -2336,7 +2426,7 @@ void loop() {
                                 : [{ trainee_id: user?.id, full_name: user?.full_name, email: user?.email, student_id: user?.student_id, role: 'leader' }]);
 
                         const q = (traineeSearchQuery || '').trim().toLowerCase();
-                        const filteredList = q 
+                        let filteredList = q 
                             ? baseList.filter(tr => {
                                 const name = (tr.full_name || tr.username || '').toLowerCase();
                                 const email = (tr.email || tr.academic_email || '').toLowerCase();
@@ -2347,7 +2437,15 @@ void loop() {
                             })
                             : baseList;
 
-                        const isExternalCourse = (course?.course_type === 'external') || (totalExternal > 0 && totalInternal === 0);
+                        if (isExternalCourse && startDateFilter !== 'all') {
+                            if (startDateFilter === 'with_date') {
+                                filteredList = filteredList.filter(tr => Boolean(tr.training_start_date));
+                            } else if (startDateFilter === 'no_date') {
+                                filteredList = filteredList.filter(tr => !tr.training_start_date);
+                            } else if (startDateFilter === 'after_date' && filterAfterDate) {
+                                filteredList = filteredList.filter(tr => tr.training_start_date && tr.training_start_date >= filterAfterDate);
+                            }
+                        }
 
                         const handleTraineeSort = (col) => {
                             if (traineeSortCol === col) {
@@ -2367,6 +2465,88 @@ void loop() {
                                 : <ChevronDown size={13} style={{ display: 'inline', verticalAlign: 'middle', marginInlineStart: '4px', color: '#2563eb' }} />;
                         };
 
+                        const getStudentStatusInfo = (tr) => {
+                            const isEvaluated = tr.cert_code || tr.evaluation_status === 'pass' || (Number(tr.evaluation_score) >= 60);
+                            if (isEvaluated) {
+                                return {
+                                    key: '1_evaluated',
+                                    label: lang === 'ar' ? 'تم التقييم والاعتماد' : 'Evaluated & Passed',
+                                    bg: 'rgba(16, 185, 129, 0.12)',
+                                    color: '#059669',
+                                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                                    icon: <Award size={13} />
+                                };
+                            }
+                            if (tr.evaluation_status === 'fail') {
+                                return {
+                                    key: '7_failed',
+                                    label: lang === 'ar' ? 'غير مجتاز' : 'Failed',
+                                    bg: 'rgba(239, 68, 68, 0.12)',
+                                    color: '#dc2626',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    icon: <XCircle size={13} />
+                                };
+                            }
+                            if (tr.idea_status === 'completed') {
+                                return {
+                                    key: '2_completed',
+                                    label: lang === 'ar' ? 'المشروع مكتمل' : 'Project Completed',
+                                    bg: 'rgba(6, 182, 212, 0.12)',
+                                    color: '#0891b2',
+                                    border: '1px solid rgba(6, 182, 212, 0.3)',
+                                    icon: <CheckCircle2 size={13} />
+                                };
+                            }
+                            if (tr.idea_status === 'approved') {
+                                return {
+                                    key: '3_approved',
+                                    label: lang === 'ar' ? 'مشروع معتمد' : 'Idea Approved',
+                                    bg: 'rgba(16, 185, 129, 0.1)',
+                                    color: '#10b981',
+                                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                                    icon: <CheckCircle size={13} />
+                                };
+                            }
+                            if (tr.idea_status === 'submitted' || tr.idea_status === 'under_review' || tr.verification_status === 'under_review') {
+                                return {
+                                    key: '4_under_review',
+                                    label: lang === 'ar' ? 'قيد المراجعة' : 'Under Review',
+                                    bg: 'rgba(245, 158, 11, 0.12)',
+                                    color: '#d97706',
+                                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                                    icon: <Clock size={13} />
+                                };
+                            }
+                            if (tr.idea_status === 'changes_requested') {
+                                return {
+                                    key: '5_changes_requested',
+                                    label: lang === 'ar' ? 'مطلوب تعديل' : 'Changes Requested',
+                                    bg: 'rgba(249, 115, 22, 0.12)',
+                                    color: '#ea580c',
+                                    border: '1px solid rgba(249, 115, 22, 0.3)',
+                                    icon: <AlertCircle size={13} />
+                                };
+                            }
+                            if (tr.idea_status === 'rejected' || tr.verification_status === 'rejected') {
+                                return {
+                                    key: '6_rejected',
+                                    label: lang === 'ar' ? 'مرفوض' : 'Rejected',
+                                    bg: 'rgba(239, 68, 68, 0.12)',
+                                    color: '#dc2626',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    icon: <XCircle size={13} />
+                                };
+                            }
+                            return {
+                                key: '8_enrolled',
+                                label: lang === 'ar' ? 'مسجل (لم يقدّم فكرة)' : 'Enrolled (No Idea)',
+                                bg: 'var(--bg-2, #f1f5f9)',
+                                color: 'var(--mute, #64748b)',
+                                border: '1px solid var(--border, #e2e8f0)',
+                                icon: <User size={13} />
+                            };
+                        };
+
                         const sortedDisplayList = [...filteredList].sort((a, b) => {
                             let valA = '';
                             let valB = '';
@@ -2382,12 +2562,12 @@ void loop() {
                             } else if (traineeSortCol === 'student_id') {
                                 valA = String(a.student_id || a.academic_id || '').toLowerCase();
                                 valB = String(b.student_id || b.academic_id || '').toLowerCase();
-                            } else if (traineeSortCol === 'provider') {
-                                valA = (a.provider_name || a.custom_provider_name || a.training_type || '').toLowerCase();
-                                valB = (b.provider_name || b.custom_provider_name || b.training_type || '').toLowerCase();
-                            } else if (traineeSortCol === 'started_date') {
-                                valA = a.training_start_date || a.enrolled_at || '';
-                                valB = b.training_start_date || b.enrolled_at || '';
+                            } else if (traineeSortCol === 'status') {
+                                valA = getStudentStatusInfo(a).key;
+                                valB = getStudentStatusInfo(b).key;
+                            } else if (traineeSortCol === 'started_date' || traineeSortCol === 'training_start_date') {
+                                valA = a.training_start_date || '';
+                                valB = b.training_start_date || '';
                             } else if (traineeSortCol === 'role') {
                                 valA = a.role || '';
                                 valB = b.role || '';
@@ -2402,8 +2582,8 @@ void loop() {
                             return (
                                 <div className="empty-tab">
                                     <Users size={36} />
-                                    <p>{q 
-                                        ? (lang === 'ar' ? 'لا يوجد متدربون يطابقون نتائج البحث.' : 'No trainees match your search query.') 
+                                    <p>{q || (isExternalCourse && startDateFilter !== 'all')
+                                        ? (lang === 'ar' ? 'لا يوجد متدربون يطابقون نتائج البحث والتصفية.' : 'No trainees match your search and filter criteria.') 
                                         : (isTrainer ? (lang === 'ar' ? 'لا يوجد متدربون مقيدون بعد.' : 'No trainees enrolled yet.') : (lang === 'ar' ? 'لم يتم تعيين فريق عمل بعد.' : 'No team members assigned yet.'))
                                     }</p>
                                 </div>
@@ -2443,108 +2623,69 @@ void loop() {
                                             >
                                                 {lang === 'ar' ? 'الرقم الجامعي' : 'Student ID'} {renderSortIcon('student_id')}
                                             </th>
-                                            {isTrainer ? (
-                                                <th 
-                                                    onClick={() => handleTraineeSort('provider')} 
-                                                    style={{ minWidth: '180px', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}
-                                                    title={lang === 'ar' ? 'ترتيب حسب نوع التدريب والجهة' : 'Sort by Training Type & Provider'}
-                                                >
-                                                    {lang === 'ar' ? 'نوع التدريب والجهة' : 'Training Type & Provider'} {renderSortIcon('provider')}
-                                                </th>
-                                            ) : (
-                                                <th 
-                                                    onClick={() => handleTraineeSort('role')} 
-                                                    style={{ minWidth: '100px', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}
-                                                    title={lang === 'ar' ? 'ترتيب حسب الدور' : 'Sort by Role'}
-                                                >
-                                                    {lang === 'ar' ? 'الدور' : 'Role'} {renderSortIcon('role')}
-                                                </th>
-                                            )}
                                             {isExternalCourse && (
                                                 <th 
-                                                    onClick={() => handleTraineeSort('started_date')} 
+                                                    onClick={() => handleTraineeSort('training_start_date')} 
                                                     style={{ minWidth: '150px', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}
-                                                    title={lang === 'ar' ? 'ترتيب حسب تاريخ البدء' : 'Sort by Started Date'}
+                                                    title={lang === 'ar' ? 'ترتيب حسب تاريخ بداية التدريب' : 'Sort by Start Date'}
                                                 >
-                                                    {lang === 'ar' ? 'تاريخ البدء' : 'Started Date'} {renderSortIcon('started_date')}
+                                                    {lang === 'ar' ? 'تاريخ بداية التدريب' : 'Start Date'} {renderSortIcon('training_start_date')}
                                                 </th>
                                             )}
+                                            <th 
+                                                onClick={() => handleTraineeSort('status')} 
+                                                style={{ minWidth: '180px', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}
+                                                title={lang === 'ar' ? 'ترتيب حسب الحالة' : 'Sort by Status'}
+                                            >
+                                                {lang === 'ar' ? 'الحالة' : 'Status'} {renderSortIcon('status')}
+                                            </th>
                                             {isTrainer && <th style={{ minWidth: '170px', whiteSpace: 'nowrap' }}>{lang === 'ar' ? 'الإجراءات والشهادة' : 'Actions / Certificate'}</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {sortedDisplayList.map((tr, idx) => (
-                                            <tr key={tr.trainee_id || tr.user_id || tr.id || idx}>
-                                                <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>{idx + 1}</td>
-                                                <td style={{ whiteSpace: 'nowrap' }}>
-                                                    <strong style={{ display: 'inline-block', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>{tr.full_name || tr.username || tr.email}</strong>
-                                                    {!isExternalCourse && tr.role === 'leader' && (
-                                                        <span style={{ marginInlineStart: '8px', fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.15)', color: '#d97706', fontWeight: 700, display: 'inline-block', whiteSpace: 'nowrap' }}>
-                                                            {lang === 'ar' ? 'قائد الفريق' : 'Team Leader'}
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td style={{ whiteSpace: 'nowrap' }}>{tr.email || '-'}</td>
-                                                <td style={{ whiteSpace: 'nowrap', fontFamily: 'var(--font-mono, monospace)' }}>{tr.student_id || '-'}</td>
-                                                {isTrainer ? (
-                                                    <td>
-                                                        {tr.training_type === 'external' ? (
-                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
-                                                                <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.25)', fontSize: '0.76rem', gap: '4px', whiteSpace: 'nowrap' }}>
-                                                                    <Building2 size={12} />
-                                                                    {tr.provider_name || tr.custom_provider_name || (lang === 'ar' ? 'تدريب خارجي' : 'External')}
-                                                                    {tr.track_name ? ` • ${tr.track_name}` : ''}
+                                        {sortedDisplayList.map((tr, idx) => {
+                                            const statusInfo = getStudentStatusInfo(tr);
+                                            return (
+                                                <tr key={tr.trainee_id || tr.user_id || tr.id || idx}>
+                                                    <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>{idx + 1}</td>
+                                                    <td style={{ whiteSpace: 'nowrap' }}>
+                                                        <strong style={{ display: 'inline-block', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>{tr.full_name || tr.username || tr.email}</strong>
+                                                        {!isExternalCourse && tr.role === 'leader' && (
+                                                            <span style={{ marginInlineStart: '8px', fontSize: '0.72rem', padding: '2px 8px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.15)', color: '#d97706', fontWeight: 700, display: 'inline-block', whiteSpace: 'nowrap' }}>
+                                                                {lang === 'ar' ? 'قائد الفريق' : 'Team Leader'}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ whiteSpace: 'nowrap' }}>{tr.email || '-'}</td>
+                                                    <td style={{ whiteSpace: 'nowrap', fontFamily: 'var(--font-mono, monospace)' }}>{tr.student_id || '-'}</td>
+                                                    {isExternalCourse && (
+                                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                                            {tr.training_start_date ? (
+                                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.84rem', color: 'var(--text-1)', fontWeight: 600 }}>
+                                                                    <Calendar size={13} style={{ color: '#2563eb' }} />
+                                                                    {tr.training_start_date}
                                                                 </span>
-                                                                {(tr.custom_provider_website || tr.provider_website_url) && (
-                                                                    <a 
-                                                                        href={tr.custom_provider_website || tr.provider_website_url} 
-                                                                        target="_blank" 
-                                                                        rel="noopener noreferrer" 
-                                                                        title={lang === 'ar' ? 'رابط الموقع الرسمي لجهة التدريب' : 'Official Provider Website'}
-                                                                        style={{ color: '#2563eb', display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
-                                                                    >
-                                                                        <Globe size={13} />
-                                                                    </a>
-                                                                )}
-                                                                {(tr.custom_provider_linkedin || tr.provider_linkedin_url) && (
-                                                                    <a 
-                                                                        href={tr.custom_provider_linkedin || tr.provider_linkedin_url} 
-                                                                        target="_blank" 
-                                                                        rel="noopener noreferrer" 
-                                                                        title={lang === 'ar' ? 'رابط صفحة LinkedIn لجهة التدريب' : 'Official Provider LinkedIn'}
-                                                                        style={{ color: '#0284c7', display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
-                                                                    >
-                                                                        <Linkedin size={13} />
-                                                                    </a>
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <span className="badge" style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', fontSize: '0.76rem', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                                                                <GraduationCap size={12} />
-                                                                {lang === 'ar' ? 'تدريب داخلي' : 'Internal'}
-                                                                {tr.track_name ? ` • ${tr.track_name}` : ''}
-                                                            </span>
-                                                        )}
-                                                    </td>
-                                                ) : (
+                                                            ) : (
+                                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>
+                                                            )}
+                                                        </td>
+                                                    )}
                                                     <td style={{ whiteSpace: 'nowrap' }}>
-                                                        <span style={{ fontWeight: 600, color: tr.role === 'leader' ? '#d97706' : '#2563eb' }}>
-                                                            {tr.role === 'leader' ? (lang === 'ar' ? 'قائد' : 'Leader') : (lang === 'ar' ? 'عضو' : 'Member')}
+                                                        <span style={{
+                                                            background: statusInfo.bg,
+                                                            color: statusInfo.color,
+                                                            border: statusInfo.border,
+                                                            padding: '4px 10px',
+                                                            borderRadius: '20px',
+                                                            fontSize: '0.78rem',
+                                                            fontWeight: 700,
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '5px'
+                                                        }}>
+                                                            {statusInfo.icon} {statusInfo.label}
                                                         </span>
                                                     </td>
-                                                )}
-                                                {isExternalCourse && (
-                                                    <td style={{ whiteSpace: 'nowrap' }}>
-                                                        {tr.training_start_date ? (
-                                                            <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#d97706', border: '1px solid rgba(245, 158, 11, 0.25)', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                                <Calendar size={12} />
-                                                                {tr.training_start_date}
-                                                            </span>
-                                                        ) : (
-                                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>-</span>
-                                                        )}
-                                                    </td>
-                                                )}
                                                 {isTrainer && (
                                                     <td>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
@@ -2601,7 +2742,8 @@ void loop() {
                                                     </td>
                                                 )}
                                             </tr>
-                                        ))}
+                                        );
+                                    })}
                                     </tbody>
                                 </table>
                             </div>
@@ -2610,251 +2752,10 @@ void loop() {
                 </div>
             )}
 
-            {/* Tab 3: Trainee Project Idea */}
-            {activeTab === 'idea' && (
-                <div className="tab-content">
-                    {isTrainee ? (
-                        <div className="idea-submission-box">
-                            <div className="tab-action-bar" style={{ marginBottom: '1.2rem' }}>
-                                <h3>{lang === 'ar' ? 'تقديم فكرة المشروع التدريبي' : 'Training Project Idea Submission'}</h3>
-                            </div>
-
-                            {/* Official Academic Proposal & Documentation Standout Card */}
-                            {myIdea && (
-                                <div className="official-doc-standout-card" style={{ marginBottom: '1.5rem' }}>
-                                    <div className="standout-card-header">
-                                        <div className="standout-title-group">
-                                            <div className="standout-icon-badge">
-                                                <FileText size={24} />
-                                            </div>
-                                            <div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                    <h4>{lang === 'ar' ? 'المقترح الأكاديمي والتوثيق المعتمد' : 'Official Academic Proposal & Documentation'}</h4>
-                                                    <span className={`status-badge status-${myIdea.status || 'submitted'}`}>
-                                                        {myIdea.status === 'approved' ? (lang === 'ar' ? 'معتمد رسمياً' : 'Approved') : (myIdea.status || 'Submitted')}
-                                                    </span>
-                                                </div>
-                                                <p className="standout-subtitle">
-                                                    {myIdea.title || 'Official NMU Summer Training Proposal'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="standout-actions">
-                                            <button
-                                                type="button"
-                                                onClick={handleDownloadMyIdeaDocx}
-                                                disabled={downloadingIdeaDocx}
-                                                className="btn btn-primary btn-sm"
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: downloadingIdeaDocx ? 'wait' : 'pointer' }}
-                                            >
-                                                {downloadingIdeaDocx ? <Loader2 size={15} className="spin" /> : <Download size={15} />}
-                                                <span>{downloadingIdeaDocx ? (lang === 'ar' ? 'جارٍ التحميل...' : 'Downloading...') : (lang === 'ar' ? 'تحميل ملف Word (.docx)' : 'Download Word (.docx)')}</span>
-                                            </button>
-                                            <Link
-                                                to="/submitted-projects"
-                                                className="btn btn-outline btn-sm"
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
-                                            >
-                                                <ExternalLink size={15} />
-                                                <span>{lang === 'ar' ? 'فتح لوحة المشروع والتوثيق' : 'Open Project Portal'}</span>
-                                            </Link>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="ai-generator-card" style={{ marginBottom: '1.5rem' }}>
-                                <div className="ai-card-header">
-                                    <div className="ai-title-row">
-                                        <Sparkles size={18} className="ai-sparkle" />
-                                        <h4>{lang === 'ar' ? 'مساعد الذكاء الاصطناعي لتوليد الأفكار' : 'AI Idea Proposal Generator'}</h4>
-                                        <span className="ai-badge">{lang === 'ar' ? 'توليد ذكي' : 'AI Powered'}</span>
-                                    </div>
-                                    <p className="ai-subtitle">
-                                        {lang === 'ar' ? 'أدخل عنوان الفكرة أو اختر موضوعاً سريعاً لتوليد المقترح بالكامل' : 'Enter keywords or pick a topic to generate a full project proposal.'}
-                                    </p>
-                                </div>
-                                <div className="ai-input-row">
-                                    <input 
-                                        type="text" 
-                                        placeholder={lang === 'ar' ? 'مثال: منصة تعليم ذكية لمنسوبي الجامعة' : 'e.g. Smart E-Learning Platform for University'}
-                                        value={aiKeyword}
-                                        onChange={e => setAiKeyword(e.target.value)}
-                                    />
-                                    <button className="btn-ai-generate" type="button" onClick={handleGenerateAiProposal} disabled={generatingAi || !aiKeyword.trim()}>
-                                        {generatingAi ? <Loader2 className="spin" size={16} /> : <Sparkles size={16} />}
-                                        <span>{lang === 'ar' ? 'توليد تلقائي' : 'Generate Proposal'}</span>
-                                    </button>
-                                </div>
-                                <div className="ai-sample-pills">
-                                    <span className="pill-label">{lang === 'ar' ? 'مقترحات سريعة:' : 'Quick Topics:'}</span>
-                                    {[
-                                        { ar: 'نظام حضور ذكي', en: 'Smart Attendance System' },
-                                        { ar: 'شات بوت الدعم الأكاديمي', en: 'Academic Support AI Chatbot' },
-                                        { ar: 'لوحة تحليلات الطاقة', en: 'Energy Analytics Dashboard' }
-                                    ].map((pill, idx) => (
-                                        <button 
-                                            key={idx}
-                                            type="button" 
-                                            className="ai-pill-btn"
-                                            onClick={() => setAiKeyword(lang === 'ar' ? pill.ar : pill.en)}
-                                        >
-                                            {lang === 'ar' ? pill.ar : pill.en}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {ideaSubmitError && (
-                                <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
-                                    {ideaSubmitError}
-                                </div>
-                            )}
-
-                            {myIdea && !myIdea.is_team_leader && (
-                                <div className="alert alert-info" style={{ background: 'rgba(59, 130, 246, 0.12)', border: '1px solid rgba(59, 130, 246, 0.3)', color: '#3b82f6', padding: '0.85rem 1.25rem', borderRadius: '10px', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <Users size={20} />
-                                    <span>
-                                        {lang === 'ar' 
-                                            ? `أنت مسجل في هذا المشروع كـ (عضو فريق). قائد المشروع: ${myIdea.trainee_name || myIdea.owner_name || 'قائد الفريق'}` 
-                                            : `You are enrolled in this project as a (Team Member). Team Leader: ${myIdea.trainee_name || myIdea.owner_name || 'Team Leader'}`}
-                                    </span>
-                                </div>
-                            )}
-
-                            <form onSubmit={handleSubmitIdea} className="form-section-card">
-                                <div className="form-group">
-                                    <label>{lang === 'ar' ? 'عنوان المشروع (بالإنجليزي) *' : 'Project Title  *'}</label>
-                                    <div className="input-with-icon">
-                                        <FileText size={16} className="field-icon" />
-                                        <input type="text" required value={ideaTitleEn} onChange={e => setIdeaTitleEn(e.target.value)} placeholder={lang === 'ar' ? 'عنوان المشروع...' : 'e.g. Smart Attendance System'} readOnly={myIdea && !myIdea.is_team_leader} />
-                                    </div>
-                                </div>
-                                <div className="form-group">
-                                    <label>{lang === 'ar' ? 'وصف المشروع *' : 'Project Description *'}</label>
-                                    <textarea rows="4" required value={ideaDescEn} onChange={e => setIdeaDescEn(e.target.value)} placeholder={lang === 'ar' ? 'شرح فكرة المشروع وأهدافه...' : 'Describe the project idea and goals...'} readOnly={myIdea && !myIdea.is_team_leader} />
-                                </div>
-                                <div className="form-group">
-                                    <label>{lang === 'ar' ? 'التقنيات المستهدفة (Tech Stack)' : 'Target Tech Stack'}</label>
-                                    <div className="input-with-icon">
-                                        <Code size={16} className="field-icon" />
-                                        <input type="text" value={techStack} onChange={e => setTechStack(e.target.value)} placeholder="React, PHP, MySQL, Docker..." readOnly={myIdea && !myIdea.is_team_leader} />
-                                    </div>
-                                </div>
-                                <div className="form-grid-2">
-                                    <div className="form-group">
-                                        <label>{lang === 'ar' ? 'المشكلة المعالجة' : 'Problem Statement'}</label>
-                                        <textarea rows="3" value={problemStmt} onChange={e => setProblemStmt(e.target.value)} placeholder={lang === 'ar' ? 'ما هي المشكلة المعالجة؟' : 'What problem does this solve?'} readOnly={myIdea && !myIdea.is_team_leader} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label>{lang === 'ar' ? 'المخرجات المتوقعة' : 'Expected Deliverables'}</label>
-                                        <textarea rows="3" value={expectedOutput} onChange={e => setExpectedOutput(e.target.value)} placeholder={lang === 'ar' ? 'المخرجات النهائية للتسليم...' : 'Expected final outputs...'} readOnly={myIdea && !myIdea.is_team_leader} />
-                                    </div>
-                                </div>
-
-                                {/* Teammate Selector Component — Only for Internal Courses (External projects are individual) */}
-                                {!isExternalCourse ? (
-                                    <TeammateSelector 
-                                        courseId={courseId}
-                                        selectedTeammates={selectedTeammates}
-                                        onTeammatesChange={setSelectedTeammates}
-                                        currentIdeaId={myIdea?.id}
-                                        disabled={submittingIdea}
-                                        readOnly={myIdea && !myIdea.is_team_leader}
-                                    />
-                                ) : (
-                                    <div style={{ padding: '0.85rem 1rem', background: 'rgba(59, 130, 246, 0.06)', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-1)' }}>
-                                        <User size={16} style={{ color: '#2563eb' }} />
-                                        <span>{lang === 'ar' ? 'مشاريع التدريب الخارجي هي مشاريع فردية مستقلة لكل طالب (Individual Project).' : 'External training projects are strictly individual.'}</span>
-                                    </div>
-                                )}
-
-                                {(!myIdea || myIdea.is_team_leader) && (
-                                    <button type="submit" className="btn btn-primary btn-lg" style={{ marginTop: '0.5rem', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: '8px' }} disabled={submittingIdea}>
-                                        {submittingIdea ? <Loader2 className="spin" size={18} /> : <><Send size={18} /> {lang === 'ar' ? 'حفظ وإرسال الفكرة' : 'Save & Submit Idea'}</>}
-                                    </button>
-                                )}
-                            </form>
-                        </div>
-                    ) : (
-                        <div className="ideas-review-list">
-                            <h3>{lang === 'ar' ? 'مقترحات أفكار المتدربين' : 'Trainee Submitted Ideas'}</h3>
-                            {allIdeas.length === 0 ? (
-                                <div className="empty-tab">
-                                    <Lightbulb size={36} />
-                                    <p>No ideas submitted yet.</p>
-                                </div>
-                            ) : (
-                                allIdeas.map(idea => (
-                                    <div key={idea.id} className="idea-card">
-                                        <div className="idea-card-header">
-                                            <h4>{idea.title}</h4>
-                                            <span className={`status-badge status-${idea.status}`}>{idea.status}</span>
-                                        </div>
-                                        <p className="idea-author">Submitted by: <strong>{idea.trainee_name}</strong> ({idea.trainee_email})</p>
-                                        
-                                        {/* Team Roster display for trainers */}
-                                        {idea.team_members && idea.team_members.length > 0 && (
-                                            <div className="idea-team-members-chips" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', margin: '0.5rem 0', alignItems: 'center' }}>
-                                                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                                                    {lang === 'ar' ? 'فريق العمل:' : 'Team:'}
-                                                </span>
-                                                {idea.team_members.map(m => (
-                                                    <button 
-                                                        key={m.user_id || m.id}
-                                                        type="button"
-                                                        onClick={() => setViewingMember(m)}
-                                                        title={lang === 'ar' ? `انقر لعرض بيانات ${m.full_name || m.username}` : `Click to view profile of ${m.full_name || m.username}`}
-                                                        style={{
-                                                            fontSize: '0.74rem',
-                                                            fontWeight: 600,
-                                                            padding: '0.15rem 0.55rem',
-                                                            borderRadius: '6px',
-                                                            background: m.role === 'leader' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.1)',
-                                                            color: m.role === 'leader' ? '#d97706' : '#2563eb',
-                                                            border: m.role === 'leader' ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid rgba(59, 130, 246, 0.25)',
-                                                            display: 'inline-flex',
-                                                            alignItems: 'center',
-                                                            gap: '4px',
-                                                            cursor: 'pointer',
-                                                            transition: 'all 0.15s ease'
-                                                        }}
-                                                    >
-                                                        {m.role === 'leader' ? <Crown size={12} style={{ color: '#d97706' }} /> : <Users size={12} />} {m.full_name || m.username} {m.student_id ? `(${m.student_id})` : ''}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        <p className="idea-body">{idea.description}</p>
-
-                                        <div className="idea-actions">
-                                            {(!idea.status || idea.status === 'submitted' || idea.status === 'under_review' || idea.status === 'draft' || idea.status === 'pending') && (
-                                                <>
-                                                    <button className="btn btn-success btn-sm" onClick={() => handleEvaluateIdea(idea.id, 'approved', 'Great proposal!')}>
-                                                        <CheckCircle size={14} /> {lang === 'ar' ? 'قبول' : 'Approve'}
-                                                    </button>
-                                                    <button className="btn btn-danger btn-sm" onClick={() => handleEvaluateIdea(idea.id, 'rejected', 'Needs modification.')}>
-                                                        <XCircle size={14} /> {lang === 'ar' ? 'رفض' : 'Reject'}
-                                                    </button>
-                                                </>
-                                            )}
-                                            {idea.status === 'approved' && (
-                                                <button className="btn btn-ghost btn-sm" style={{ color: '#ef4444' }} onClick={() => handleEvaluateIdea(idea.id, 'rejected', 'Needs modification.')}>
-                                                    <XCircle size={14} /> {lang === 'ar' ? 'تغيير إلى مرفوض' : 'Change to Rejected'}
-                                                </button>
-                                            )}
-                                            {idea.status === 'rejected' && (
-                                                <button className="btn btn-ghost btn-sm" style={{ color: '#10b981' }} onClick={() => handleEvaluateIdea(idea.id, 'approved', 'Great proposal!')}>
-                                                    <CheckCircle size={14} /> {lang === 'ar' ? 'إعادة القبول' : 'Re-Approve'}
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    )}
+            {/* Tab 3: Trainee Submitted Projects & Ideas */}
+            {(activeTab === 'idea' || activeTab === 'projects') && (
+                <div className="tab-content trainee-projects-tab-content">
+                    <TraineeProjects courseIdOverride={courseId} isEmbedded={true} />
                 </div>
             )}
 
@@ -3238,8 +3139,10 @@ void loop() {
                                                     return null;
                                                 }).filter(Boolean);
 
+                                                // (Removed externalTrainees calculation as per user request)
+
                                                 return (
-                                                    <div style={{ width: '100%', maxHeight: '280px', overflowY: 'auto', borderRadius: '10px', border: '1.5px solid var(--border)', background: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                                                    <div style={{ width: '100%', maxHeight: '380px', overflowY: 'auto', borderRadius: '10px', border: '1.5px solid var(--border)', background: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
                                                         {fIdeas.length === 0 ? (
                                                             <div style={{ padding: '1.5rem 1rem', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.9rem' }}>
                                                                 {evalSearchQuery 
@@ -3251,12 +3154,12 @@ void loop() {
                                                         {fIdeas.length > 0 && fIdeas.map(idea => (
                                                             <div key={idea.id}>
                                                                 <div style={{ padding: '0.65rem 1rem', background: '#f8fafc', fontSize: '0.85rem', fontWeight: 800, color: '#475569', borderBottom: '1px solid var(--border)', borderTop: '1px solid var(--border)' }}>
-                                                                    {idea.title || (lang === 'ar' ? 'مشروع بدون عنوان' : 'Untitled Project')}
+                                                                    📋 {idea.title || (lang === 'ar' ? 'مشروع بدون عنوان' : 'Untitled Project')}
                                                                 </div>
                                                                 {idea.team_members && idea.team_members.map(tm => (
                                                                     <div 
                                                                         key={tm.user_id} 
-                                                                        onClick={() => setSelectedTraineeForEval(tm.user_id)}
+                                                                        onClick={() => setSelectedTraineeForEval(String(tm.user_id))}
                                                                         style={{
                                                                             padding: '0.75rem 1rem',
                                                                             cursor: 'pointer',
@@ -3264,9 +3167,9 @@ void loop() {
                                                                             alignItems: 'center',
                                                                             justifyContent: 'space-between',
                                                                             borderBottom: '1px solid var(--border)',
-                                                                            background: selectedTraineeForEval == tm.user_id ? 'rgba(0, 45, 86, 0.08)' : '#ffffff',
-                                                                            color: selectedTraineeForEval == tm.user_id ? 'var(--primary)' : 'inherit',
-                                                                            fontWeight: selectedTraineeForEval == tm.user_id ? 700 : 500,
+                                                                            background: String(selectedTraineeForEval) === String(tm.user_id) ? 'rgba(0, 45, 86, 0.08)' : '#ffffff',
+                                                                            color: String(selectedTraineeForEval) === String(tm.user_id) ? 'var(--primary)' : 'inherit',
+                                                                            fontWeight: String(selectedTraineeForEval) === String(tm.user_id) ? 700 : 500,
                                                                             transition: 'background 0.15s'
                                                                         }}
                                                                     >
@@ -3281,6 +3184,7 @@ void loop() {
                                                     </div>
                                                 );
                                             })()}
+
                                         </div>
 
                                         <div style={{ marginBottom: '1.5rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border)' }}>
@@ -3414,554 +3318,7 @@ void loop() {
                 </div>
             )}
 
-            {/* Tab: End-of-Course Top 5 Project Voting */}
-            {activeTab === 'voting' && isTrainer && (
-                <div className="tab-content">
-                    {/* Voting Header & Status Bar */}
-                    <div className="card p-4" style={{ 
-                        background: 'var(--bg-0, #ffffff)', 
-                        border: '1px solid var(--border, #e2e8f0)', 
-                        borderRadius: '16px', 
-                        padding: '1.75rem', 
-                        marginBottom: '1.75rem',
-                        boxShadow: '0 2px 10px rgba(0,0,0,0.03)'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-                            <div style={{ flex: 1, minWidth: '280px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.4rem' }}>
-                                    <Vote size={24} style={{ color: 'var(--primary, #002D56)' }} />
-                                    <h3 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800 }}>
-                                        {lang === 'ar' ? 'تصويت نهاية الدورة لاختيار أفضل 5 مشاريع' : 'End-of-Course Top 5 Project Voting'}
-                                    </h3>
-                                </div>
-                                <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted, #64748b)' }}>
-                                    {lang === 'ar'
-                                        ? 'نظام تصويت مخصص للمشرفين والمدربين لإضافة وتعديل وحذف اختياراتهم حتى 5 مشاريع متميزة في ختام الدورة التدريبية.'
-                                        : 'Dedicated voting system for faculty & trainers to add, edit, and remove their selections (up to 5 standout projects).'}
-                                </p>
-                            </div>
-
-                            {/* Status and Admin/Trainer Controls */}
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.6rem' }}>
-                                <div style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    padding: '0.4rem 0.9rem',
-                                    borderRadius: '20px',
-                                    fontSize: '0.84rem',
-                                    fontWeight: 700,
-                                    background: courseVotingStatus === 'open' ? 'rgba(22, 163, 74, 0.12)' : courseVotingStatus === 'closed' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(100, 116, 139, 0.12)',
-                                    color: courseVotingStatus === 'open' ? '#16a34a' : courseVotingStatus === 'closed' ? '#b45309' : '#64748b',
-                                    border: `1px solid ${courseVotingStatus === 'open' ? 'rgba(22, 163, 74, 0.3)' : courseVotingStatus === 'closed' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(100, 116, 139, 0.3)'}`
-                                }}>
-                                    {courseVotingStatus === 'open' && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#16a34a', display: 'inline-block' }}></span>}
-                                    {courseVotingStatus === 'open' ? (lang === 'ar' ? 'التصويت مفتوح حالياً' : 'Voting is Open') :
-                                     courseVotingStatus === 'closed' ? (lang === 'ar' ? 'اكتمل التصويت — تم اعتماد الـ Top 5' : 'Voting Closed — Top 5 Finalized') :
-                                     (lang === 'ar' ? 'التصويت لم يبدأ بعد' : 'Voting Not Started')}
-                                </div>
-
-                                {isTrainer && (
-                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                        {courseVotingStatus !== 'open' && (
-                                            <button 
-                                                type="button" 
-                                                className="btn btn-primary btn-sm"
-                                                disabled={updatingVotingStatus}
-                                                onClick={() => handleUpdateCourseVotingStatus('open')}
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.82rem', padding: '0.45rem 0.85rem' }}
-                                            >
-                                                {updatingVotingStatus ? <Loader2 className="spin" size={14} /> : <Vote size={14} />}
-                                                {courseVotingStatus === 'closed' ? (lang === 'ar' ? 'إعادة فتح التصويت' : 'Re-open Voting') : (lang === 'ar' ? 'فتح باب التصويت' : 'Open Voting')}
-                                            </button>
-                                        )}
-                                        {courseVotingStatus === 'open' && (
-                                            <button 
-                                                type="button" 
-                                                className="btn btn-sm"
-                                                disabled={updatingVotingStatus}
-                                                onClick={() => handleUpdateCourseVotingStatus('closed')}
-                                                style={{ 
-                                                    display: 'inline-flex', 
-                                                    alignItems: 'center', 
-                                                    gap: '5px', 
-                                                    fontSize: '0.82rem', 
-                                                    padding: '0.45rem 0.85rem',
-                                                    background: '#8B1E2F',
-                                                    color: '#ffffff',
-                                                    border: 'none',
-                                                    borderRadius: '8px',
-                                                    fontWeight: 700
-                                                }}
-                                            >
-                                                {updatingVotingStatus ? <Loader2 className="spin" size={14} /> : <CheckCircle2 size={14} />}
-                                                {lang === 'ar' ? 'إغلاق التصويت واعتماد الـ 5 الأفضل' : 'Close Voting & Finalize Top 5'}
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Active Voter Selection / Management Bar (Add, Edit, Delete, Clear, Submit) */}
-                        {courseVotingStatus === 'open' && canUserVote && (
-                            <div style={{
-                                marginTop: '1.25rem',
-                                paddingTop: '1.25rem',
-                                borderTop: '1px solid var(--border, #e2e8f0)',
-                                background: 'rgba(0, 45, 86, 0.03)',
-                                padding: '1.25rem',
-                                borderRadius: '12px'
-                            }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.85rem' }}>
-                                    <div>
-                                        <span style={{ fontSize: '1rem', fontWeight: 800, color: myVotedProjectIds.length === 5 ? '#16a34a' : 'var(--text-0, #0f172a)' }}>
-                                            {lang === 'ar' 
-                                                ? `المشاريع المحددة لتصويتك: ${myVotedProjectIds.length} من أصل 5` 
-                                                : `Your Selected Votes: ${myVotedProjectIds.length} / 5`}
-                                        </span>
-                                        <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginLeft: '8px', marginRight: '8px' }}>
-                                            ({5 - myVotedProjectIds.length} {lang === 'ar' ? 'متبقية' : 'remaining'})
-                                        </span>
-                                    </div>
-
-                                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                        {myVotedProjectIds.length > 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={handleClearAllVotes}
-                                                disabled={submittingVotes}
-                                                className="btn btn-sm btn-outline"
-                                                style={{ borderColor: '#ef4444', color: '#ef4444', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}
-                                            >
-                                                <Trash2 size={13} />
-                                                {lang === 'ar' ? 'مسح كافة الاختيارات' : 'Clear All'}
-                                            </button>
-                                        )}
-                                        <button
-                                            type="button"
-                                            onClick={handleSubmitVotes}
-                                            disabled={submittingVotes || myVotedProjectIds.length === 0}
-                                            className="btn btn-primary btn-sm"
-                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '0.5rem 1.25rem', fontWeight: 700, borderRadius: '8px' }}
-                                        >
-                                            {submittingVotes ? <Loader2 className="spin" size={14} /> : <CheckCircle2 size={14} />}
-                                            {lang === 'ar' ? 'حفظ وتأكيد التصويت' : 'Submit / Save Votes'}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Active Selected Project Chips (with instant Delete button per vote) */}
-                                {myVotedProjectIds.length === 0 ? (
-                                    <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-muted, #64748b)' }}>
-                                        ℹ️ {lang === 'ar' 
-                                            ? 'لم تختر أي مشروع بعد. اضغط على زر "+ إضافة للتصويت" في بطاقات المشاريع أدناه لإضافتها.' 
-                                            : 'No projects selected yet. Click "+ Add Vote" on any project below to select it.'}
-                                    </p>
-                                ) : (
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
-                                        {myVotedProjectIds.map((pId, idx) => {
-                                            const proj = votingProjects.find(p => Number(p.id) === Number(pId));
-                                            return (
-                                                <div 
-                                                    key={pId} 
-                                                    style={{
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '6px',
-                                                        background: '#ffffff',
-                                                        border: '1.5px solid #16a34a',
-                                                        borderRadius: '20px',
-                                                        padding: '0.3rem 0.75rem',
-                                                        fontSize: '0.82rem',
-                                                        fontWeight: 700,
-                                                        boxShadow: '0 2px 6px rgba(22, 163, 74, 0.15)'
-                                                    }}
-                                                >
-                                                    <span style={{ color: '#16a34a' }}>#{idx + 1}</span>
-                                                    <span>{proj?.title || `Project #${pId}`}</span>
-                                                    {proj?.trainee_name && <span style={{ color: 'var(--text-muted)', fontSize: '0.76rem' }}>({proj.trainee_name})</span>}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteVote(pId)}
-                                                        title={lang === 'ar' ? 'حذف هذا الصوت' : 'Remove this vote'}
-                                                        style={{
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            color: '#ef4444',
-                                                            cursor: 'pointer',
-                                                            padding: '0 2px',
-                                                            display: 'inline-flex',
-                                                            alignItems: 'center'
-                                                        }}
-                                                    >
-                                                        <X size={14} />
-                                                    </button>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Trainee Informative Note */}
-                        {courseVotingStatus === 'open' && !canUserVote && (
-                            <div style={{
-                                marginTop: '1rem',
-                                padding: '0.85rem 1rem',
-                                background: 'rgba(0, 45, 86, 0.04)',
-                                borderRadius: '8px',
-                                fontSize: '0.85rem',
-                                color: 'var(--text-muted)'
-                            }}>
-                                ℹ️ {lang === 'ar' 
-                                    ? 'التصويت متاح لأعضاء هيئة التدريس والمدربين المشرفين. سيتم إعلان المشاريع الـ 5 الفائزة فور اكتمال وإغلاق التصويت.' 
-                                    : 'Voting is conducted by faculty and supervising trainers. Top 5 winning projects will be published here once voting closes.'}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Top 5 Showcase (if voting closed or results ready) */}
-                    {votingTop5.length > 0 && (
-                        <div style={{
-                            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.02) 100%)',
-                            border: '1.5px solid rgba(245, 158, 11, 0.4)',
-                            borderRadius: '16px',
-                            padding: '1.75rem',
-                            marginBottom: '2rem'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Trophy size={22} style={{ color: '#F59E0B' }} />
-                                    <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#92400e' }}>
-                                        {lang === 'ar' ? 'المشاريع الـ 5 الأفضل في تصويت نهاية الدورة' : 'Top 5 Projects Selected by End-of-Course Voting'}
-                                    </h4>
-                                </div>
-                                <span style={{
-                                    fontSize: '0.8rem',
-                                    fontWeight: 700,
-                                    padding: '0.25rem 0.75rem',
-                                    borderRadius: '12px',
-                                    background: '#F59E0B',
-                                    color: '#ffffff'
-                                }}>
-                                    {votingTop5.length} {lang === 'ar' ? 'مشاريع متصدرة' : 'Top Projects'}
-                                </span>
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
-                                {votingTop5.map(tp => (
-                                    <div key={tp.id} className="top5-gold-winner-card" style={{
-                                        borderRadius: '14px',
-                                        padding: '1.25rem',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        justifyContent: 'space-between',
-                                        transition: 'all 0.2s ease'
-                                    }}>
-                                        <div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
-                                                <span className="top5-shiny-gold-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                    <Trophy size={13} /> #{tp.vote_rank} in Votes
-                                                </span>
-                                                <span style={{
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '4px',
-                                                    fontSize: '0.82rem',
-                                                    fontWeight: 800,
-                                                    color: '#b45309'
-                                                }}>
-                                                    <Vote size={13} /> {tp.vote_count} {lang === 'ar' ? 'أصوات' : 'votes'}
-                                                </span>
-                                            </div>
-                                            <h5 style={{ margin: '0 0 0.4rem 0', fontSize: '1.02rem', fontWeight: 800, color: 'var(--text-0, #0f172a)' }}>
-                                                {tp.title}
-                                            </h5>
-                                            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted, #64748b)' }}>
-                                                <User size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '3px' }} />
-                                                {tp.trainee_name}
-                                                {tp.team_members && tp.team_members.length > 1 && (
-                                                    <span> ({tp.team_members.length} {lang === 'ar' ? 'أعضاء' : 'members'})</span>
-                                                )}
-                                            </p>
-                                        </div>
-
-                                        {tp.evaluation_score !== null && (
-                                            <div style={{ marginTop: '0.85rem', paddingTop: '0.65rem', borderTop: '1px solid rgba(245, 158, 11, 0.3)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                                {lang === 'ar' ? 'الدرجة الأكاديمية:' : 'Academic Score:'} <strong style={{ color: 'var(--text-0)' }}>{tp.evaluation_score}/100</strong>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Eligible Projects Voting Grid with Add/Edit/Delete Vote controls */}
-                    <div style={{ marginBottom: '1.25rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                            <h4 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>
-                                {lang === 'ar' ? 'مشاريع الدورة التدريبية المؤهلة للتصويت' : 'Eligible Course Projects'} ({votingProjects.length})
-                            </h4>
-                            <Link to={`/leaderboard?course_id=${courseId}`} className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                                <Trophy size={14} style={{ color: '#F59E0B' }} />
-                                {lang === 'ar' ? 'عرض لوحة الترتيب الأكاديمي الكاملة' : 'View Full Academic Leaderboard'}
-                            </Link>
-                        </div>
-
-                        {loadingVoting ? (
-                            <div style={{ textAlign: 'center', padding: '3rem' }}>
-                                <Loader2 className="spin" size={32} />
-                            </div>
-                        ) : votingProjects.length === 0 ? (
-                            <div className="card p-4" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                                <Lightbulb size={40} strokeWidth={1.5} style={{ marginBottom: '0.5rem' }} />
-                                <p style={{ margin: 0 }}>{lang === 'ar' ? 'لا توجد مشاريع مسجلة في هذه الدورة بعد.' : 'No submitted projects found in this course yet.'}</p>
-                            </div>
-                        ) : (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
-                                {votingProjects.map(proj => {
-                                    const isSelected = myVotedProjectIds.includes(Number(proj.id));
-                                    const canSelectMore = myVotedProjectIds.length < 5;
-
-                                    return (
-                                        <div 
-                                            key={proj.id}
-                                            className={proj.is_top_5 ? 'top5-gold-winner-card' : ''}
-                                            style={{
-                                                background: isSelected 
-                                                    ? 'rgba(22, 163, 74, 0.04)' 
-                                                    : proj.is_top_5 
-                                                    ? undefined 
-                                                    : 'var(--bg-0, #ffffff)',
-                                                border: isSelected 
-                                                    ? '2px solid #16a34a' 
-                                                    : proj.is_top_5 
-                                                    ? undefined 
-                                                    : '1px solid var(--border, #e2e8f0)',
-                                                borderRadius: '14px',
-                                                padding: '1.25rem',
-                                                boxShadow: isSelected ? '0 4px 14px rgba(22, 163, 74, 0.12)' : undefined,
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                justifyContent: 'space-between',
-                                                transition: 'all 0.2s ease'
-                                            }}
-                                        >
-                                            <div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.6rem' }}>
-                                                    <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-0, #0f172a)' }}>
-                                                        {proj.title}
-                                                    </h4>
-                                                    {proj.is_top_5 && (
-                                                        <span className="top5-shiny-gold-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                            <Trophy size={13} /> Top 5 Winner (#{proj.vote_rank})
-                                                        </span>
-                                                    )}
-                                                </div>
-
-                                                <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.84rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.45 }}>
-                                                    {proj.description ? proj.description.substring(0, 110) + '…' : (lang === 'ar' ? 'مشروع تدريبي مقدم ضمن الدورة.' : 'Training project idea.')}
-                                                </p>
-
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.75rem', fontSize: '0.82rem', color: 'var(--text-1, #334155)' }}>
-                                                    <User size={13} className="text-primary" />
-                                                    <strong>{proj.trainee_name}</strong>
-                                                    {proj.student_id && <span style={{ color: 'var(--text-muted)' }}>({proj.student_id})</span>}
-                                                    {proj.team_members && proj.team_members.length > 1 && (
-                                                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: '4px' }}>
-                                                            + {proj.team_members.length - 1} {lang === 'ar' ? 'أعضاء' : 'teammates'}
-                                                        </span>
-                                                    )}
-                                                </div>
-
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                                                    {/* Academic Score Pill */}
-                                                    <span style={{
-                                                        fontSize: '0.78rem',
-                                                        fontWeight: 700,
-                                                        padding: '0.2rem 0.55rem',
-                                                        borderRadius: '6px',
-                                                        background: 'rgba(0, 45, 86, 0.06)',
-                                                        color: 'var(--primary, #002D56)'
-                                                    }}>
-                                                        {lang === 'ar' ? 'الدرجة الأكاديمية:' : 'Eval Score:'} {proj.evaluation_score !== null ? `${proj.evaluation_score}/100` : (lang === 'ar' ? 'قيد التقييم' : 'Pending')}
-                                                    </span>
-
-                                                    {/* Votes Count Pill */}
-                                                    <span style={{
-                                                        fontSize: '0.78rem',
-                                                        fontWeight: 700,
-                                                        padding: '0.2rem 0.55rem',
-                                                        borderRadius: '6px',
-                                                        background: proj.vote_count > 0 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(100, 116, 139, 0.08)',
-                                                        color: proj.vote_count > 0 ? '#b45309' : '#64748b',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px'
-                                                    }}>
-                                                        <Vote size={12} /> {proj.vote_count} {lang === 'ar' ? 'أصوات' : 'votes'}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {/* Action Button for Authorized Voters when Open */}
-                                            {courseVotingStatus === 'open' && canUserVote && (
-                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                    {isSelected ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleDeleteVote(proj.id)}
-                                                            style={{
-                                                                flex: 1,
-                                                                padding: '0.65rem 1rem',
-                                                                borderRadius: '8px',
-                                                                fontSize: '0.88rem',
-                                                                fontWeight: 700,
-                                                                cursor: 'pointer',
-                                                                border: '1.5px solid #16a34a',
-                                                                background: '#16a34a',
-                                                                color: '#ffffff',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                gap: '6px',
-                                                                boxShadow: '0 2px 8px rgba(22, 163, 74, 0.25)',
-                                                                transition: 'all 0.15s ease'
-                                                            }}
-                                                        >
-                                                            <CheckCircle2 size={16} />
-                                                            {lang === 'ar' ? 'تم التصويت (اضغط للحذف)' : 'Voted (Click to Remove)'}
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleAddVote(proj.id)}
-                                                            disabled={!canSelectMore}
-                                                            style={{
-                                                                flex: 1,
-                                                                padding: '0.65rem 1rem',
-                                                                borderRadius: '8px',
-                                                                fontSize: '0.88rem',
-                                                                fontWeight: 700,
-                                                                cursor: !canSelectMore ? 'not-allowed' : 'pointer',
-                                                                border: '1.5px solid var(--border, #cbd5e1)',
-                                                                background: 'var(--bg-0, #ffffff)',
-                                                                color: !canSelectMore ? 'var(--text-muted)' : 'var(--text-0, #0f172a)',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                gap: '6px',
-                                                                opacity: !canSelectMore ? 0.6 : 1,
-                                                                transition: 'all 0.15s ease'
-                                                            }}
-                                                        >
-                                                            <Plus size={16} />
-                                                            {lang === 'ar' ? '+ إضافة للتصويت' : '+ Add Vote'}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* Tab: Trainers (Admin Only) */}
-            {activeTab === 'trainers' && isAdmin && (
-                <div className="tab-content">
-                    <div className="tab-action-bar">
-                        <h3>{lang === 'ar' ? 'إدارة مدربي الدورة' : 'Manage Course Trainers'}</h3>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
-                        {/* Current Trainers */}
-                        <div className="card p-4" style={{ background: 'var(--bg-0)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem' }}>
-                            <h4 style={{ marginBottom: '1rem', color: 'var(--text-1)' }}>{lang === 'ar' ? 'المدربون الحاليون' : 'Assigned Trainers'}</h4>
-                            <div className="members-list">
-                                {trainers.length === 0 ? (
-                                    <p className="text-muted">{lang === 'ar' ? 'لا يوجد مدربون حالياً.' : 'No trainers assigned yet.'}</p>
-                                ) : (
-                                    trainers.map(t => (
-                                        <div key={t.assignment_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.75rem', marginBottom: '0.75rem', borderBottom: '1px solid var(--border)' }}>
-                                            <div>
-                                                <div style={{ fontWeight: 'bold', color: 'var(--text-1)' }}>{t.full_name}</div>
-                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{t.email} {t.department ? `- ${t.department}` : ''}</div>
-                                            </div>
-                                            <button 
-                                                className="btn btn-sm btn-outline-danger" 
-                                                style={{ borderColor: '#ef4444', color: '#ef4444' }}
-                                                onClick={() => handleRemoveTrainer(t.assignment_id)}
-                                            >
-                                                {lang === 'ar' ? 'إزالة' : 'Remove'}
-                                            </button>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Search & Assign */}
-                        <div className="card p-4" style={{ background: 'var(--bg-0)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem' }}>
-                            <h4 style={{ marginBottom: '1rem', color: 'var(--text-1)' }}>{lang === 'ar' ? 'تعيين مدرب جديد' : 'Assign New Trainer'}</h4>
-                            <div className="form-group" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                                <input 
-                                    type="text" 
-                                    placeholder={lang === 'ar' ? 'ابحث عن مدرب بالاسم...' : 'Search trainer by name...'}
-                                    value={searchTrainerQuery}
-                                    onChange={e => {
-                                        setSearchTrainerQuery(e.target.value);
-                                        if (e.target.value === '') setHasSearched(false);
-                                    }}
-                                    onKeyDown={e => e.key === 'Enter' && handleSearchTrainers()}
-                                    style={{ flex: 1 }}
-                                />
-                                <button className="btn btn-secondary" onClick={handleSearchTrainers} disabled={searchingTrainers}>
-                                    {searchingTrainers ? <Loader2 className="spin" size={16} /> : (lang === 'ar' ? 'بحث' : 'Search')}
-                                </button>
-                            </div>
-
-                            <div className="search-results" style={{ marginTop: '1.5rem' }}>
-                                {availableTrainers.length > 0 && availableTrainers.map(tr => (
-                                    <div key={tr.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.75rem', marginBottom: '0.75rem', borderBottom: '1px solid var(--border)' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                            {tr.avatar_url ? (
-                                                <img src={tr.avatar_url} alt="avatar" style={{width: 32, height: 32, borderRadius: '50%', objectFit: 'cover'}} />
-                                            ) : (
-                                                <div style={{width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.8rem'}}>
-                                                    {tr.full_name.charAt(0).toUpperCase()}
-                                                </div>
-                                            )}
-                                            <div>
-                                                <div style={{ fontWeight: 'bold', color: 'var(--text-1)' }}>{tr.full_name}</div>
-                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{tr.email} • {tr.role}</div>
-                                            </div>
-                                        </div>
-                                        <button 
-                                            className="btn btn-sm btn-primary" 
-                                            onClick={() => handleAssignTrainer(tr.id)}
-                                            disabled={assigningTrainer || trainers.some(t => t.trainer_id === tr.id)}
-                                        >
-                                            {trainers.some(t => t.trainer_id === tr.id) 
-                                                ? (lang === 'ar' ? 'معين مسبقاً' : 'Assigned') 
-                                                : (lang === 'ar' ? 'تعيين' : 'Assign')}
-                                        </button>
-                                    </div>
-                                ))}
-                                {availableTrainers.length === 0 && hasSearched && !searchingTrainers && (
-                                    <p className="text-sm text-muted mt-2">{lang === 'ar' ? 'لم يتم العثور على نتائج.' : 'No results found.'}</p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Excel Import Modal */}
 
             {/* Excel Import Modal */}
             {showExcelModal && (
@@ -3984,6 +3341,19 @@ void loop() {
                             </button>
                         </div>
 
+                        <div className="modal-template-hint">
+                            <span>
+                                {lang === 'ar' ? 'هل تحتاج إلى النموذج القياسي؟' : 'Need the standard template?'}
+                            </span>
+                            <a 
+                                href="/api/training/enrollments/template.php"
+                                className="modal-template-link"
+                                download="Students_Import_Template.csv"
+                            >
+                                <Download size={13} /> {lang === 'ar' ? 'تحميل نموذج Excel' : 'Download Template (CSV)'}
+                            </a>
+                        </div>
+
                         {importResult && (
                             <div className={`alert ${importResult.error ? 'alert-error' : 'alert-success'}`}>
                                 {importResult.error || importResult.message}
@@ -3992,7 +3362,7 @@ void loop() {
 
                         <form onSubmit={handleExcelImport} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                             <div className="form-group">
-                                <label>{lang === 'ar' ? 'ملف Excel (.xlsx, .xls) *' : 'Excel File (.xlsx, .xls) *'}</label>
+                                <label>{lang === 'ar' ? 'ملف Excel (.xlsx, .xls, .csv) *' : 'Excel File (.xlsx, .xls, .csv) *'}</label>
                                 <div className="custom-file-dropzone">
                                     <input type="file" accept=".xlsx,.xls,.csv" required onChange={e => setExcelFile(e.target.files[0])} />
                                     <div className="custom-file-icon">
@@ -4014,8 +3384,18 @@ void loop() {
                                 <button type="button" className="btn btn-ghost" onClick={() => setShowExcelModal(false)}>
                                     {lang === 'ar' ? 'إلغاء' : 'Cancel'}
                                 </button>
-                                <button type="submit" className="btn btn-primary" disabled={importing}>
-                                    {importing ? <Loader2 className="spin" size={16} /> : (lang === 'ar' ? 'بدء الاستيراد' : 'Start Import')}
+                                <button type="submit" className="btn btn-primary" disabled={importing || !excelFile}>
+                                    {importing ? (
+                                        <>
+                                            <Loader2 className="spin" size={16} />
+                                            <span>{lang === 'ar' ? 'جاري الاستيراد...' : 'Importing...'}</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FileSpreadsheet size={16} />
+                                            <span>{lang === 'ar' ? 'بدء الاستيراد' : 'Start Import'}</span>
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </form>
@@ -4190,22 +3570,32 @@ void loop() {
                                 </div>
                                 <div className="form-group">
                                     <label>{lang === 'ar' ? 'تاريخ الانتهاء' : 'End Date'}</label>
-                                    <input type="date" value={editCourseForm.end_date} onChange={e => setEditCourseForm({...editCourseForm, end_date: e.target.value})} />
+                                    <input 
+                                        type="date" 
+                                        disabled={editCourseForm.set_up_later}
+                                        value={editCourseForm.set_up_later ? '' : editCourseForm.end_date} 
+                                        onChange={e => setEditCourseForm({...editCourseForm, end_date: e.target.value})} 
+                                    />
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={Boolean(editCourseForm.set_up_later)} 
+                                            onChange={e => {
+                                                const checked = e.target.checked;
+                                                setEditCourseForm({
+                                                    ...editCourseForm,
+                                                    set_up_later: checked,
+                                                    end_date: checked ? '' : editCourseForm.end_date
+                                                });
+                                            }} 
+                                        />
+                                        <span>{lang === 'ar' ? 'الإعداد لاحقاً (Set up later)' : 'Set up later'}</span>
+                                    </label>
                                 </div>
                             </div>
-                            <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                                <div className="form-group">
-                                    <label>{lang === 'ar' ? 'الساعات التدريبية' : 'Duration (Hours)'}</label>
-                                    <input type="number" min="1" value={editCourseForm.duration_hours} onChange={e => setEditCourseForm({...editCourseForm, duration_hours: e.target.value})} />
-                                </div>
-                                <div className="form-group">
-                                    <label>{lang === 'ar' ? 'المسار التدريبي' : 'Track / Category'}</label>
-                                    <input type="text" value={editCourseForm.category} onChange={e => setEditCourseForm({...editCourseForm, category: e.target.value})} />
-                                </div>
-                                <div className="form-group">
-                                    <label>{lang === 'ar' ? 'مستوى المهارة' : 'Skill Level'}</label>
-                                    <input type="text" value={editCourseForm.level} onChange={e => setEditCourseForm({...editCourseForm, level: e.target.value})} />
-                                </div>
+                            <div className="form-group">
+                                <label>{lang === 'ar' ? 'الساعات التدريبية' : 'Duration (Hours)'}</label>
+                                <input type="number" min="1" value={editCourseForm.duration_hours} onChange={e => setEditCourseForm({...editCourseForm, duration_hours: e.target.value})} />
                             </div>
                             <div className="form-group">
                                 <label>{lang === 'ar' ? 'نوع التدريب للدورة' : 'Training Course Type'}</label>

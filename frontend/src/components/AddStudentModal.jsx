@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useI18n } from '../contexts/I18nContext';
+import { useToast } from './Toast';
 import { 
     UserPlus, Search, CheckCircle, Loader2, X, Mail, Hash, 
     BookOpen, Building2, GraduationCap, Plus
@@ -7,6 +8,7 @@ import {
 import './AddStudentModal.css';
 
 export default function AddStudentModal({ isOpen, onClose, courseId, courseName, isExternalCourse = false, onStudentAdded }) {
+    const toast = useToast();
     const { lang } = useI18n();
 
     const [mode, setMode] = useState('search'); // 'search' or 'manual'
@@ -121,9 +123,10 @@ export default function AddStudentModal({ isOpen, onClose, courseId, courseName,
             if (res.ok && data.success) {
                 // Update local candidate list to show enrolled
                 setCandidates(prev => prev.map(c => c.id === candidate.id ? { ...c, is_enrolled: true } : c));
+                toast?.success(lang === 'ar' ? 'تم قيد الطالب بالدورة بنجاح' : 'Student enrolled successfully');
                 if (onStudentAdded) onStudentAdded(candidate);
             } else {
-                alert(data.error || 'Failed to enroll student');
+                toast?.error(data.error || 'Failed to enroll student');
             }
         } catch (e) {
             console.error('Failed to enroll candidate:', e);
@@ -142,8 +145,8 @@ export default function AddStudentModal({ isOpen, onClose, courseId, courseName,
         let basePayload = {};
         if (val.includes('@')) {
             basePayload.email = val;
-        } else if (/^\d+$/.test(val)) {
-            basePayload.trainee_id = parseInt(val, 10);
+        } else if (/^[0-9a-fA-F-]{36}$/.test(val) || /^\d+$/.test(val)) {
+            basePayload.trainee_id = val;
         } else {
             basePayload.email = val;
         }

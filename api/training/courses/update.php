@@ -6,14 +6,14 @@
 
 require_once __DIR__ . '/../../config.php';
 
-$user = requireRole(['admin', 'trainer']);
+$user = requireRole(['admin', 'trainer', 'professor', 'ta', 'lecturer', 'supervisor', 'instructor', 'evaluator', 'faculty']);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respondError('Method not allowed', 405);
 }
 
 $data = body();
-$courseId      = (int)($data['course_id'] ?? $data['id'] ?? 0);
+$courseId      = resolveCourseId($data['course_id'] ?? $data['id'] ?? 0);
 $name        = sanitizeString($data['name_en'] ?? $data['name'] ?? '');
 $description = sanitizeString($data['description_en'] ?? $data['description'] ?? '');
 $startDate     = trim($data['start_date'] ?? '');
@@ -27,21 +27,19 @@ $courseType    = sanitizeString($data['course_type'] ?? '');
 if (!$courseId || empty($name)) {
     respondError('Course ID and name are required');
 }
-if (!$category) {
-    respondError('Track / Category is required');
-}
-if (!$level) {
-    respondError('Skill Level is required');
-}
 
 $db = db();
 
 // Ensure the course exists
-$stmt = $db->prepare("SELECT id FROM training_courses WHERE id = ?");
+$stmt = $db->prepare("SELECT id, category, level FROM training_courses WHERE id = ?");
 $stmt->execute([$courseId]);
-if (!$stmt->fetch()) {
+$existing = $stmt->fetch(PDO::FETCH_ASSOC);
+if (!$existing) {
     respondError('Course not found', 404);
 }
+
+$finalCategory = $category ?: ($existing['category'] ?: 'Software / AI');
+$finalLevel    = $level ?: ($existing['level'] ?: 'All Levels');
 
 // Verify trainer assignment / admin permissions
 verifyCourseAccess($courseId, $user);
@@ -62,8 +60,8 @@ try {
     ");
     $updateStmt->execute([
         $name,
-        $category,
-        $level,
+        $finalCategory,
+        $finalLevel,
         $description ?: null,
         $startDate ?: null,
         $endDate ?: null,

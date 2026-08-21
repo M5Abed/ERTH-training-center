@@ -7,7 +7,7 @@
 require_once __DIR__ . '/../../config.php';
 
 $caller = requireTrainer();
-$courseId = isset($_GET['course_id']) ? (int)$_GET['course_id'] : 0;
+$courseId = isset($_GET['course_id']) ? resolveCourseId($_GET['course_id']) : 0;
 $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
 
 $db = db();
@@ -44,6 +44,12 @@ try {
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
     $requests = $stmt->fetchAll();
+
+    foreach ($requests as &$r) {
+        $r['trainee_id'] = getUserUuid((int)$r['trainee_id']);
+        $r['course_id']  = getCourseUuid((int)$r['course_id']);
+    }
+    unset($r);
 
     respond([
         'success' => true,

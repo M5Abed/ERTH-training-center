@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $_SERVER['REQUEST_METHOD'] !== 'DEL
 }
 
 $data = body();
-$traineeId = (int)($data['trainee_id'] ?? $data['id'] ?? ($_GET['id'] ?? 0));
+$traineeId = resolveUserId($data['trainee_id'] ?? $data['id'] ?? ($_GET['id'] ?? 0));
 
 if (!$traineeId) {
     respondError('Trainee ID is required');

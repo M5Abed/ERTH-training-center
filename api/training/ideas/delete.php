@@ -18,7 +18,7 @@ try {
     }
 
     $data = body();
-    $ideaId = (int)($data['idea_id'] ?? $_POST['idea_id'] ?? $_GET['idea_id'] ?? 0);
+    $ideaId = resolveIdeaId($data['idea_id'] ?? $_POST['idea_id'] ?? $_GET['idea_id'] ?? $data['id'] ?? 0);
 
     if (!$ideaId) {
         respondError('Idea ID is required', 400);

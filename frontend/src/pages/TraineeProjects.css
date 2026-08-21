@@ -669,19 +669,30 @@
 
 .invite-inputs-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 1.25rem;
 }
 
-@media (max-width: 800px) {
-    .invite-inputs-grid { grid-template-columns: 1fr; }
+.received-invitations-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.invite-search-col, .invite-direct-col {
+.received-invitation-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.received-invitation-card:hover {
+    box-shadow: 0 6px 20px rgba(0, 45, 86, 0.08);
+}
+
+.invite-search-col {
     display: flex;
     flex-direction: column;
     gap: 6px;
     position: relative;
+    width: 100%;
 }
 
 .invite-search-col label, .invite-direct-col label {
@@ -2041,6 +2052,96 @@
     border-color: rgba(59, 130, 246, 0.3);
 }
 
+/* ═══ Track Suggestions in Option 2 ═══ */
+.track-suggestions-box {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(217, 119, 6, 0.08) 100%);
+    border: 1.5px solid rgba(245, 158, 11, 0.3);
+    border-radius: 14px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+[data-theme="dark"] .track-suggestions-box {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.25);
+}
+
+.track-suggestions-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.track-suggestions-header strong {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: #b45309;
+}
+
+[data-theme="dark"] .track-suggestions-header strong {
+    color: #fbbf24;
+}
+
+.track-suggestions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.65rem;
+    max-height: 220px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.track-suggestion-chip {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 0.65rem 0.85rem;
+    border-radius: 10px;
+    background: var(--bg-0, #ffffff);
+    border: 1.5px solid var(--border, #e2e8f0);
+    text-align: start;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.track-suggestion-chip:hover {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.04);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(245, 158, 11, 0.15);
+}
+
+.track-suggestion-chip.active {
+    border-color: #d97706;
+    background: rgba(245, 158, 11, 0.1);
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.track-suggestion-chip strong {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--ink, #0f172a);
+    line-height: 1.3;
+}
+
+.track-suggestion-chip p {
+    margin: 0;
+    font-size: 0.73rem;
+    color: var(--mute, #64748b);
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 .custom-ai-hero-header {
     display: flex;
     align-items: center;
@@ -2546,10 +2647,11 @@
 .btn-eval-approve,
 .btn-eval-complete,
 .btn-eval-changes,
-.btn-eval-reject {
+.btn-eval-reject,
+.btn-eval-golden-pass {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     padding: 0.85rem 1rem;
     border-radius: 12px;
     border: 1px solid transparent;
@@ -2563,26 +2665,33 @@
 .btn-eval-approve div,
 .btn-eval-complete div,
 .btn-eval-changes div,
-.btn-eval-reject div {
+.btn-eval-reject div,
+.btn-eval-golden-pass div {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-width: 0;
 }
 
 .btn-eval-approve strong,
 .btn-eval-complete strong,
 .btn-eval-changes strong,
-.btn-eval-reject strong {
+.btn-eval-reject strong,
+.btn-eval-golden-pass strong {
     font-size: 0.92rem;
     font-weight: 700;
+    line-height: 1.35;
 }
 
 .btn-eval-approve span,
 .btn-eval-complete span,
 .btn-eval-changes span,
-.btn-eval-reject span {
+.btn-eval-reject span,
+.btn-eval-golden-pass span {
     font-size: 0.76rem;
     opacity: 0.85;
-    margin-top: 1px;
+    margin-top: 2px;
+    line-height: 1.3;
 }
 
 /* Specific button styles */
@@ -2626,10 +2735,101 @@
     box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35);
 }
 
+.btn-eval-golden-pass {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 40%, #78350f 100%);
+    color: #ffffff;
+    border: 1px solid rgba(251, 191, 36, 0.5);
+    box-shadow: 0 4px 18px rgba(217, 119, 6, 0.35);
+    position: relative;
+    overflow: hidden;
+}
+.btn-eval-golden-pass::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        60deg,
+        transparent 35%,
+        rgba(255, 255, 255, 0.22) 50%,
+        transparent 65%
+    );
+    animation: goldShimmer 3.5s infinite linear;
+    pointer-events: none;
+}
+@keyframes goldShimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+.btn-eval-golden-pass:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(245, 158, 11, 0.5);
+    border-color: rgba(251, 191, 36, 0.8);
+}
+.btn-eval-approve svg,
+.btn-eval-complete svg,
+.btn-eval-changes svg,
+.btn-eval-reject svg,
+.btn-eval-golden-pass svg {
+    flex-shrink: 0;
+}
+
+.btn-eval-golden-pass svg,
+.btn-eval-golden-pass div {
+    position: relative;
+    z-index: 2;
+}
+
+.sparkle-gold-icon {
+    color: #fef08a;
+    animation: pulse 2s infinite ease-in-out;
+}
+
+.lock-muted-icon {
+    color: var(--text-muted, #94a3b8) !important;
+}
+
+.btn-eval-golden-pass.is-locked-golden-pass,
+.btn-eval-golden-pass.is-locked-golden-pass:disabled {
+    background: var(--bg-2, #f1f5f9) !important;
+    color: var(--text-muted, #94a3b8) !important;
+    border: 1.5px dashed var(--border, #cbd5e1) !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+    opacity: 0.75 !important;
+    transform: none !important;
+}
+
+.btn-eval-golden-pass.is-locked-golden-pass::after {
+    display: none !important;
+}
+
+.btn-eval-golden-pass.is-locked-golden-pass strong {
+    color: var(--text-muted, #64748b) !important;
+}
+
+.btn-eval-golden-pass.is-locked-golden-pass span {
+    color: var(--text-muted, #94a3b8) !important;
+}
+
+.btn-eval-golden-pass.is-locked-golden-pass svg {
+    color: var(--text-muted, #94a3b8) !important;
+}
+
+[data-theme="dark"] .btn-eval-golden-pass.is-locked-golden-pass,
+[data-theme="dark"] .btn-eval-golden-pass.is-locked-golden-pass:disabled {
+    background: rgba(30, 41, 59, 0.6) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: #64748b !important;
+}
+
 .btn-eval-approve:disabled,
 .btn-eval-complete:disabled,
 .btn-eval-changes:disabled,
-.btn-eval-reject:disabled {
+.btn-eval-reject:disabled,
+.btn-eval-golden-pass:disabled {
     opacity: 0.6;
     cursor: not-allowed;
     transform: none !important;
@@ -2898,6 +3098,17 @@
     .proposal-chapter-tabs::-webkit-scrollbar {
         display: none;
     }
+}
+
+/* ── Embedded View inside Course Detail ── */
+.trainee-projects-embedded {
+    padding: 0 !important;
+    max-width: 100% !important;
+    background: transparent !important;
+}
+
+.trainee-projects-embedded .filter-card {
+    margin-top: 0;
 }
 
 

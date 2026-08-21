@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data         = body();
-$courseId     = (int)($data['course_id'] ?? 0);
+$courseId     = resolveCourseId($data['course_id'] ?? 0);
 $votingStatus = trim($data['voting_status'] ?? '');
 
 $allowedStatuses = ['not_started', 'open', 'closed'];

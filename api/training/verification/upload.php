@@ -15,8 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respondError('Method not allowed', 405);
 }
 
-$courseId = (int)($_POST['course_id'] ?? 0);
-$traineeId = ($isAdmin && !empty($_POST['trainee_id'])) ? (int)$_POST['trainee_id'] : $uid;
+$courseId = resolveCourseId($_POST['course_id'] ?? 0);
+$traineeId = ($isAdmin && !empty($_POST['trainee_id'])) ? resolveUserId($_POST['trainee_id']) : $uid;
 
 $customName = trim($_POST['custom_provider_name'] ?? '');
 $customWebsite = trim($_POST['custom_provider_website'] ?? '');

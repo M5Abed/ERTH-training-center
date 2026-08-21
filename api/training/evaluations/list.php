@@ -12,12 +12,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);
 }
 
-$courseId = (int)($_GET['course_id'] ?? 0);
+$db = db();
+$courseId = resolveCourseId($_GET['course_id'] ?? 0);
 if (!$courseId) {
-    respondError('Course ID is required');
+    $courseId = (int)$db->query("SELECT id FROM training_courses WHERE status != 'archived' ORDER BY id ASC LIMIT 1")->fetchColumn();
 }
 
-$db = db();
+if (!$courseId) {
+    respond(['evaluations' => []]);
+    exit;
+}
 $stmt = $db->prepare("
     SELECT te.*, 
            u.full_name AS trainee_name, u.email AS trainee_email, u.student_id,
@@ -31,4 +35,15 @@ $stmt = $db->prepare("
 $stmt->execute([$courseId]);
 $evaluations = $stmt->fetchAll();
 
+foreach ($evaluations as &$ev) {
+    if (!empty($ev['trainee_id']) && is_numeric($ev['trainee_id'])) {
+        $ev['trainee_id'] = getUserUuid((int)$ev['trainee_id']);
+    }
+    if (!empty($ev['course_id']) && is_numeric($ev['course_id'])) {
+        $ev['course_id'] = getCourseUuid((int)$ev['course_id']);
+    }
+}
+unset($ev);
+
 respond(['evaluations' => $evaluations]);
+

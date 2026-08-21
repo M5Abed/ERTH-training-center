@@ -50,7 +50,16 @@ export default function CertificateModal({
 
   if (!isOpen) return null;
 
-  const finalTraineeName = studentName || certificate?.trainee_name || trainee?.full_name || trainee?.name || 'Trainee Name';
+  const rawTraineeName = studentName || certificate?.trainee_name || trainee?.full_name || trainee?.name || 'Trainee Name';
+  const formatTraineeName = (name) => {
+      if (!name) return 'Trainee Name';
+      const parts = name.trim().split(/\s+/).filter(Boolean);
+      if (parts.length > 4) {
+          return parts.slice(0, 4).join(' ');
+      }
+      return parts.join(' ');
+  };
+  const finalTraineeName = formatTraineeName(rawTraineeName);
   const rawCourseTitle = courseTitle || certificate?.course_title || course?.title || course?.name || course?.title || 'Summer Training Course';
   
   let courseDurationHours = course?.duration_hours || certificate?.duration_hours || 0;

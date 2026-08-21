@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);
 }
 
-$ideaId = (int)($_GET['idea_id'] ?? 0);
+$ideaId = resolveIdeaId($_GET['idea_id'] ?? 0);
 if (!$ideaId) {
     respondError('idea_id is required');
 }

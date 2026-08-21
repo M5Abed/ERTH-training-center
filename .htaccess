@@ -13,6 +13,14 @@ RewriteBase /
 # RewriteCond %{HTTPS} off
 # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+# ── Pass Authorization header to PHP-CGI / FastCGI (Hostinger / cPanel) ─────
+# Without this, Apache strips Authorization on shared hosting and API auth fails
+RewriteCond %{HTTP:Authorization} .
+RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# Also expose the header for mod_rewrite-based PHP-FPM setups
+SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+
 # ── Allow Direct Access to API & Uploads ───────────────────
 RewriteRule ^api/ - [L]
 RewriteRule ^uploads/ - [L]

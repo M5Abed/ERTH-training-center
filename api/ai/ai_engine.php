@@ -117,19 +117,17 @@ STRICT RULES:
 
     // 6.3b — Generate official 7-section proposal for custom idea (Case B)
     'custom_proposal_7_sections' => [
-        'system'       => 'You are an expert academic project proposal writer for university engineering training programs. '
-            . 'Generate a comprehensive project proposal following the exact 7 official template sections. '
-            . 'CRITICAL REQUIREMENT: Output MUST be exclusively in the ENGLISH language. '
-            . 'Return a JSON object with exactly these fields: '
-            . 'title (string), tech_stack (comma-separated string), abstract (string, 150-250 words), '
-            . 'introduction_background (string, 2-3 paragraphs), problem_definition (string, 1-2 paragraphs), '
-            . 'objectives_scope (string with clear in-scope/out-of-scope details), '
-            . 'related_work (string comparing prior approaches), methodology (string describing technical approach and pipeline), '
-            . 'expected_system_design (string describing system architecture and data flow). '
-            . 'Output ONLY valid JSON, no markdown fences, no extra text.',
-        'userTemplate' => 'Project Concept: {keywords}. Context / Student Notes: {context}. Target Track: {domain}. Language: English only.',
-        'temperature'  => 0.7,
-        'maxTokens'    => 2500,
+        'system'       => 'You are a distinguished Professor of Computer Science & Applied AI, serving as Head of the Academic Project Review Board at New Mansoura University. '
+            . 'Your task is to review a student\'s manually authored Project Title and Project Description, synthesize their concepts, and generate a comprehensive, highly rigorous undergraduate graduation/training project proposal. '
+            . 'CRITICAL INSTRUCTIONS: '
+            . '1. LANGUAGE: Output MUST be 100% in formal, sophisticated academic ENGLISH. If the input contains Arabic or informal wording, translate and elevate the conceptual formulation into scholarly English. '
+            . '2. TAILORED RELEVANCE: All 7 sections and technical fields MUST be strictly derived from and customized to the student\'s specific project domain (e.g. Web Engineering, Mobile Systems, Computer Vision, Deep Learning, Cybersecurity, Cloud/DevOps, IoT, or Data Science). Do NOT use generic robot/hardware placeholders unless explicitly stated by the student. '
+            . '3. NO DUMMY OR REPETITIVE TEXT: Avoid vague boilerplate phrases or generic filler. Use domain-specific terminology, realistic pipeline architectures, and concrete academic justifications. '
+            . '4. OUTPUT FORMAT: Return ONLY a single raw valid JSON object (no markdown fences, no preamble, no postscript) with EXACTLY these keys: '
+            . 'title, tech_stack, problem_statement, expected_output, abstract, introduction_background, problem_definition, objectives_scope, related_work, methodology, expected_system_design.',
+        'userTemplate' => "Project Title: {title}\nDetailed Project Description & Notes: {description}\nTarget Domain / Track: {domain}\nLanguage requirement: English only.",
+        'temperature'  => 0.45,
+        'maxTokens'    => 3500,
     ],
 
     // 6.4 — Evaluate a project idea and return structured JSON scores
@@ -254,7 +252,7 @@ const PROVIDER_URLS = [
 // ── Main entry point ─────────────────────────────────────────────────────────
 
 /**
- * callAI — centralized AI request handler.
+ * callAI — centralized AI request handler with 5-Key Rotation & Quality Validation.
  *
  * @param  int    $userId   Authenticated user's ID (for quota tracking)
  * @param  string $taskType One of the TASK_PROMPTS keys (expand, skills, proposal, …)
@@ -290,25 +288,27 @@ function callAI(int $userId, string $taskType, array $payload): array
         ['role' => 'user',   'content' => $userContent],
     ];
 
-    // ── 4. Pick active key(s) and call provider — up to 3 rotation attempts ─
-    $maxAttempts = 3;
-    $lastError   = 'No active AI provider keys found';
-    $lastCode    = 'NO_KEYS';
+    // ── 4. Retrieve all available provider keys (Supports 5-Key Rotation) ──
+    $availableKeys = _getAllAvailableGroqKeys();
+    if (empty($availableKeys)) {
+        return _aiError('The AI service is currently experiencing high demand. Please try again in a few moments.', 'NO_KEYS');
+    }
 
-    for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
-        $keyRow = _pickKey();
-        if ($keyRow === null) {
-            break;  // No active keys left at all
-        }
+    $lastError = 'The AI service is currently experiencing high demand. Please try again in a few moments.';
+    $lastCode  = 'AI_HIGH_DEMAND';
+    $keyFailures = [];
 
-        $secret = _readSecret($keyRow['env_var_name']);
+    // Loop through ALL available keys sequentially (Key 1 -> Key 2 -> Key 3 -> Key 4 -> Key 5)
+    foreach ($availableKeys as $keyIndex => $keyRow) {
+        $secret = $keyRow['secret'] ?? '';
         if (!$secret) {
-            // Key is registered but env var is missing/empty — disable it
-            _disableKey($keyRow['id'], 'env_var_missing');
             continue;
         }
 
-        // ── 5. HTTP request ──────────────────────────────────────────────────
+        $keyLabel = $keyRow['key_label'] ?? ('Key ' . ($keyIndex + 1));
+        $startTime = microtime(true);
+
+        // ── 5. HTTP request to Groq / Provider ───────────────────────────────
         $response = _callProvider(
             url:         $keyRow['api_url'],
             apiKey:      $secret,
@@ -317,14 +317,30 @@ function callAI(int $userId, string $taskType, array $payload): array
             temperature: (float)$taskDef['temperature'],
             maxTokens:   (int)$taskDef['maxTokens']
         );
+        $elapsedMs = round((microtime(true) - $startTime) * 1000, 2);
 
         if ($response['ok']) {
+            $rawResult = $response['content'];
+
+            // ── Response Quality Validation ──
+            if (!_validateProposalQuality($taskType, $rawResult)) {
+                error_log("[callAI] $keyLabel returned invalid/insufficient content ({$elapsedMs}ms). Silently rotating to next key.");
+                $keyFailures[] = [
+                    'key'     => $keyLabel,
+                    'code'    => 'LOW_QUALITY',
+                    'error'   => 'Response failed minimum length or JSON structure validation',
+                    'latency' => $elapsedMs
+                ];
+                continue; // Immediately try next key silently
+            }
+
             // ── 6. Success: cache + update counters ──────────────────────────
             $tokenCount = $response['tokens'];
-            $rawResult  = $response['content'];
 
             _cacheSet($cacheKey, $taskType, $rawResult);
-            _incrementKeyTokens($keyRow['id'], $tokenCount);
+            if (isset($keyRow['id']) && $keyRow['id'] < 100) {
+                _incrementKeyTokens($keyRow['id'], $tokenCount);
+            }
             _incrementUserUsage($userId, $tokenCount);
 
             // Parse JSON task types automatically with markdown cleanup
@@ -342,24 +358,36 @@ function callAI(int $userId, string $taskType, array $payload): array
                 }
             }
 
-            return ['ok' => true, 'result' => $parsedResult, 'cached' => false, 'tokens' => $tokenCount];
+            return [
+                'ok'         => true,
+                'result'     => $parsedResult,
+                'cached'     => false,
+                'tokens'     => $tokenCount,
+                'used_key'   => $keyLabel,
+                'latency_ms' => $elapsedMs
+            ];
         }
 
-        // ── Handle provider errors ───────────────────────────────────────────
-        $lastError = $response['error'];
-        $lastCode  = $response['code'];
+        // ── Provider error (429 Rate Limit, 413, 500, 502, 503, Network Timeout): Log and silently rotate to next key ──
+        $errCode = $response['code'] ?? 'PROVIDER_ERROR';
+        $errMsg  = $response['error'] ?? 'Unknown provider error';
+        error_log("[callAI] $keyLabel failed ($errCode: $errMsg) [{$elapsedMs}ms]. Silently rotating to next key.");
 
-        if ($response['code'] === 'RATE_LIMITED') {
-            // Disable this key for the rest of the day and try the next
+        $keyFailures[] = [
+            'key'     => $keyLabel,
+            'code'    => $errCode,
+            'error'   => $errMsg,
+            'latency' => $elapsedMs
+        ];
+
+        if ($errCode === 'RATE_LIMITED' && isset($keyRow['id']) && $keyRow['id'] < 100) {
             _disableKey($keyRow['id'], 'rate_limited');
-            continue;
         }
-
-        // For other errors (auth failure, bad request) — stop rotating
-        break;
     }
 
-    return _aiError($lastError, $lastCode);
+    // If all keys failed or reached capacity simultaneously:
+    error_log("[callAI] All " . count($availableKeys) . " Groq API keys failed. Failures: " . json_encode($keyFailures));
+    return _aiError('The AI service is currently experiencing high demand. Please try again in a few moments.', 'AI_HIGH_DEMAND');
 }
 
 
@@ -437,6 +465,170 @@ function _cacheSet(string $cacheKey, string $taskType, string $rawResult): void
 }
 
 /**
+ * Discover and aggregate all available Groq API keys (up to 5+ keys)
+ * from GROQ_API_KEYS_ARRAY, individual env vars (GROQ_KEY_1..5, GROQ_API_KEY_1..5),
+ * comma/newline-separated lists, and database keys.
+ *
+ * Guaranteed to return an ordered array of distinct keys: Key 1, Key 2, Key 3, Key 4, Key 5...
+ */
+function _getAllAvailableGroqKeys(): array
+{
+    $keys = [];
+    $seenSecrets = [];
+    $defaultModel = _readSecret('GROQ_MODEL') ?: (defined('GROQ_MODEL') ? GROQ_MODEL : 'openai/gpt-oss-120b');
+
+    // Helper to add a secret key with custom label
+    $addKey = function(string $secret, string $sourceLabel) use (&$keys, &$seenSecrets, $defaultModel) {
+        $secret = trim($secret);
+        if ($secret === '' || isset($seenSecrets[$secret])) {
+            return;
+        }
+        $seenSecrets[$secret] = true;
+        $idx = count($keys) + 1;
+        $keys[] = [
+            'id'           => 100 + $idx,
+            'index'        => $idx,
+            'provider'     => 'groq',
+            'key_label'    => "Key $idx ($sourceLabel)",
+            'source'       => $sourceLabel,
+            'secret'       => $secret,
+            'model'        => $defaultModel,
+            'api_url'      => 'https://api.groq.com/openai/v1/chat/completions',
+            'env_var_name' => $sourceLabel,
+        ];
+    };
+
+    // 1. Check GROQ_API_KEYS_ARRAY (JSON array or list)
+    $arrayVal = _readSecret('GROQ_API_KEYS_ARRAY');
+    if ($arrayVal) {
+        $decoded = json_decode($arrayVal, true);
+        if (is_array($decoded)) {
+            foreach ($decoded as $kIdx => $kVal) {
+                if (is_string($kVal)) {
+                    $addKey($kVal, 'GROQ_API_KEYS_ARRAY[' . ($kIdx + 1) . ']');
+                }
+            }
+        } else {
+            $tokens = preg_split('/[\r\n,;]+/', $arrayVal);
+            foreach ($tokens as $kIdx => $token) {
+                $addKey($token, 'GROQ_API_KEYS_ARRAY[' . ($kIdx + 1) . ']');
+            }
+        }
+    }
+
+    // 2. Check GROQ_KEY_1 through GROQ_KEY_10 explicitly in numerical order
+    for ($i = 1; $i <= 10; $i++) {
+        $val = _readSecret("GROQ_KEY_$i");
+        if ($val) {
+            $addKey($val, "GROQ_KEY_$i");
+        }
+    }
+
+    // 3. Check GROQ_API_KEY_1 through GROQ_API_KEY_10 explicitly in numerical order
+    for ($i = 1; $i <= 10; $i++) {
+        $val = _readSecret("GROQ_API_KEY_$i");
+        if ($val) {
+            $addKey($val, "GROQ_API_KEY_$i");
+        }
+    }
+
+    // 4. Check single key fallback or comma-separated lists
+    $otherEnvVars = ['GROQ_API_KEY', 'GROQ_KEY', 'GROQ_API_KEYS'];
+    foreach ($otherEnvVars as $envVar) {
+        $val = _readSecret($envVar);
+        if (!$val) continue;
+        $tokens = preg_split('/[\r\n,;]+/', $val);
+        foreach ($tokens as $tIdx => $token) {
+            $addKey($token, $envVar . (count($tokens) > 1 ? "[" . ($tIdx + 1) . "]" : ""));
+        }
+    }
+
+    // 5. Check database ai_provider_keys table if active
+    try {
+        $stmt = db()->prepare("SELECT * FROM ai_provider_keys WHERE is_active = 1 ORDER BY priority ASC, used_today_tokens ASC");
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            $secret = _readSecret($row['env_var_name'] ?? '');
+            if ($secret) {
+                $addKey($secret, 'DB:' . ($row['key_label'] ?? $row['env_var_name']));
+            }
+        }
+    } catch (\Throwable $e) {
+        // Ignore DB key table errors if table not present
+    }
+
+    return $keys;
+}
+
+/**
+ * Validate that response content meets minimum quality standards for proposals.
+ * Rejects 1-word, empty, or dummy responses and forces rotation to next key.
+ */
+function _validateProposalQuality(string $taskType, mixed $rawResult): bool
+{
+    if (empty($rawResult)) {
+        return false;
+    }
+
+    // For non-proposal task types, ensure non-trivial length
+    if (!in_array($taskType, ['proposal', 'custom_proposal_7_sections'], true)) {
+        return is_string($rawResult) ? (strlen(trim($rawResult)) >= 10) : !empty($rawResult);
+    }
+
+    // Parse JSON
+    $data = null;
+    if (is_array($rawResult)) {
+        $data = $rawResult;
+    } elseif (is_string($rawResult)) {
+        $clean = trim($rawResult);
+        if (preg_match('/^```(?:json)?\s*([\s\S]*?)\s*```$/i', $clean, $m)) {
+            $clean = trim($m[1]);
+        } elseif (preg_match('/\{[\s\S]*\}/', $clean, $m)) {
+            $clean = trim($m[0]);
+        }
+        $decoded = json_decode($clean, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            $data = $decoded;
+        }
+    }
+
+    if (!$data || !is_array($data)) {
+        return false;
+    }
+
+    // Check title quality
+    $title = trim((string)($data['title'] ?? ''));
+    if (strlen($title) < 5) {
+        return false;
+    }
+
+    // Check description / abstract
+    $desc = trim((string)($data['description'] ?? $data['abstract'] ?? ''));
+    if (strlen($desc) < 30) {
+        return false;
+    }
+
+    // Check problem statement / definition
+    $problem = trim((string)($data['problem_statement'] ?? $data['problem_definition'] ?? ''));
+    if (strlen($problem) < 15) {
+        return false;
+    }
+
+    // If 7 sections format
+    if ($taskType === 'custom_proposal_7_sections') {
+        $abstract = trim((string)($data['abstract'] ?? ''));
+        $probDef  = trim((string)($data['problem_definition'] ?? ''));
+        $method   = trim((string)($data['methodology'] ?? ''));
+        if (strlen($abstract) < 25 || strlen($probDef) < 15 || strlen($method) < 15) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * Select the best active key: lowest used_today_tokens, ordered by priority.
  * Auto-resets a key's token count if reset_date < today (lazy reset).
  */
@@ -471,11 +663,7 @@ function _pickKey(): ?array
  */
 function _readSecret(string $envVarName): string
 {
-    // Check PHP constants first (loaded by config.php via parse_ini_file)
-    if (defined($envVarName) && constant($envVarName) !== '') {
-        return constant($envVarName);
-    }
-    if (getenv($envVarName)) {
+    if (getenv($envVarName) !== false && getenv($envVarName) !== '') {
         return (string)getenv($envVarName);
     }
     if (!empty($_ENV[$envVarName])) {
@@ -483,6 +671,9 @@ function _readSecret(string $envVarName): string
     }
     if (!empty($_SERVER[$envVarName])) {
         return (string)$_SERVER[$envVarName];
+    }
+    if (defined($envVarName) && constant($envVarName) !== '') {
+        return (string)constant($envVarName);
     }
     return '';
 }
@@ -560,59 +751,87 @@ function _callProvider(
     float  $temperature,
     int    $maxTokens
 ): array {
-    $body = json_encode([
-        'model'       => $model,
-        'messages'    => $messages,
-        'max_tokens'  => $maxTokens,
-        'temperature' => $temperature,
-    ], JSON_UNESCAPED_UNICODE);
+    $modelsToTry = array_unique(array_filter([$model, 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b']));
+    $lastErr = null;
+    $lastCode = null;
 
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_TIMEOUT        => 45,
-        CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_HTTPHEADER     => [
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . $apiKey,
-        ],
-        CURLOPT_POSTFIELDS     => $body,
-    ]);
+    foreach ($modelsToTry as $currentModel) {
+        $body = json_encode([
+            'model'       => $currentModel,
+            'messages'    => $messages,
+            'max_tokens'  => $maxTokens,
+            'temperature' => $temperature,
+        ], JSON_UNESCAPED_UNICODE);
 
-    $raw      = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlErr  = curl_error($ch);
-    curl_close($ch);
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_TIMEOUT        => 25,
+            CURLOPT_CONNECTTIMEOUT => 6,
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $apiKey,
+            ],
+            CURLOPT_POSTFIELDS     => $body,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+        ]);
 
-    if ($curlErr) {
-        return _aiError('Network error: ' . $curlErr, 'NETWORK_ERROR');
+        $raw      = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr  = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlErr) {
+            return _aiError('Network error: ' . $curlErr, 'NETWORK_ERROR');
+        }
+
+        $decoded = json_decode($raw, true);
+
+        if ($httpCode === 429) {
+            $msg = $decoded['error']['message'] ?? 'Rate limit exceeded (HTTP 429)';
+            return _aiError($msg, 'RATE_LIMITED');
+        }
+
+        if ($httpCode === 413) {
+            return _aiError('Payload too large (HTTP 413)', 'PAYLOAD_TOO_LARGE');
+        }
+
+        if ($httpCode === 401 || $httpCode === 403) {
+            return _aiError('API key rejected (HTTP ' . $httpCode . ')', 'AUTH_ERROR');
+        }
+
+        if ($httpCode === 500 || $httpCode === 502 || $httpCode === 503 || $httpCode === 504) {
+            $msg = $decoded['error']['message'] ?? "Service temporarily unavailable (HTTP $httpCode)";
+            return _aiError($msg, 'SERVICE_UNAVAILABLE');
+        }
+
+        // If model does not exist (400 or 404), continue loop to try fallback models
+        if ($httpCode !== 200) {
+            $msg = $decoded['error']['message'] ?? "Provider error (HTTP $httpCode)";
+            $lastErr = $msg;
+            $lastCode = 'PROVIDER_ERROR';
+            if (strpos(strtolower($msg), 'model') !== false || $httpCode === 404) {
+                continue;
+            }
+            return _aiError($msg, 'PROVIDER_ERROR');
+        }
+
+        $content = $decoded['choices'][0]['message']['content'] ?? null;
+        if ($content === null || trim($content) === '') {
+            $content = $decoded['choices'][0]['text'] ?? ($decoded['choices'][0]['message']['reasoning'] ?? null);
+        }
+
+        if ($content === null || trim((string)$content) === '') {
+            return _aiError('Empty response content from provider', 'EMPTY_RESPONSE');
+        }
+
+        $tokens = (int)($decoded['usage']['total_tokens'] ?? 0);
+        return ['ok' => true, 'content' => trim((string)$content), 'tokens' => $tokens];
     }
 
-    $decoded = json_decode($raw, true);
-
-    if ($httpCode === 429) {
-        $msg = $decoded['error']['message'] ?? 'Rate limit exceeded';
-        return _aiError($msg, 'RATE_LIMITED');
-    }
-
-    if ($httpCode === 401 || $httpCode === 403) {
-        return _aiError('API key rejected (HTTP ' . $httpCode . ')', 'AUTH_ERROR');
-    }
-
-    if ($httpCode !== 200) {
-        $msg = $decoded['error']['message'] ?? "Provider error (HTTP $httpCode)";
-        return _aiError($msg, 'PROVIDER_ERROR');
-    }
-
-    $content = $decoded['choices'][0]['message']['content'] ?? null;
-    if ($content === null) {
-        return _aiError('Empty response from provider', 'EMPTY_RESPONSE');
-    }
-
-    $tokens = (int)($decoded['usage']['total_tokens'] ?? 0);
-
-    return ['ok' => true, 'content' => trim($content), 'tokens' => $tokens];
+    return _aiError($lastErr ?: 'All candidate models failed', $lastCode ?: 'PROVIDER_ERROR');
 }
 
 /**

@@ -5,7 +5,7 @@
  */
 require_once __DIR__ . '/../config.php';
 
-requireAdmin();
+$currentUser = requireRole(['admin', 'trainer', 'professor', 'supervisor', 'staff', 'faculty', 'doctor']);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respondError('POST required', 405);
@@ -46,11 +46,12 @@ if ($chk->fetch()) {
 
 // Create account with selected role, approval_status='approved', email_verified=1
 $hash = password_hash($password, PASSWORD_DEFAULT);
+$userUuid = generateUuidV4();
 $ins = db()->prepare("
-    INSERT INTO users (email, password_hash, full_name, role, is_admin, department, approval_status, email_verified, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, 'approved', 1, NOW())
+    INSERT INTO users (uuid, email, password_hash, full_name, role, is_admin, department, approval_status, email_verified, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', 1, NOW())
 ");
-$ins->execute([$email, $hash, $name, $role, $isAdmin, $department ?: null]);
-$newId = db()->lastInsertId();
+$ins->execute([$userUuid, $email, $hash, $name, $role, $isAdmin, $department ?: null]);
 
-respond(['success' => true, 'user_id' => $newId, 'role' => $role, 'message' => 'Trainer account created successfully'], 201);
+respond(['success' => true, 'user_id' => $userUuid, 'id' => $userUuid, 'uuid' => $userUuid, 'role' => $role, 'message' => 'Trainer account created successfully'], 201);
+

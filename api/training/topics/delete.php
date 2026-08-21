@@ -29,6 +29,11 @@ if (!$topic) {
 
 verifyCourseAccess((int)$topic['course_id'], $user);
 
+try {
+    $db->prepare("DELETE FROM topic_content WHERE topic_id = ?")->execute([$topicId]);
+    $db->prepare("DELETE FROM trainee_topic_progress WHERE topic_id = ?")->execute([$topicId]);
+} catch (Throwable $e) {}
+
 $stmt = $db->prepare("DELETE FROM training_topics WHERE id = ?");
 $stmt->execute([$topicId]);
 

@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 $db       = db();
-$courseId = isset($_GET['course_id']) && $_GET['course_id'] !== '' ? (int)$_GET['course_id'] : null;
+$courseId = isset($_GET['course_id']) && $_GET['course_id'] !== '' ? resolveCourseId($_GET['course_id']) : null;
 $search   = sanitizeString($_GET['search'] ?? '');
 $page     = max(1, (int)($_GET['page'] ?? 1));
 $perPage  = min(200, max(10, (int)($_GET['per_page'] ?? 50)));
@@ -35,8 +35,9 @@ if ($courseId) {
     $params[] = $courseId;
 }
 if ($search) {
-    $where   .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR u.student_id LIKE ?)";
+    $where   .= " AND (u.full_name LIKE ? OR u.email LIKE ? OR u.student_id LIKE ? OR u.academic_id LIKE ?)";
     $like     = "%$search%";
+    $params[] = $like;
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
@@ -48,44 +49,52 @@ $total    = 0;
 try {
     // Total distinct trainees count
     $countStmt = $db->prepare("
-        SELECT COUNT(DISTINCT u.id) 
+        SELECT COUNT(DISTINCT u.id)
         FROM users u
-        LEFT JOIN trainee_enrollments te ON u.id = te.trainee_id
-        $where AND u.role = 'trainee'
+        $where AND (TRIM(LOWER(COALESCE(u.role, ''))) IN ('trainee', 'student') OR u.id IN (SELECT trainee_id FROM trainee_enrollments))
+          AND (u.approval_status != 'rejected' OR u.approval_status IS NULL)
     ");
     $countStmt->execute($params);
     $total = (int)$countStmt->fetchColumn();
 
-    // Paginated distinct trainees results — full query with all JOINs
-    $stmt = $db->prepare("
+    // Fetch page of trainees with enriched details
+    $sql = "
         SELECT
-            u.id                AS trainee_id,
+            u.id AS trainee_id,
             u.full_name,
             u.email,
-            u.student_id,
-            u.final_track,
-            MIN(te.enrolled_at) AS enrolled_at,
-            MIN(te.training_start_date) AS training_start_date,
-            MAX(te.training_type) AS training_type,
-            MAX(COALESCE(p.name, te.custom_provider_name)) AS provider_name,
-            MAX(COALESCE(p.website_url, te.custom_provider_website)) AS provider_website,
-            MAX(COALESCE(p.linkedin_url, te.custom_provider_linkedin)) AS provider_linkedin,
-            GROUP_CONCAT(DISTINCT CONCAT(tc.id, ':::', tc.name) SEPARATOR '|||') AS courses_raw,
-            (SELECT COUNT(*) FROM training_ideas ti WHERE ti.owner_id = u.id) AS idea_count,
-            (SELECT COUNT(*) FROM trainee_topic_progress ttp WHERE ttp.trainee_id = u.id) AS topics_viewed
+            COALESCE(u.student_id, u.academic_id) AS student_id,
+            COALESCE(te.final_track, u.final_track) AS final_track,
+            te.training_start_date,
+            COALESCE(te.training_type, 'internal') AS training_type,
+            COALESCE(p.name, te.custom_provider_name) AS provider_name,
+            COALESCE(p.website_url, te.custom_provider_website) AS provider_website,
+            COALESCE(p.linkedin_url, te.custom_provider_linkedin) AS provider_linkedin,
+            te.enrolled_at,
+            (
+                SELECT GROUP_CONCAT(CONCAT(tc.id, ':::', tc.name) SEPARATOR '|||')
+                FROM trainee_enrollments te2
+                JOIN training_courses tc ON te2.course_id = tc.id
+                WHERE te2.trainee_id = u.id
+            ) AS courses_raw,
+            (SELECT COUNT(*) FROM training_ideas WHERE owner_id = u.id) AS idea_count,
+            (SELECT COUNT(*) FROM trainee_topic_progress WHERE trainee_id = u.id) AS topics_viewed
         FROM users u
         LEFT JOIN trainee_enrollments te ON te.trainee_id = u.id
-        LEFT JOIN external_training_providers p ON p.id = te.provider_id
-        LEFT JOIN training_courses tc ON tc.id = te.course_id
-        $where AND u.role = 'trainee'
+        LEFT JOIN external_training_providers p ON te.provider_id = p.id
+        $where AND (TRIM(LOWER(COALESCE(u.role, ''))) IN ('trainee', 'student') OR u.id IN (SELECT trainee_id FROM trainee_enrollments))
+          AND (u.approval_status != 'rejected' OR u.approval_status IS NULL)
         GROUP BY u.id
         ORDER BY u.full_name ASC
-        LIMIT $perPage OFFSET $offset
-    ");
-    $stmt->execute($params);
-    $rawTrainees = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        LIMIT ? OFFSET ?
+    ";
 
-    foreach ($rawTrainees as $row) {
+    $fetchParams = array_merge($params, [$perPage, $offset]);
+    $stmt = $db->prepare($sql);
+    $stmt->execute($fetchParams);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($rows as $row) {
         $coursesList = [];
         if (!empty($row['courses_raw'])) {
             $pairs = explode('|||', $row['courses_raw']);
@@ -93,7 +102,7 @@ try {
                 $parts = explode(':::', $p, 2);
                 if (count($parts) === 2) {
                     $coursesList[] = [
-                        'id'   => (int)$parts[0],
+                        'id'   => getCourseUuid((int)$parts[0]),
                         'name' => $parts[1]
                     ];
                 }
@@ -101,10 +110,12 @@ try {
         }
 
         $firstCourseName = !empty($coursesList) ? $coursesList[0]['name'] : '';
+        $tUuid = getUserUuid((int)$row['trainee_id']);
 
         $trainees[] = [
-            'enrollment_id'       => (int)$row['trainee_id'],
-            'trainee_id'          => (int)$row['trainee_id'],
+            'enrollment_id'       => $tUuid,
+            'trainee_id'          => $tUuid,
+            'id'                  => $tUuid,
             'full_name'           => $row['full_name'],
             'email'               => $row['email'],
             'student_id'          => $row['student_id'],
@@ -123,14 +134,13 @@ try {
     }
 
 } catch (Throwable $e) {
-    // Fallback: simpler query using only users table + enrollments
-    error_log('Trainees list full query failed: ' . $e->getMessage());
+    error_log('Trainees list query failed: ' . $e->getMessage());
 
     try {
         $countStmt = $db->prepare("
             SELECT COUNT(DISTINCT u.id) 
             FROM users u
-            $where AND u.role = 'trainee'
+            $where AND TRIM(LOWER(COALESCE(u.role, ''))) IN ('trainee', 'student')
         ");
         $countStmt->execute($params);
         $total = (int)$countStmt->fetchColumn();
@@ -140,31 +150,26 @@ try {
                 u.id AS trainee_id,
                 u.full_name,
                 u.email,
-                u.student_id,
-                u.final_track
+                COALESCE(u.student_id, u.academic_id) AS student_id,
+                u.created_at AS enrolled_at
             FROM users u
-            $where AND u.role = 'trainee'
+            $where AND TRIM(LOWER(COALESCE(u.role, ''))) IN ('trainee', 'student')
             ORDER BY u.full_name ASC
-            LIMIT $perPage OFFSET $offset
+            LIMIT ? OFFSET ?
         ");
-        $stmt->execute($params);
-        $rawTrainees = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt->execute(array_merge($params, [$perPage, $offset]));
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $trainees = [];
-        foreach ($rawTrainees as $row) {
+        foreach ($rows as $row) {
+            $tUuid = getUserUuid((int)$row['trainee_id']);
             $trainees[] = [
-                'enrollment_id'       => (int)$row['trainee_id'],
-                'trainee_id'          => (int)$row['trainee_id'],
+                'enrollment_id'       => $tUuid,
+                'trainee_id'          => $tUuid,
+                'id'                  => $tUuid,
                 'full_name'           => $row['full_name'],
                 'email'               => $row['email'],
-                'student_id'          => $row['student_id'] ?? null,
-                'final_track'         => $row['final_track'] ?? null,
-                'training_start_date' => null,
-                'training_type'       => null,
-                'provider_name'       => null,
-                'provider_website'    => null,
-                'provider_linkedin'   => null,
-                'enrolled_at'         => null,
+                'student_id'          => $row['student_id'],
+                'enrolled_at'         => $row['enrolled_at'],
                 'courses'             => [],
                 'course_name'         => '',
                 'idea_count'          => 0,
@@ -172,15 +177,15 @@ try {
             ];
         }
     } catch (Throwable $e2) {
-        error_log('Trainees list fallback query also failed: ' . $e2->getMessage());
-        respondError('Server error loading trainees: ' . $e2->getMessage(), 500);
+        $trainees = [];
+        $total = 0;
     }
 }
 
 respond([
-    'trainees' => $trainees,
-    'total'    => $total,
-    'page'     => $page,
-    'per_page' => $perPage,
+    'trainees'    => $trainees,
+    'total'       => $total,
+    'page'        => $page,
+    'per_page'    => $perPage,
+    'total_pages' => max(1, (int)ceil($total / $perPage))
 ]);
-

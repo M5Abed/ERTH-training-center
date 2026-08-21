@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data = body();
-$courseId      = (int)($data['id'] ?? $data['course_id'] ?? 0);
+$courseId      = resolveCourseId($data['id'] ?? $data['course_id'] ?? 0);
 $name          = sanitizeString($data['name'] ?? $data['name_en'] ?? '');
 $description   = sanitizeString($data['description'] ?? $data['description_en'] ?? '');
 $category      = sanitizeString($data['category'] ?? '');

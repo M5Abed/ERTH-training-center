@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respondError('Method not allowed', 405);
 }
 
-$courseId = (int)($_POST['course_id'] ?? 0);
+$courseId = resolveCourseId($_POST['course_id'] ?? 0);
 if (empty($_FILES['excel_file'])) {
     respondError('Excel/CSV file upload is required');
 }

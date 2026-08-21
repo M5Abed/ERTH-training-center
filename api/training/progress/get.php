@@ -8,13 +8,13 @@ require_once __DIR__ . '/../../config.php';
 
 $user = requireRole(['trainee', 'trainer', 'admin']);
 $uid = (int)$user['id'];
-$targetTraineeId = isset($_GET['trainee_id']) ? (int)$_GET['trainee_id'] : $uid;
+$targetTraineeId = isset($_GET['trainee_id']) ? resolveUserId($_GET['trainee_id']) : $uid;
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     respondError('Method not allowed', 405);
 }
 
-$courseId = (int)($_GET['course_id'] ?? 0);
+$courseId = resolveCourseId($_GET['course_id'] ?? 0);
 if (!$courseId) {
     respondError('Course ID is required');
 }

@@ -36,9 +36,9 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
-    $ideaId   = isset($_GET['idea_id']) ? (int)$_GET['idea_id'] : 0;
-    $courseId = isset($_GET['course_id']) ? (int)$_GET['course_id'] : 0;
-    $targetTraineeId = isset($_GET['trainee_id']) ? (int)$_GET['trainee_id'] : 0;
+    $ideaId          = resolveIdeaId($_GET['idea_id'] ?? 0);
+    $courseId        = resolveCourseId($_GET['course_id'] ?? 0);
+    $targetTraineeId = resolveUserId($_GET['trainee_id'] ?? 0);
 
     $whereClauses = [];
     $params = [];

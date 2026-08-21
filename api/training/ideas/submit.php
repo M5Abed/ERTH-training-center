@@ -35,15 +35,30 @@ if (!is_array($rawTeammateIds)) {
 // Clean and deduplicate teammate IDs (Max 4 teammates + 1 leader = 5 total)
 $teammateIds = [];
 foreach ($rawTeammateIds as $tId) {
-    $id = (int) $tId;
+    $id = resolveUserId($tId);
     if ($id > 0 && $id !== $uid && !in_array($id, $teammateIds, true)) {
         $teammateIds[] = $id;
     }
 }
 $teammateIds = array_slice($teammateIds, 0, 4);
 
-if (!$courseId || !$title || !$description) {
-    respondError('Course ID, title, and description are required');
+$isDraft = !empty($data['is_draft']) || (isset($data['status']) && strtolower($data['status']) === 'draft');
+$targetStatus = $isDraft ? 'draft' : 'submitted';
+
+if (!$isDraft) {
+    if (!$courseId || !$title || !$description) {
+        respondError('Course ID, title, and description are required');
+    }
+} else {
+    if (!$courseId) {
+        respondError('Course ID is required');
+    }
+    if (!$title) {
+        $title = 'Project Draft';
+    }
+    if (!$description) {
+        $description = 'Project Draft in progress';
+    }
 }
 
 $db = db();
@@ -57,12 +72,18 @@ if (!$course) {
 }
 $courseName = $course['name'] ?? 'Training Course';
 
-// Require submitter to be enrolled in the course (unless admin/trainer)
+// Ensure submitter is enrolled in the course (auto-enroll if needed)
 if (!$isEvaluator) {
     $enr = $db->prepare("SELECT id FROM trainee_enrollments WHERE trainee_id = ? AND course_id = ?");
     $enr->execute([$uid, $courseId]);
     if (!$enr->fetch()) {
-        respondError('You are not enrolled in this course. You can only submit project ideas for courses you are enrolled in.');
+        try {
+            $autoEnr = $db->prepare("
+                INSERT INTO trainee_enrollments (course_id, trainee_id, training_type, source)
+                VALUES (?, ?, 'internal', 'idea_submission')
+            ");
+            $autoEnr->execute([$courseId, $uid]);
+        } catch (Throwable $e) {}
     }
 }
 
@@ -98,6 +119,23 @@ if ($existingIdeaId && ($existingStatus === 'approved' || $existingStatus === 'c
     respondError("This project idea has been officially approved by the supervisor and cannot be modified. You can only add team members or upload files until training is complete.", 403);
 }
 
+// Check if an idea with the same title is already taken across the entire platform (Global Constraint)
+if (!$isDraft && !empty($title)) {
+    $dupSql = "
+        SELECT id, title, owner_id 
+        FROM training_ideas 
+        WHERE LOWER(TRIM(title)) = LOWER(TRIM(?))
+          AND status != 'rejected'
+          AND owner_id != ?" . ($existingIdeaId ? " AND id != ?" : "");
+    $dupParams = $existingIdeaId ? [$title, $uid, $existingIdeaId] : [$title, $uid];
+    $dupCheck = $db->prepare($dupSql);
+    $dupCheck->execute($dupParams);
+    $alreadyExists = $dupCheck->fetch();
+    if ($alreadyExists) {
+        respondError("This project title/idea has already been chosen by another team on the platform. Please choose or submit a distinct project title.", 409);
+    }
+}
+
 // Validate all selected teammates
 if (!empty($teammateIds)) {
     if (count($teammateIds) > 4) {
@@ -105,20 +143,26 @@ if (!empty($teammateIds)) {
     }
     foreach ($teammateIds as $tId) {
         // 1. Teammate user existence
-        $uStmt = $db->prepare("SELECT id, full_name, username, email, student_id FROM users WHERE id = ?");
+        $uStmt = $db->prepare("SELECT id, full_name, email, student_id FROM users WHERE id = ?");
         $uStmt->execute([$tId]);
         $teammateUser = $uStmt->fetch();
         if (!$teammateUser) {
             respondError("Selected teammate ID $tId not found");
         }
-        $tName = $teammateUser['full_name'] ?: ($teammateUser['username'] ?: ($teammateUser['student_id'] ?: 'Student #' . $tId));
+        $tName = $teammateUser['full_name'] ?: ($teammateUser['email'] ?: ($teammateUser['student_id'] ?: 'Student #' . $tId));
 
-        // 2. Teammate enrollment check
+        // 2. Teammate enrollment check / auto-enroll
         if (!$isAdmin) {
             $teStmt = $db->prepare("SELECT id FROM trainee_enrollments WHERE trainee_id = ? AND course_id = ?");
             $teStmt->execute([$tId, $courseId]);
             if (!$teStmt->fetch()) {
-                respondError("Student '$tName' is not enrolled in this course and cannot be added as a teammate.");
+                try {
+                    $autoTe = $db->prepare("
+                        INSERT INTO trainee_enrollments (course_id, trainee_id, training_type, source)
+                        VALUES (?, ?, 'internal', 'team_assignment')
+                    ");
+                    $autoTe->execute([$courseId, $tId]);
+                } catch (Throwable $e) {}
             }
         }
 
@@ -225,7 +269,7 @@ try {
                 problem_statement = ?,
                 expected_output   = ?,
                 proposal_json     = ?,
-                status            = 'submitted',
+                status            = ?,
                 feedback          = NULL,
                 reviewed_by       = NULL,
                 reviewed_at       = NULL,
@@ -238,6 +282,7 @@ try {
             $problemStmt ?: null,
             $expectedOutput ?: null,
             $finalProposalJson,
+            $targetStatus,
         ];
         if ($hasTitleEn) {
             $sql .= ", title_en = ?";
@@ -253,9 +298,11 @@ try {
         $uStmt = $db->prepare($sql);
         $uStmt->execute($params);
     } else {
-        $fields = ['owner_id', 'course_id', 'title', 'description', 'tech_stack', 'problem_statement', 'expected_output', 'proposal_json', 'status'];
-        $placeholders = ['?', '?', '?', '?', '?', '?', '?', '?', "'submitted'"];
+        $newUuid = generateUuidV4();
+        $fields = ['uuid', 'owner_id', 'course_id', 'title', 'description', 'tech_stack', 'problem_statement', 'expected_output', 'proposal_json', 'status'];
+        $placeholders = ['?', '?', '?', '?', '?', '?', '?', '?', '?', '?'];
         $params = [
+            $newUuid,
             $uid,
             $courseId,
             $title,
@@ -264,6 +311,7 @@ try {
             $problemStmt ?: null,
             $expectedOutput ?: null,
             $finalProposalJson,
+            $targetStatus,
         ];
         if ($hasTitleEn) {
             $fields[] = 'title_en';
@@ -297,10 +345,14 @@ try {
 
     $db->commit();
 
+    $ideaUuid = getIdeaUuid($ideaId);
+
     respond([
         'success' => true,
-        'message' => 'Idea submitted successfully',
-        'idea_id' => $ideaId
+        'message' => $isDraft ? 'Project draft saved successfully' : 'Project proposal submitted successfully',
+        'idea_id' => $ideaUuid,
+        'id'      => $ideaUuid,
+        'status'  => $targetStatus
     ]);
 
 } catch (Throwable $e) {

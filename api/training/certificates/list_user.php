@@ -11,7 +11,7 @@ $uid = (int)$user['id'];
 $role = strtolower($user['role'] ?? 'trainee');
 $isAdmin = (bool)($user['is_admin'] || $role === 'admin' || $role === 'trainer');
 
-$targetUserId = (isset($_GET['user_id']) && $isAdmin) ? (int)$_GET['user_id'] : $uid;
+$targetUserId = (isset($_GET['user_id']) && $isAdmin) ? resolveUserId($_GET['user_id']) : $uid;
 
 $db = db();
 $stmt = $db->prepare("

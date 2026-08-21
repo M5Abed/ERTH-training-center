@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $data         = body();
-$ideaId       = (int)($data['idea_id']       ?? 0);
+$ideaId       = resolveIdeaId($data['idea_id'] ?? 0);
 $sectionKey   = sanitizeString($data['section_key']   ?? '');
 $newContent   = $data['content']      ?? '';           // raw string, no sanitation (student owns it)
 $sectionTitle = sanitizeString($data['section_title'] ?? '');

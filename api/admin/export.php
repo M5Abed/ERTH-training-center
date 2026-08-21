@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 
 $type = strtolower(trim($_GET['type'] ?? 'trainees'));
 $format = strtolower(trim($_GET['format'] ?? 'csv'));
-$courseId = isset($_GET['course_id']) && (int)$_GET['course_id'] > 0 ? (int)$_GET['course_id'] : null;
+$courseId = isset($_GET['course_id']) ? resolveCourseId($_GET['course_id']) : null;
 
 $db = db();
 $reportRows = [];
@@ -24,11 +24,11 @@ $filename = "Export_";
 if ($type === 'trainees') {
     $filename .= "Trainees_" . ($courseId ? "Course_{$courseId}_" : "All_") . date('Y-m-d') . ".csv";
     
-    $where = "WHERE u.role = 'trainee'";
+    $where = "WHERE (u.role IN ('trainee','student') OR u.role IS NULL)";
     $params = [];
     
     if ($courseId) {
-        $where .= " AND te.course_id = ?";
+        $where = "WHERE te.course_id = ?";
         $params[] = $courseId;
     }
     
@@ -56,9 +56,13 @@ if ($type === 'trainees') {
             COALESCE(NULLIF(TRIM(te.course_code), ''), NULLIF(TRIM(c.course_code), ''), NULLIF(TRIM(c.category), ''), NULLIF(TRIM(c.name), ''), CONCAT('COURSE-', c.id)) AS course_code,
             c.name AS course_name,
             te.training_type,
+            te.training_start_date,
             COALESCE(p.name, te.custom_provider_name) AS provider_name,
+            te.verification_status,
             COALESCE((SELECT final_score FROM training_evaluations WHERE trainee_id = u.id AND course_id = c.id), te.final_grade) AS final_grade,
-            (SELECT status FROM training_evaluations WHERE trainee_id = u.id AND course_id = c.id) AS eval_status
+            (SELECT status FROM training_evaluations WHERE trainee_id = u.id AND course_id = c.id) AS eval_status,
+            (SELECT cert_code FROM training_certificates WHERE trainee_id = u.id AND course_id = c.id) AS cert_code,
+            te.enrolled_at
         FROM users u
         LEFT JOIN trainee_enrollments te ON te.trainee_id = u.id
         LEFT JOIN training_courses c ON c.id = te.course_id
@@ -81,9 +85,13 @@ if ($type === 'trainees') {
         'Course Name',
         'Final Track',
         'Training Type',
+        'Start Date',
         'Provider',
+        'Verification Status',
         'Final Grade',
-        'Evaluation Status'
+        'Evaluation Status',
+        'Certificate Code',
+        'Enrolled At'
     ];
     
     $no = 1;
@@ -100,9 +108,13 @@ if ($type === 'trainees') {
             $t['course_name'] ?: '-',
             $t['final_track'] ?: '-',
             $t['training_type'] ?: '-',
+            $t['training_start_date'] ?: '-',
             $t['provider_name'] ?: '-',
+            $t['verification_status'] ?: 'none',
             $finalGradeStr,
-            $t['eval_status'] ?? 'pending'
+            $t['eval_status'] ?? 'pending',
+            $t['cert_code'] ?: '-',
+            $t['enrolled_at'] ?: '-'
         ];
     }
 } elseif ($type === 'ideas') {
