@@ -1538,17 +1538,6 @@ export default function TraineeProjects({ courseIdOverride, isEmbedded = false }
         setEvalError('');
 
         const isGolden = newStatus === 'golden_pass';
-        const isMembersEvaluated = Boolean(
-            activeProject?.is_members_evaluated ||
-            (activeProject?.evaluation_score !== null && activeProject?.evaluation_score !== undefined && activeProject?.evaluation_score !== '') ||
-            (activeProject?.owner_evaluation_score !== null && activeProject?.owner_evaluation_score !== undefined && activeProject?.owner_evaluation_score !== '')
-        );
-
-        if (isGolden && !isMembersEvaluated) {
-            setEvalError(lang === 'ar' ? 'لا يمكن منح الكارت الذهبي قبل رصد تقييم أعضاء المشروع في تبويب التقييمات أولاً.' : 'Cannot award Golden Pass before project members are evaluated.');
-            setEvaluating(false);
-            return;
-        }
 
         try {
             const res = await fetch('/api/training/ideas/evaluate.php', {
@@ -3140,46 +3129,23 @@ export default function TraineeProjects({ courseIdOverride, isEmbedded = false }
                                                 </div>
                                             </button>
 
-                                            {(() => {
-                                                const isMembersEvaluated = Boolean(
-                                                    activeProject?.is_members_evaluated ||
-                                                    (activeProject?.evaluation_score !== null && activeProject?.evaluation_score !== undefined && activeProject?.evaluation_score !== '') ||
-                                                    (activeProject?.owner_evaluation_score !== null && activeProject?.owner_evaluation_score !== undefined && activeProject?.owner_evaluation_score !== '')
-                                                );
-
-                                                return (
-                                                    <button
-                                                        type="button"
-                                                        className={`btn-eval-golden-pass ${!isMembersEvaluated ? 'is-locked-golden-pass' : ''}`}
-                                                        disabled={evaluating || !isMembersEvaluated}
-                                                        onClick={() => handleEvaluate('golden_pass')}
-                                                        title={!isMembersEvaluated 
-                                                            ? (lang === 'ar' ? 'يجب تقييم ورصد درجات أعضاء المشروع في تبويب التقييم الأكاديمي أولاً لتفعيل الكارت الذهبي' : 'Must evaluate project members in Evaluations tab first to unlock Golden Pass') 
-                                                            : (lang === 'ar' ? 'تأهيل المشروع مباشرةً للوحة الشرف والمتصدرين' : 'Direct Fast-Track to Leaderboard')}
-                                                    >
-                                                        {isMembersEvaluated ? (
-                                                            <Sparkles size={20} className="sparkle-gold-icon" />
-                                                        ) : (
-                                                            <Lock size={20} className="lock-muted-icon" />
-                                                        )}
-                                                        <div>
-                                                            <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                                                {lang === 'ar' ? 'منح الكارت الذهبي (Golden Pass)' : 'Award Golden Pass'}
-                                                                {!isMembersEvaluated && (
-                                                                    <span style={{ fontSize: '0.7rem', color: '#dc2626', fontWeight: 800, background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '1px 6px', borderRadius: '4px' }}>
-                                                                        {lang === 'ar' ? 'مغلق' : 'Locked'}
-                                                                    </span>
-                                                                )}
-                                                            </strong>
-                                                            <span>
-                                                                {isMembersEvaluated 
-                                                                    ? (lang === 'ar' ? 'تأهيل مباشر للوحة الشرف والمتصدرين' : 'Direct Fast-Track to Leaderboard')
-                                                                    : (lang === 'ar' ? 'يتطلب رصد تقييم ودرجات أعضاء المشروع أولاً' : 'Requires project members evaluation first')}
-                                                            </span>
-                                                        </div>
-                                                    </button>
-                                                );
-                                            })()}
+                                            <button
+                                                type="button"
+                                                className="btn-eval-golden-pass"
+                                                disabled={evaluating}
+                                                onClick={() => handleEvaluate('golden_pass')}
+                                                title={lang === 'ar' ? 'منح الكارت الذهبي وتأهيل المشروع مباشرةً للوحة الشرف والمتصدرين' : 'Award Golden Pass & Direct Fast-Track to Leaderboard'}
+                                            >
+                                                <Sparkles size={20} className="sparkle-gold-icon" />
+                                                <div>
+                                                    <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                        {lang === 'ar' ? 'منح الكارت الذهبي (Golden Pass)' : 'Award Golden Pass'}
+                                                    </strong>
+                                                    <span>
+                                                        {lang === 'ar' ? 'تأهيل مباشر وحصري للوحة الشرف والمتصدرين' : 'Direct Fast-Track to Official Leaderboard'}
+                                                    </span>
+                                                </div>
+                                            </button>
                                         </div>
                                     </div>
                                 ) : (

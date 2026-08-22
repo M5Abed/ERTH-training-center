@@ -29,7 +29,7 @@ if ($courseId) {
     $courseInfo = $cStmt->fetch();
 }
 
-$whereConditions = ["COALESCE(ti.is_golden_pass, 0) = 1"];
+$whereConditions = ["(COALESCE(ti.is_golden_pass, 0) = 1 OR ti.status = 'golden_pass')"];
 $params = [];
 if ($courseId) {
     $whereConditions[] = "ti.course_id = ?";
@@ -45,7 +45,7 @@ $sql = "
         COALESCE(ti.description, '') AS description,
         ti.tech_stack,
         ti.status,
-        COALESCE(ti.is_golden_pass, 0) AS is_golden_pass,
+        1 AS is_golden_pass,
         ti.course_id,
         tc.name AS course_name,
         tc.voting_status,
@@ -53,29 +53,32 @@ $sql = "
         u.full_name AS trainee_name,
         u.student_id,
         u.email AS trainee_email,
-        te.final_score AS evaluation_score,
+        COALESCE(te.final_score, (SELECT AVG(te_all.final_score) FROM training_evaluations te_all WHERE te_all.course_id = ti.course_id AND (te_all.trainee_id = ti.owner_id OR te_all.trainee_id IN (SELECT tim.user_id FROM training_idea_members tim WHERE tim.idea_id = ti.id)))) AS evaluation_score,
         te.status AS evaluation_status,
         te.evaluated_at,
-        COUNT(DISTINCT cpv.id) AS vote_count,
+        (SELECT COUNT(*) FROM course_project_votes cpv WHERE cpv.project_id = ti.id AND cpv.course_id = ti.course_id) AS vote_count,
         ti.created_at
     FROM training_ideas ti
     JOIN training_courses tc ON tc.id = ti.course_id
     JOIN users u ON u.id = ti.owner_id
     LEFT JOIN training_evaluations te ON (te.trainee_id = ti.owner_id AND te.course_id = ti.course_id)
-    LEFT JOIN course_project_votes cpv ON (cpv.project_id = ti.id AND cpv.course_id = ti.course_id)
     $where
-    GROUP BY ti.id
     ORDER BY 
-        CASE WHEN te.final_score IS NOT NULL THEN 0 ELSE 1 END,
-        te.final_score DESC,
+        CASE WHEN evaluation_score IS NOT NULL THEN 0 ELSE 1 END,
+        evaluation_score DESC,
         vote_count DESC,
         ti.id ASC
     LIMIT $limit
 ";
 
-$stmt = $db->prepare($sql);
-$stmt->execute($params);
-$projects = $stmt->fetchAll();
+try {
+    $stmt = $db->prepare($sql);
+    $stmt->execute($params);
+    $projects = $stmt->fetchAll();
+} catch (Throwable $e) {
+    error_log('Leaderboard projects query error: ' . $e->getMessage());
+    $projects = [];
+}
 
 // Attach team members to projects
 if (!empty($projects)) {
@@ -183,17 +186,13 @@ $studentSql = "
         te.status AS evaluation_status,
         te.feedback,
         te.evaluated_at,
-        ANY_VALUE(COALESCE(ti_owned.id, ti_member.id)) AS project_id,
-        ANY_VALUE(COALESCE(ti_owned.title, ti_member.title, 'No Project')) AS project_title
+        (SELECT ti.id FROM training_ideas ti WHERE (ti.owner_id = u.id OR ti.id IN (SELECT tim.idea_id FROM training_idea_members tim WHERE tim.user_id = u.id)) AND ti.course_id = te_enr.course_id LIMIT 1) AS project_id,
+        (SELECT ti.title FROM training_ideas ti WHERE (ti.owner_id = u.id OR ti.id IN (SELECT tim.idea_id FROM training_idea_members tim WHERE tim.user_id = u.id)) AND ti.course_id = te_enr.course_id LIMIT 1) AS project_title
     FROM users u
     JOIN trainee_enrollments te_enr ON te_enr.trainee_id = u.id
     JOIN training_courses tc ON tc.id = te_enr.course_id
     LEFT JOIN training_evaluations te ON (te.trainee_id = u.id AND te.course_id = te_enr.course_id)
-    LEFT JOIN training_ideas ti_owned ON (ti_owned.owner_id = u.id AND ti_owned.course_id = te_enr.course_id)
-    LEFT JOIN training_idea_members tim ON (tim.user_id = u.id)
-    LEFT JOIN training_ideas ti_member ON (ti_member.id = tim.idea_id AND ti_member.course_id = te_enr.course_id)
     $studentWhere
-    GROUP BY u.id, te_enr.course_id, te.id
     ORDER BY 
         CASE WHEN te.final_score IS NOT NULL THEN 0 ELSE 1 END,
         te.final_score DESC,
@@ -201,9 +200,14 @@ $studentSql = "
     LIMIT $limit
 ";
 
-$sStmt = $db->prepare($studentSql);
-$sStmt->execute($studentParams);
-$students = $sStmt->fetchAll();
+try {
+    $sStmt = $db->prepare($studentSql);
+    $sStmt->execute($studentParams);
+    $students = $sStmt->fetchAll();
+} catch (Throwable $e) {
+    error_log('Leaderboard students query error: ' . $e->getMessage());
+    $students = [];
+}
 
 $studentRank = 1;
 foreach ($students as &$s) {
@@ -234,6 +238,7 @@ if (!$isTrainer) {
 }
 
 foreach ($projects as &$p) {
+    $p['uuid'] = getIdeaUuid((int)$p['id']);
     if (!empty($p['trainee_id']) && is_numeric($p['trainee_id'])) {
         $p['trainee_id'] = getUserUuid((int)$p['trainee_id']);
     }

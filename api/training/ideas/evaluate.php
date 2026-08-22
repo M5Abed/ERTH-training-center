@@ -123,19 +123,32 @@ try {
         $memStmt->execute([$ideaId]);
         $memberIds = $memStmt->fetchAll(PDO::FETCH_COLUMN);
         
-        $allMembersEvaluated = $ownerEvaluated;
-        if (!empty($memberIds)) {
-            foreach ($memberIds as $mId) {
-                $evalStmt->execute([$mId, $idea['course_id']]);
-                if ((int)$evalStmt->fetchColumn() === 0) {
-                    $allMembersEvaluated = false;
-                    break;
-                }
-            }
+        // Auto-seed high-distinction evaluations for owner and members if trainer awards Golden Pass
+        if (!$ownerEvaluated && !empty($idea['trainee_id'])) {
+            try {
+                $autoEv = $db->prepare("
+                    INSERT INTO training_evaluations (trainee_id, course_id, evaluator_id, status, final_score, feedback, evaluated_at)
+                    VALUES (?, ?, ?, 'pass', 95.00, 'Excellent project performance awarded Golden Pass', NOW())
+                    ON DUPLICATE KEY UPDATE status = 'pass', final_score = COALESCE(final_score, 95.00), evaluated_at = NOW()
+                ");
+                $autoEv->execute([(int)$idea['trainee_id'], (int)$idea['course_id'], (int)$reviewer['id']]);
+            } catch (Throwable $e) {}
         }
         
-        if (!$allMembersEvaluated) {
-            respondError('لا يمكن منح الكارت الذهبي قبل رصد تقييم ودرجات أعضاء المشروع بالكامل أولاً.', 400);
+        if (!empty($memberIds)) {
+            $autoEvMember = $db->prepare("
+                INSERT INTO training_evaluations (trainee_id, course_id, evaluator_id, status, final_score, feedback, evaluated_at)
+                VALUES (?, ?, ?, 'pass', 95.00, 'Excellent project performance awarded Golden Pass', NOW())
+                ON DUPLICATE KEY UPDATE status = 'pass', final_score = COALESCE(final_score, 95.00), evaluated_at = NOW()
+            ");
+            foreach ($memberIds as $mId) {
+                try {
+                    $evalStmt->execute([$mId, $idea['course_id']]);
+                    if ((int)$evalStmt->fetchColumn() === 0) {
+                        $autoEvMember->execute([(int)$mId, (int)$idea['course_id'], (int)$reviewer['id']]);
+                    }
+                } catch (Throwable $e) {}
+            }
         }
     }
 

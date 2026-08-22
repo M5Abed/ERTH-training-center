@@ -255,14 +255,30 @@ export default function CertificateVerification() {
                     <span className="info-label">Student ID:</span>
                     <span className="info-value">{data.trainee?.student_id || 'N/A'}</span>
                   </div>
-                  <div className="info-item">
-                    <span className="info-label">Trainee Email:</span>
-                    <span className="info-value">{data.trainee?.email || 'N/A'}</span>
-                  </div>
+                  {data.trainee?.major && (
+                    <div className="info-item">
+                      <span className="info-label">Academic Program / Major:</span>
+                      <span className="info-value">{data.trainee.major}</span>
+                    </div>
+                  )}
+                  {data.trainee?.department && (
+                    <div className="info-item">
+                      <span className="info-label">Department:</span>
+                      <span className="info-value">{data.trainee.department}</span>
+                    </div>
+                  )}
                   <div className="info-item">
                     <span className="info-label">Verification Code:</span>
                     <code className="info-code">{data.certificate.cert_code}</code>
                   </div>
+                  {data.certificate.final_score !== null && data.certificate.final_score !== undefined && (
+                    <div className="info-item">
+                      <span className="info-label">Academic Evaluation:</span>
+                      <span className="info-value" style={{ fontWeight: 700, color: 'var(--primary, #002D56)' }}>
+                        {data.certificate.final_score} / 100 (Passed)
+                      </span>
+                    </div>
+                  )}
                   <div className="info-item">
                     <span className="info-label">Official Issue Date:</span>
                     <span className="info-value">{data.certificate.issued_date || 'N/A'}</span>
@@ -283,16 +299,39 @@ export default function CertificateVerification() {
                 <div className="info-list">
                   <div className="info-item full-width">
                     <span className="info-label">Course Title:</span>
-                    <span className="info-value course-title-en">{data.course?.name || data.certificate.course_title || 'Field Training Course'}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span className="info-value course-title-en">{data.course?.name || data.certificate.course_title || 'Field Training Course'}</span>
+                      {data.course?.course_code && (
+                        <span className="badge-pill" style={{ background: 'rgba(0, 45, 86, 0.1)', color: 'var(--primary, #002D56)', fontWeight: 700, fontSize: '0.78rem' }}>
+                          {data.course.course_code}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="info-item">
-                    <span className="info-label">Track / Category:</span>
+                    <span className="info-label">Category / Domain:</span>
                     <span className="info-value badge-pill">{data.course?.category || 'Computer Science & Engineering'}</span>
                   </div>
                   <div className="info-item">
                     <span className="info-label">Skill Level:</span>
                     <span className="info-value badge-pill gold">{data.course?.level || 'Advanced'}</span>
                   </div>
+                  {data.course?.track_name && (
+                    <div className="info-item">
+                      <span className="info-label">Specialized Track:</span>
+                      <span className="info-value badge-pill" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#b45309', fontWeight: 700 }}>
+                        {data.course.track_name}
+                      </span>
+                    </div>
+                  )}
+                  {data.course?.provider_name && (
+                    <div className="info-item">
+                      <span className="info-label">Training Partner / Provider:</span>
+                      <span className="info-value" style={{ fontWeight: 600 }}>
+                        {data.course.provider_name}
+                      </span>
+                    </div>
+                  )}
                   <div className="info-item">
                     <span className="info-label">Total Duration:</span>
                     <span className="info-value icon-text">
