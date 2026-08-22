@@ -51,7 +51,6 @@ if ($courseId > 0) {
                 FROM users u
                 WHERE (
                     TRIM(LOWER(COALESCE(u.role, ''))) IN ('trainer', 'admin', 'professor', 'ta', 'lecturer', 'supervisor', 'instructor', 'evaluator', 'doctor', 'faculty', 'staff')
-                    OR u.is_admin = 1
                     OR u.id IN (SELECT trainer_id FROM trainer_assignments)
                     OR TRIM(LOWER(COALESCE(u.role, ''))) NOT IN ('trainee', 'student')
                 )
@@ -88,7 +87,6 @@ if ($courseId > 0) {
             FROM users u
             WHERE (
                 TRIM(LOWER(COALESCE(u.role, ''))) IN ('trainer', 'admin', 'professor', 'ta', 'lecturer', 'supervisor', 'instructor', 'evaluator', 'doctor', 'faculty', 'staff')
-                OR u.is_admin = 1
                 OR u.id IN (SELECT trainer_id FROM trainer_assignments)
                 OR (
                     TRIM(LOWER(COALESCE(u.role, ''))) NOT IN ('trainee', 'student')
@@ -106,7 +104,7 @@ if ($courseId > 0) {
             $stmtFallback = $db->query("
                 SELECT u.id, u.id AS trainer_id, u.full_name, NULL AS username, u.email, u.department, u.role, u.is_admin
                 FROM users u
-                WHERE u.is_admin = 1 OR TRIM(LOWER(COALESCE(u.role, ''))) NOT IN ('trainee', 'student')
+                WHERE TRIM(LOWER(COALESCE(u.role, ''))) NOT IN ('trainee', 'student')
                 ORDER BY u.full_name ASC
             ");
             $trainers = $stmtFallback ? $stmtFallback->fetchAll() : [];

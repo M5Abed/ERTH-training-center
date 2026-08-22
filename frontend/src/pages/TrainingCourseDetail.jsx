@@ -3153,8 +3153,9 @@ export default function TrainingCourseDetail({ courseIdOverride }) {
 
                                                         {fIdeas.length > 0 && fIdeas.map(idea => (
                                                             <div key={idea.id}>
-                                                                <div style={{ padding: '0.65rem 1rem', background: '#f8fafc', fontSize: '0.85rem', fontWeight: 800, color: '#475569', borderBottom: '1px solid var(--border)', borderTop: '1px solid var(--border)' }}>
-                                                                    📋 {idea.title || (lang === 'ar' ? 'مشروع بدون عنوان' : 'Untitled Project')}
+                                                                <div style={{ padding: '0.65rem 1rem', background: '#f8fafc', fontSize: '0.85rem', fontWeight: 800, color: '#475569', borderBottom: '1px solid var(--border)', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                    <FileText size={14} />
+                                                                    <span>{idea.title || (lang === 'ar' ? 'مشروع بدون عنوان' : 'Untitled Project')}</span>
                                                                 </div>
                                                                 {idea.team_members && idea.team_members.map(tm => (
                                                                     <div 
